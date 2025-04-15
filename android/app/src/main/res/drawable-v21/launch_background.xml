@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modify this file to customize your launch splash screen -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background color for Android 11 and below -->
+    <!-- To change background color, modify @android:color/white to another color like @android:color/black -->
+    <item android:drawable="@android:color/white" />
+
+    <!-- Splash screen icon centered in the screen -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/splash_icon" />
+    </item>
+</layer-list>

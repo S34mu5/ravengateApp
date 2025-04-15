@@ -1,0 +1,13 @@
+[33mcommit c8eea6e7c380ba778c4b1deb2c2bc4105751049d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Jaime Villalba <jaimevillalbagil@gmail.com>
+Date:   Mon Apr 14 11:22:47 2025 +0200
+
+    chore(splash): initial setup with broken splash screen icon
+    
+    - Initial project structure and configuration
+    
+    - Splash screen implementation with broken icon display
+    
+    - Login functionality not implemented yet
+    
+    Known issue: Splash screen icon not displaying correctly
