@@ -6,7 +6,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'services/auth/biometric_auth_service.dart';
 import 'services/auth/google_auth_service.dart';
+import 'services/auth/email_password_auth_service.dart';
 import 'controllers/auth_controller.dart';
+import 'screens/auth/widgets/email_verification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +20,7 @@ void main() async {
   final authServices = [
     BiometricAuthService(),
     GoogleAuthService(),
+    EmailPasswordAuthService(),
   ];
 
   // Create the controller with the services
@@ -50,7 +53,31 @@ class MyApp extends StatelessWidget {
           }
 
           if (snapshot.hasData && snapshot.data != null) {
-            return HomeScreen(user: snapshot.data!);
+            // Verificar si el usuario está verificado
+            final user = snapshot.data!;
+
+            // Si el usuario inició sesión con email/password y no está verificado
+            // NO cerramos la sesión, permitimos que siga el flujo y el LoginScreen maneje esto
+            if (user.providerData
+                    .any((info) => info.providerId == 'password') &&
+                !user.emailVerified) {
+              print('⚠️ User not verified in main.dart: ${user.email}');
+              print(
+                  '⚠️ Leaving user signed in, verification will be handled later');
+
+              // Simplemente mostrar la pantalla de verificación
+              return EmailVerificationScreen(
+                email: user.email,
+                isNewRegistration: false,
+                onBackToLogin: () {
+                  // Solo cerrar sesión cuando el usuario presione el botón "Back to Login"
+                  FirebaseAuth.instance.signOut();
+                },
+              );
+            }
+
+            // Si está verificado o usó otro método, mostrar HomeScreen
+            return HomeScreen(user: user);
           }
 
           return LoginScreen(authController: authController);

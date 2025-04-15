@@ -15,10 +15,14 @@ class AuthResult {
   /// Firebase user if authentication was successful
   final User? user;
 
+  /// Additional data that might be needed for special cases
+  final Map<String, dynamic>? additionalData;
+
   const AuthResult({
     required this.success,
     this.error,
     required this.method,
     this.user,
+    this.additionalData,
   });
 }
