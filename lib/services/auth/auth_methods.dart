@@ -5,4 +5,7 @@ enum AuthMethod {
 
   /// Google authentication
   google,
+
+  /// Email and password authentication
+  emailPassword,
 }

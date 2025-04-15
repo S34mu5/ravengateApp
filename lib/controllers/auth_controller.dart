@@ -7,7 +7,10 @@ class AuthController {
   final Map<AuthMethod, AuthService> _services;
 
   AuthController(List<AuthService> services)
-    : _services = {for (var service in services) service.method: service};
+      : _services = {for (var service in services) service.method: service};
+
+  /// Obtiene un servicio de autenticación específico
+  AuthService? getService(AuthMethod method) => _services[method];
 
   /// Verifica si un método de autenticación específico está disponible
   Future<bool> isMethodAvailable(AuthMethod method) async {
