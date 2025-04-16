@@ -62,13 +62,32 @@ class MyApp extends StatelessWidget {
                     .any((info) => info.providerId == 'password') &&
                 !user.emailVerified) {
               print('⚠️ User not verified in main.dart: ${user.email}');
-              print(
-                  '⚠️ Leaving user signed in, verification will be handled later');
 
-              // Simplemente mostrar la pantalla de verificación
+              // Verificar si es un registro reciente (menos de 30 segundos)
+              final creationTime = user.metadata.creationTime;
+              final now = DateTime.now();
+              if (creationTime != null &&
+                  now.difference(creationTime).inSeconds < 30) {
+                print(
+                    '👤 Usuario recién creado, mostrando pantalla de verificación con estilo de registro nuevo');
+
+                // Mostrar la pantalla con el icono verde para usuarios recién registrados
+                return EmailVerificationScreen(
+                  email: user.email,
+                  isNewRegistration:
+                      true, // Pantalla verde para nuevos registros
+                  onBackToLogin: () {
+                    // Solo cerrar sesión cuando el usuario presione el botón "Back to Login"
+                    FirebaseAuth.instance.signOut();
+                  },
+                );
+              }
+
+              // Si no es un registro reciente, mostrar la pantalla de verificación amarilla
               return EmailVerificationScreen(
                 email: user.email,
-                isNewRegistration: false,
+                isNewRegistration:
+                    false, // Pantalla amarilla para intentos de login
                 onBackToLogin: () {
                   // Solo cerrar sesión cuando el usuario presione el botón "Back to Login"
                   FirebaseAuth.instance.signOut();
