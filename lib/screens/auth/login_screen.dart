@@ -5,8 +5,9 @@ import '../../services/auth/auth_methods.dart';
 import '../../services/auth/auth_result.dart';
 import '../../services/auth/email_password_auth_service.dart';
 import '../home/home_screen.dart';
-import 'widgets/login_screen_ui.dart';
-import 'widgets/email_verification_screen.dart';
+import 'login/login_screen_ui.dart';
+import 'email_verification/email_verification_screen.dart';
+import '../../main.dart' as app;
 
 /// Container widget that handles authentication state and logic
 class LoginScreen extends StatefulWidget {
@@ -25,12 +26,13 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     print('🚀 LoginScreen - Starting...');
+    app.initializeAuthServices(); // Asegurar servicios frescos
     _loadAvailableMethods();
   }
 
   Future<void> _loadAvailableMethods() async {
     print('📱 Loading available authentication methods...');
-    final methods = await widget.authController.getAvailableMethods();
+    final methods = await app.authController.getAvailableMethods();
     print(
         '✅ Available methods: ${methods.map((m) => m.toString()).join(", ")}');
     setState(() {
@@ -40,7 +42,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _authenticate(AuthMethod method) async {
     print('🔐 Starting authentication with method: ${method.toString()}');
-    final result = await widget.authController.authenticateWith(method);
+
+    // Reinicializar servicios para prevenir errores de estado inconsistente
+    app.initializeAuthServices();
+
+    final result = await app.authController.authenticateWith(method);
     _handleAuthResult(result);
   }
 
@@ -62,9 +68,27 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-      // Obtener el servicio de email/password
-      final emailPasswordService = widget.authController
-          .getService(AuthMethod.emailPassword) as EmailPasswordAuthService;
+      // Reinicializar servicios para prevenir errores de estado inconsistente
+      app.initializeAuthServices();
+
+      // Obtener el servicio de email/password (del controlador global recién inicializado)
+      final service = app.authController.getService(AuthMethod.emailPassword);
+
+      // Verificar que el servicio existe
+      if (service == null) {
+        print('❌ Error: EmailPasswordAuthService no está disponible');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'El servicio de autenticación por email no está disponible'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final emailPasswordService = service as EmailPasswordAuthService;
 
       // Para registro: proceso especial
       if (!isLogin) {
@@ -101,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
                     builder: (context) => LoginScreen(
-                      authController: widget.authController,
+                      authController: app.authController,
                     ),
                   ),
                 );
@@ -137,9 +161,27 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       print('🔍 Checking verification status for email: $email');
 
+      // Reinicializar servicios para prevenir errores de estado inconsistente
+      app.initializeAuthServices();
+
       // Obtener el servicio de email/password
-      final emailPasswordService = widget.authController
-          .getService(AuthMethod.emailPassword) as EmailPasswordAuthService;
+      final service = app.authController.getService(AuthMethod.emailPassword);
+
+      // Verificar que el servicio existe
+      if (service == null) {
+        print('❌ Error: EmailPasswordAuthService no está disponible');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'El servicio de autenticación por email no está disponible'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final emailPasswordService = service as EmailPasswordAuthService;
 
       // Verificar estado del email
       final isVerified =
@@ -193,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
                   builder: (context) => LoginScreen(
-                    authController: widget.authController,
+                    authController: app.authController,
                   ),
                 ),
               );

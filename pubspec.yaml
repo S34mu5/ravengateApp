@@ -24,16 +24,41 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^2.0.0
   flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.10
 
 # Configuración del icono de la aplicación
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/ic_launcher-web.png"
-  adaptive_icon_background: "#EE3124" # Este parece ser el rojo exacto de tu imagen
-  adaptive_icon_foreground: "assets/images/redIconRounded.png"
+  image_path: "assets/images/ravengateIconBlack.png"
+  adaptive_icon_background: "#FFFFFF" # Fondo blanco
+  adaptive_icon_foreground: "assets/images/ravengateBlackIconPaddedpng.png"
   remove_alpha_ios: true
   min_sdk_android: 21 # android min sdk min:16, default 21
+
+# Configuración de la splash screen
+flutter_native_splash:
+  # Color de fondo para el modo claro
+  color: "#FFFFFF"
+  # Imagen que se mostrará en el centro
+  image: assets/images/ravengateBlackIconPaddedpng.png
+
+  # Configuración para modo oscuro (opcional)
+  color_dark: "#121212"
+  image_dark: assets/images/icon_foreground_padded.png
+
+  # Configuración específica para Android 12+
+  android_12:
+    image: assets/images/ravengateBlackIconPaddedpng.png
+    icon_background_color: "#FFFFFF"
+    image_dark: assets/images/icon_foreground_padded.png
+    icon_background_color_dark: "#121212"
+
+  # Configuraciones adicionales
+  fullscreen: true # Para ocultar la barra de estado durante la splash screen
+  android: true
+  ios: true
+  web: false
 
 flutter:
   uses-material-design: true

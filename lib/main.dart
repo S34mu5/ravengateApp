@@ -8,7 +8,10 @@ import 'services/auth/biometric_auth_service.dart';
 import 'services/auth/google_auth_service.dart';
 import 'services/auth/email_password_auth_service.dart';
 import 'controllers/auth_controller.dart';
-import 'screens/auth/widgets/email_verification_screen.dart';
+import 'screens/auth/email_verification/email_verification_screen.dart';
+
+// Referencia global al controlador de autenticación para acceder desde cualquier lugar
+late AuthController authController;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +20,14 @@ void main() async {
   );
 
   // Initialize authentication services
+  initializeAuthServices();
+
+  runApp(MyApp(authController: authController));
+}
+
+/// Inicializa o reinicializa los servicios de autenticación
+void initializeAuthServices() {
+  print('🔄 Inicializando servicios de autenticación...');
   final authServices = [
     BiometricAuthService(),
     GoogleAuthService(),
@@ -24,9 +35,7 @@ void main() async {
   ];
 
   // Create the controller with the services
-  final authController = AuthController(authServices);
-
-  runApp(MyApp(authController: authController));
+  authController = AuthController(authServices);
 }
 
 class MyApp extends StatelessWidget {
@@ -79,6 +88,13 @@ class MyApp extends StatelessWidget {
                   onBackToLogin: () {
                     // Solo cerrar sesión cuando el usuario presione el botón "Back to Login"
                     FirebaseAuth.instance.signOut();
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(
+                          authController: authController,
+                        ),
+                      ),
+                    );
                   },
                 );
               }
@@ -91,6 +107,13 @@ class MyApp extends StatelessWidget {
                 onBackToLogin: () {
                   // Solo cerrar sesión cuando el usuario presione el botón "Back to Login"
                   FirebaseAuth.instance.signOut();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => LoginScreen(
+                        authController: authController,
+                      ),
+                    ),
+                  );
                 },
               );
             }
