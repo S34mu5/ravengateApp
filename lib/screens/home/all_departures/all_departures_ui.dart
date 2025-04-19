@@ -692,7 +692,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     _scrollToFirstNonDepartedFlight();
   }
 
-  // Encontrar y desplazarse al primer vuelo no departed
+  // Encontrar y desplazarse al primer vuelo no departed y no cancelado
   void _scrollToFirstNonDepartedFlight() {
     // Esperar a que la interfaz se actualice antes de desplazarse
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -700,16 +700,18 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
         return; // No hay vuelos para desplazar
       }
 
-      // Encontrar el índice del primer vuelo no departed
+      // Encontrar el índice del primer vuelo no departed y no cancelado
       int index = -1;
       for (int i = 0; i < _filteredFlights.length; i++) {
-        if (_filteredFlights[i]['status_code'] != 'D') {
+        // No desplazarse a vuelos departed (D) ni cancelados (C)
+        final statusCode = _filteredFlights[i]['status_code'];
+        if (statusCode != 'D' && statusCode != 'C') {
           index = i;
           break;
         }
       }
 
-      // Si encontramos un vuelo no departed, desplazarse a él
+      // Si encontramos un vuelo ni departed ni cancelado, desplazarse a él
       if (index != -1) {
         // Calcular la posición aproximada
         final double itemHeight =
@@ -723,9 +725,9 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
           curve: Curves.easeInOut,
         );
 
-        print('LOG: Scrolled to first non-departed flight at index $index');
+        print('LOG: Scrolled to first active flight at index $index');
       } else {
-        print('LOG: No non-departed flights found to scroll to');
+        print('LOG: No active flights found to scroll to');
       }
     });
   }
@@ -937,6 +939,9 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                       // Check if flight is departed
                       final bool isDeparted = flight['status_code'] == 'D';
 
+                      // Check if flight is cancelled
+                      final bool isCancelled = flight['status_code'] == 'C';
+
                       return Card(
                         margin: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 4),
@@ -963,9 +968,10 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                 '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color:
-                                      isDeparted ? Colors.grey : Colors.black,
-                                  decoration: isDeparted
+                                  color: isDeparted || isCancelled
+                                      ? Colors.grey
+                                      : Colors.black,
+                                  decoration: isDeparted || isCancelled
                                       ? TextDecoration.lineThrough
                                       : null,
                                 ),
@@ -973,7 +979,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                               subtitle: Row(
                                 children: [
                                   Text('Gate: ${flight['gate']}'),
-                                  if (isDelayed) ...[
+                                  if (isDelayed && !isCancelled) ...[
                                     const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -1037,6 +1043,26 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                     message: 'DEPARTED',
                                     location: BannerLocation.topEnd,
                                     color: Colors.red.shade700,
+                                    textStyle: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (isCancelled)
+                              Positioned(
+                                right: 0,
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Banner(
+                                    message: 'CANCELLED',
+                                    location: BannerLocation.topEnd,
+                                    color: Colors.grey.shade800,
                                     textStyle: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,

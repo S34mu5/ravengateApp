@@ -38,6 +38,9 @@ class FlightDetailsUI extends StatelessWidget {
     // Check if flight has departed
     final bool isDeparted = flightDetails['status_code'] == 'D';
 
+    // Check if flight is cancelled
+    final bool isCancelled = flightDetails['status_code'] == 'C';
+
     // Color based on airline
     final Color airlineColor = _getAirlineColor(flightDetails['airline'] ?? '');
 
@@ -101,7 +104,9 @@ class FlightDetailsUI extends StatelessWidget {
                       const Spacer(),
                       if (isDeparted)
                         _buildStatusChip('DEPARTED', Colors.red.shade700),
-                      if (isDelayed && !isDeparted)
+                      if (isCancelled)
+                        _buildStatusChip('CANCELLED', Colors.grey.shade800),
+                      if (isDelayed && !isDeparted && !isCancelled)
                         _buildStatusChip('DELAYED', Colors.amber.shade700),
                     ],
                   ),
@@ -126,8 +131,10 @@ class FlightDetailsUI extends StatelessWidget {
                           'Scheduled time:',
                           formattedScheduleTime,
                           Icons.schedule,
+                          textDecoration:
+                              isCancelled ? TextDecoration.lineThrough : null,
                         ),
-                        if (isDelayed)
+                        if (isDelayed && !isCancelled)
                           _buildInfoRow(
                             'New time:',
                             formattedStatusTime!,
@@ -138,6 +145,8 @@ class FlightDetailsUI extends StatelessWidget {
                           'Gate:',
                           flightDetails['gate'] ?? '-',
                           Icons.door_front_door,
+                          textDecoration:
+                              isCancelled ? TextDecoration.lineThrough : null,
                         ),
                       ],
                     ),
@@ -346,24 +355,33 @@ class FlightDetailsUI extends StatelessWidget {
   }
 
   /// Builds an information row with icon and text
-  Widget _buildInfoRow(String label, String value, IconData icon,
-      {Color? textColor}) {
+  Widget _buildInfoRow(
+    String label,
+    String value,
+    IconData icon, {
+    Color? textColor,
+    TextDecoration? textDecoration,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey.shade700),
+          Icon(icon, size: 20, color: Colors.grey),
           const SizedBox(width: 8),
           Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
+            '$label ',
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
           ),
-          const SizedBox(width: 8),
           Text(
             value,
             style: TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: textColor,
+              color: textColor ?? Colors.black87,
+              decoration: textDecoration,
             ),
           ),
         ],

@@ -21,7 +21,6 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
   List<Map<String, dynamic>> _flights = [];
   bool _isLoading = true;
   String? _errorMessage;
-  bool _usingFallbackData = false;
   bool _usingCachedData = false;
   DateTime? _lastUpdated;
   Timer? _refreshTimer; // Timer para actualización periódica
@@ -45,10 +44,8 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
     // Intentar cargar datos desde la caché
     await _loadFromCache();
 
-    // Luego intentar cargar datos desde Firestore (excepto si estamos usando datos de respaldo)
-    if (!_usingFallbackData) {
-      await _loadFlights();
-    }
+    // Luego intentar cargar datos desde Firestore
+    await _loadFlights();
   }
 
   /// Carga los datos desde la caché
@@ -114,7 +111,6 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
-        _usingFallbackData = false;
       });
 
       // Calcular la hora de corte (3 horas antes de la hora actual)
@@ -150,8 +146,6 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
         setState(() {
           _errorMessage = 'No se encontraron vuelos disponibles';
           _isLoading = false;
-          _usingFallbackData = true;
-          _flights = _getFallbackFlights();
         });
         return;
       }
@@ -249,71 +243,8 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
       setState(() {
         _errorMessage = 'Error al cargar vuelos: $e';
         _isLoading = false;
-
-        // Si no tenemos datos en caché, usar datos de respaldo
-        if (_flights.isEmpty) {
-          _usingFallbackData = true;
-          _flights = _getFallbackFlights();
-        }
       });
     }
-  }
-
-  // Método para obtener datos ficticios más completos
-  List<Map<String, dynamic>> _getFallbackFlights() {
-    print('LOG: Cargando datos ficticios como respaldo');
-    return [
-      {
-        'airline': 'SK',
-        'flight_id': 'SK1475',
-        'schedule_time': '18:55',
-        'status_time': '19:25', // Con retraso
-        'airport': 'CPH',
-        'gate': 'D5',
-        'status_code': '',
-        'color': const Color.fromARGB(255, 33, 150, 243),
-      },
-      {
-        'airline': 'DY',
-        'flight_id': 'DY328',
-        'schedule_time': '17:50',
-        'status_time': '17:50', // A tiempo
-        'airport': 'TOS',
-        'gate': 'A8',
-        'status_code': 'D',
-        'color': const Color.fromARGB(255, 255, 68, 68),
-      },
-      {
-        'airline': 'DY',
-        'flight_id': 'DY1054',
-        'schedule_time': '17:55',
-        'status_time': '18:20', // Con retraso
-        'airport': 'GDN',
-        'gate': 'D4',
-        'status_code': '',
-        'color': const Color.fromARGB(255, 255, 68, 68),
-      },
-      {
-        'airline': 'SK',
-        'flight_id': 'SK1330',
-        'schedule_time': '18:10',
-        'status_time': '18:10', // A tiempo
-        'airport': 'AES',
-        'gate': 'A2',
-        'status_code': 'D',
-        'color': const Color.fromARGB(255, 33, 150, 243),
-      },
-      {
-        'airline': 'DX',
-        'flight_id': 'DX578',
-        'schedule_time': '18:15',
-        'status_time': '19:00', // Con retraso
-        'airport': 'FRO',
-        'gate': 'A27',
-        'status_code': '',
-        'color': const Color.fromARGB(255, 76, 175, 80),
-      },
-    ];
   }
 
   // En AllDeparturesScreen, añadir el método para cargar con rango personalizado
@@ -440,43 +371,27 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
       );
     }
 
-    // Si hay un error pero estamos usando datos de respaldo,
-    // mostrar los datos con un banner de advertencia
-    if (_usingFallbackData) {
-      return Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            color: Colors.amber.shade100,
-            child: Row(
-              children: [
-                const Icon(Icons.warning, color: Colors.amber),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _errorMessage ??
-                        'Usando datos de ejemplo mientras se configura la conexión',
-                    style: TextStyle(color: Colors.amber.shade900),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _loadFlights,
-                  tooltip: 'Reintentar conexión con Firestore',
-                ),
-              ],
+    // Si hay un error, mostrar mensaje de error
+    if (_errorMessage != null && _flights.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
             ),
-          ),
-          Expanded(
-            child: AllDeparturesUI(
-              flights: _flights,
-              onRefresh: _loadFlights,
-              onCustomRangeLoad: _loadFlightsWithCustomRange,
-              isRefreshing: _isLoading,
-              lastUpdated: _lastUpdated,
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadFlights,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
