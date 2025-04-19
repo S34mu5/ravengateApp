@@ -30,13 +30,16 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   List<Map<String, dynamic>> _filteredFlights = [];
   bool _norwegianEquivalenceEnabled = true; // Enabled by default
 
+  // Scroll Controller para manejar el desplazamiento automático
+  final ScrollController _scrollController = ScrollController();
+
   // Date and time filters
   DateTime _startDate = DateTime.now().subtract(const Duration(hours: 3));
   TimeOfDay _startTime = TimeOfDay(
       hour: DateTime.now().subtract(const Duration(hours: 3)).hour,
       minute: DateTime.now().subtract(const Duration(hours: 3)).minute);
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
-  TimeOfDay _endTime = TimeOfDay(hour: 23, minute: 59);
+  TimeOfDay _endTime = const TimeOfDay(hour: 23, minute: 59);
 
   // Formatters for date and time
   final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
@@ -49,6 +52,13 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     _updateFilteredFlights();
     _loadFiltersFromCache();
     _loadNorwegianPreference();
+  }
+
+  @override
+  void dispose() {
+    // Liberar recursos del ScrollController
+    _scrollController.dispose();
+    super.dispose();
   }
 
   // Load Norwegian preference
@@ -104,6 +114,94 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     // If flights change, update the filtered list
     if (widget.flights != oldWidget.flights) {
       _updateFilteredFlights();
+      _updateEndDateBasedOnLatestFlight(); // Actualizar fecha final con los nuevos datos
+    }
+  }
+
+  // Find the latest flight date and update end date filter
+  void _updateEndDateBasedOnLatestFlight() {
+    if (widget.flights.isEmpty) return;
+
+    DateTime latestFlightDate = DateTime.now();
+    bool foundValidDate = false;
+
+    // Buscar la fecha del vuelo más tardío
+    for (final flight in widget.flights) {
+      try {
+        final scheduleTimeStr = flight['schedule_time'].toString();
+        DateTime flightDateTime;
+
+        // Formato ISO completo con T (ejemplo: 2023-01-01T12:30:00Z)
+        if (scheduleTimeStr.contains('T')) {
+          flightDateTime = DateTime.parse(scheduleTimeStr);
+
+          // Si es fecha UTC, convertir a local
+          if (scheduleTimeStr.endsWith('Z')) {
+            flightDateTime = flightDateTime.toLocal();
+          }
+        }
+        // Formato simple HH:MM (ejemplo: 15:30)
+        else if (scheduleTimeStr.contains(':')) {
+          final parts = scheduleTimeStr.split(':');
+          if (parts.length >= 2) {
+            final hour = int.parse(parts[0]);
+            final minute = int.parse(parts[1]);
+
+            // Para formato simple, asumimos la fecha actual
+            // Note: Para vuelos futuros, esto podría necesitar ajustes adicionales
+            flightDateTime = DateTime(
+              DateTime.now().year,
+              DateTime.now().month,
+              DateTime.now().day,
+              hour,
+              minute,
+            );
+
+            // Si la hora es anterior a la actual, probablemente sea del día siguiente
+            if (flightDateTime.isBefore(DateTime.now())) {
+              flightDateTime = flightDateTime.add(const Duration(days: 1));
+            }
+          } else {
+            continue; // Formato inválido, pasar al siguiente vuelo
+          }
+        } else {
+          continue; // Formato no reconocido, pasar al siguiente vuelo
+        }
+
+        if (flightDateTime.isAfter(latestFlightDate)) {
+          latestFlightDate = flightDateTime;
+          foundValidDate = true;
+          print(
+              'LOG: Found later flight: ${flight['flight_id']} at $flightDateTime');
+        }
+      } catch (e) {
+        print('LOG: Error parsing date for flight: $e');
+      }
+    }
+
+    // Si encontramos al menos una fecha válida, actualizar la fecha final
+    if (foundValidDate) {
+      setState(() {
+        _endDate = DateTime(
+          latestFlightDate.year,
+          latestFlightDate.month,
+          latestFlightDate.day,
+          23, // Hora 23:59 para incluir todo el día
+          59,
+        );
+        _endTime = const TimeOfDay(hour: 23, minute: 59);
+      });
+
+      print(
+          'LOG: End date filter updated to: ${_dateFormatter.format(_endDate)} ${_timeFormatter.format(DateTime(2022, 1, 1, _endTime.hour, _endTime.minute))}');
+    } else {
+      // Si no encontramos ninguna fecha válida, usar 7 días como valor predeterminado
+      setState(() {
+        _endDate = DateTime.now().add(const Duration(days: 7));
+        _endTime = const TimeOfDay(hour: 23, minute: 59);
+      });
+      print(
+          'LOG: No valid flight dates found, using default end date (7 days from now)');
     }
   }
 
@@ -377,6 +475,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     _applyDateTimeFilter();
     // Re-sort after filtering
     _sortFlightsByDepartureTime();
+    // Desplazarse al primer vuelo no departed
+    _scrollToFirstNonDepartedFlight();
   }
 
   /// Filter flights by search text
@@ -486,7 +586,18 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
         final formatter = DateFormat('HH:mm');
 
         // Convert to local time and format
-        return formatter.format(dateTime.toLocal());
+        // Ensure the UTC timezone is properly handled when converting to local
+        // The Z at the end of the ISO string means it's UTC
+        if (scheduleTime.endsWith('Z')) {
+          // Explicit UTC to local conversion
+          final localDateTime = dateTime.toLocal();
+          print(
+              'LOG: Converting UTC time $dateTime to local time $localDateTime for flight');
+          return formatter.format(localDateTime);
+        } else {
+          // If no Z, it might already be local or have explicit offset
+          return formatter.format(dateTime);
+        }
       } else if (scheduleTime.contains(':')) {
         // If it's just a time format "HH:MM", return it directly
         return scheduleTime;
@@ -512,7 +623,15 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
         final formatter = DateFormat('dd/MM');
 
         // Convert to local time and format
-        return formatter.format(dateTime.toLocal());
+        // Ensure the UTC timezone is properly handled when converting to local
+        if (scheduleTime.endsWith('Z')) {
+          // Explicit UTC to local conversion
+          final localDateTime = dateTime.toLocal();
+          return formatter.format(localDateTime);
+        } else {
+          // If no Z, it might already be local or have explicit offset
+          return formatter.format(dateTime);
+        }
       } else {
         // If it's just a time format, use current date
         final now = DateTime.now();
@@ -549,6 +668,66 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
       print('LOG: Error comparando tiempos: $e');
       return false;
     }
+  }
+
+  // Reset to default filters but using the current latest flight date
+  void _resetToDefaultFilters() {
+    _searchQuery = '';
+    _startDate = DateTime.now().subtract(const Duration(hours: 3));
+    _startTime = TimeOfDay(
+        hour: DateTime.now().subtract(const Duration(hours: 3)).hour,
+        minute: DateTime.now().subtract(const Duration(hours: 3)).minute);
+
+    // Mantener la fecha final basada en el vuelo más tardío o usar 7 días si no hay datos
+    _updateEndDateBasedOnLatestFlight();
+
+    setState(() {
+      _filteredFlights = List.from(widget.flights);
+    });
+
+    // Guardar los filtros
+    _saveFiltersToCache();
+
+    // Desplazarse al primer vuelo no departed
+    _scrollToFirstNonDepartedFlight();
+  }
+
+  // Encontrar y desplazarse al primer vuelo no departed
+  void _scrollToFirstNonDepartedFlight() {
+    // Esperar a que la interfaz se actualice antes de desplazarse
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_filteredFlights.isEmpty) {
+        return; // No hay vuelos para desplazar
+      }
+
+      // Encontrar el índice del primer vuelo no departed
+      int index = -1;
+      for (int i = 0; i < _filteredFlights.length; i++) {
+        if (_filteredFlights[i]['status_code'] != 'D') {
+          index = i;
+          break;
+        }
+      }
+
+      // Si encontramos un vuelo no departed, desplazarse a él
+      if (index != -1) {
+        // Calcular la posición aproximada
+        final double itemHeight =
+            70.0; // Altura aproximada de un Card (ajustar según diseño)
+        final double offset = index * itemHeight;
+
+        // Desplazarse a la posición
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+        );
+
+        print('LOG: Scrolled to first non-departed flight at index $index');
+      } else {
+        print('LOG: No non-departed flights found to scroll to');
+      }
+    });
   }
 
   @override
@@ -678,24 +857,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                 TextButton.icon(
                   onPressed: () {
                     // Reset search and date filters
-                    _searchQuery = '';
-                    _startDate =
-                        DateTime.now().subtract(const Duration(hours: 3));
-                    _startTime = TimeOfDay(
-                        hour: DateTime.now()
-                            .subtract(const Duration(hours: 3))
-                            .hour,
-                        minute: DateTime.now()
-                            .subtract(const Duration(hours: 3))
-                            .minute);
-                    _endDate = DateTime.now().add(const Duration(days: 7));
-                    _endTime = TimeOfDay(hour: 23, minute: 59);
-                    setState(() {
-                      _filteredFlights = List.from(widget.flights);
-                    });
-
-                    // Save filters when resetting them
-                    _saveFiltersToCache();
+                    _resetToDefaultFilters();
                   },
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text('Reset Filters'),
@@ -732,25 +894,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                       TextButton(
                         onPressed: () {
                           // Reset all filters
-                          _searchQuery = '';
-                          _startDate =
-                              DateTime.now().subtract(const Duration(hours: 3));
-                          _startTime = TimeOfDay(
-                              hour: DateTime.now()
-                                  .subtract(const Duration(hours: 3))
-                                  .hour,
-                              minute: DateTime.now()
-                                  .subtract(const Duration(hours: 3))
-                                  .minute);
-                          _endDate =
-                              DateTime.now().add(const Duration(days: 7));
-                          _endTime = TimeOfDay(hour: 23, minute: 59);
-                          setState(() {
-                            _filteredFlights = List.from(widget.flights);
-                          });
-
-                          // Guardar los filtros al resetearlos
-                          _saveFiltersToCache();
+                          _resetToDefaultFilters();
                         },
                         child: const Text('Show all flights'),
                       ),
@@ -760,6 +904,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
               : RefreshIndicator(
                   onRefresh: widget.onRefresh ?? () async {},
                   child: ListView.builder(
+                    controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: _filteredFlights.length,
                     itemBuilder: (context, index) {

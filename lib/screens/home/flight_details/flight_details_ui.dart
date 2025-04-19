@@ -459,7 +459,8 @@ class FlightDetailsUI extends StatelessWidget {
   /// Formats a DateTime to show date and time
   String _formatDateTime(DateTime dateTime) {
     final DateFormat formatter = DateFormat('dd/MM/yyyy HH:mm');
-    return formatter.format(dateTime);
+    // Ensure we're using local time
+    return formatter.format(dateTime.toLocal());
   }
 
   /// Formats time from different possible formats
@@ -468,7 +469,19 @@ class FlightDetailsUI extends StatelessWidget {
       // If it has ISO 8601 format
       if (timeString.contains('T')) {
         final DateTime dateTime = DateTime.parse(timeString);
-        return DateFormat('HH:mm').format(dateTime);
+
+        // Ensure the UTC timezone is properly handled when converting to local
+        // The Z at the end of the ISO string means it's UTC
+        if (timeString.endsWith('Z')) {
+          // Explicit UTC to local conversion
+          final localDateTime = dateTime.toLocal();
+          print(
+              'LOG: Converting UTC time $dateTime to local time $localDateTime for flight details');
+          return DateFormat('HH:mm').format(localDateTime);
+        } else {
+          // If no Z, it might already be local or have explicit offset
+          return DateFormat('HH:mm').format(dateTime);
+        }
       }
       // If it already has HH:MM format
       else if (timeString.contains(':')) {
