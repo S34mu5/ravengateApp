@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:async'; // Importar para usar Timer
 import 'all_departures_ui.dart';
 import '../../../services/cache/cache_service.dart';
+import '../../../utils/airline_helper.dart'; // Importar la nueva clase utilitaria
 
 /// Componente que maneja la lógica y los datos para la pantalla de todos los vuelos de salida
 /// Obtiene los datos desde Firestore en la colección 'flights'
@@ -170,24 +171,9 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
         if (data['color'] is int) {
           flightColor = Color(data['color']);
         } else {
-          // Color por defecto según aerolínea
+          // Usar el helper para obtener el color de la aerolínea
           final airline = data['airline'] ?? '';
-          switch (airline) {
-            case 'SK':
-              flightColor = const Color.fromARGB(255, 33, 150, 243); // Azul
-              break;
-            case 'DY':
-              flightColor = const Color.fromARGB(255, 255, 68, 68); // Rojo
-              break;
-            case 'DX':
-              flightColor = const Color.fromARGB(255, 76, 175, 80); // Verde
-              break;
-            case 'AY':
-              flightColor = Colors.white; // Blanco
-              break;
-            default:
-              flightColor = Colors.grey; // Gris por defecto
-          }
+          flightColor = AirlineHelper.getAirlineColor(airline);
         }
 
         // Mapear los campos según la estructura existente
@@ -299,24 +285,9 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
         if (data['color'] is int) {
           flightColor = Color(data['color']);
         } else {
-          // Color por defecto según aerolínea
+          // Usar el helper para obtener el color de la aerolínea
           final airline = data['airline'] ?? '';
-          switch (airline) {
-            case 'SK':
-              flightColor = const Color.fromARGB(255, 33, 150, 243); // Azul
-              break;
-            case 'DY':
-              flightColor = const Color.fromARGB(255, 255, 68, 68); // Rojo
-              break;
-            case 'DX':
-              flightColor = const Color.fromARGB(255, 76, 175, 80); // Verde
-              break;
-            case 'AY':
-              flightColor = Colors.white; // Blanco
-              break;
-            default:
-              flightColor = Colors.grey; // Gris por defecto
-          }
+          flightColor = AirlineHelper.getAirlineColor(airline);
         }
 
         // Mapear los campos según la estructura existente

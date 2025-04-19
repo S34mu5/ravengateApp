@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/cache/cache_service.dart';
 import '../flight_details/flight_details_screen.dart';
+import '../../../utils/airline_helper.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -822,8 +823,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(
-                        255, 255, 68, 68), // Red (DY color)
+                    color: AirlineHelper.getAirlineColor('DY'),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
@@ -841,8 +841,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(
-                        255, 255, 68, 68), // Red (DY color)
+                    color: AirlineHelper.getAirlineColor('DY'),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
@@ -957,9 +956,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                 child: Text(
                                   flight['airline'],
                                   style: TextStyle(
-                                    color: flight['airline'] == 'AY'
-                                        ? const Color.fromARGB(255, 0, 114, 206)
-                                        : Colors.white,
+                                    color: AirlineHelper.getTextColorForAirline(
+                                        flight['airline']),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

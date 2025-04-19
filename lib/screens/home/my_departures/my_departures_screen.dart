@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'my_departures_ui.dart';
+import '../../../utils/airline_helper.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
 class MyDeparturesScreen extends StatelessWidget {
@@ -16,7 +17,7 @@ class MyDeparturesScreen extends StatelessWidget {
         'schedule_time': '08:45',
         'airport': 'BCN',
         'gate': 'B7',
-        'color': const Color.fromARGB(255, 255, 68, 68),
+        'color': AirlineHelper.getAirlineColor('DY'),
       },
       {
         'airline': 'DY',
@@ -24,7 +25,7 @@ class MyDeparturesScreen extends StatelessWidget {
         'schedule_time': '12:30',
         'airport': 'LGW',
         'gate': 'C4',
-        'color': const Color.fromARGB(255, 255, 68, 68),
+        'color': AirlineHelper.getAirlineColor('DY'),
       },
       {
         'airline': 'DY',
@@ -32,7 +33,7 @@ class MyDeparturesScreen extends StatelessWidget {
         'schedule_time': '19:50',
         'airport': 'ALC',
         'gate': 'D9',
-        'color': const Color.fromARGB(255, 255, 68, 68),
+        'color': AirlineHelper.getAirlineColor('DY'),
       },
       {
         'airline': 'DY',
@@ -40,7 +41,7 @@ class MyDeparturesScreen extends StatelessWidget {
         'schedule_time': '22:10',
         'airport': 'ARN',
         'gate': 'A2',
-        'color': const Color.fromARGB(255, 255, 68, 68),
+        'color': AirlineHelper.getAirlineColor('DY'),
       },
     ];
 

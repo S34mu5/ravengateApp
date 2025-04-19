@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import '../../../utils/airline_helper.dart';
 
 /// Widget that displays the user interface for a specific flight details
 class FlightDetailsUI extends StatelessWidget {
@@ -42,7 +43,8 @@ class FlightDetailsUI extends StatelessWidget {
     final bool isCancelled = flightDetails['status_code'] == 'C';
 
     // Color based on airline
-    final Color airlineColor = _getAirlineColor(flightDetails['airline'] ?? '');
+    final Color airlineColor =
+        AirlineHelper.getAirlineColor(flightDetails['airline'] ?? '');
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -76,9 +78,8 @@ class FlightDetailsUI extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: flightDetails['airline'] == 'AY'
-                                ? const Color.fromARGB(255, 0, 114, 206)
-                                : Colors.white,
+                            color: AirlineHelper.getTextColorForAirline(
+                                flightDetails['airline'] ?? ''),
                           ),
                         ),
                       ),
@@ -542,17 +543,6 @@ class FlightDetailsUI extends StatelessWidget {
 
   /// Returns the color corresponding to each airline
   Color _getAirlineColor(String airline) {
-    switch (airline) {
-      case 'SK':
-        return const Color.fromARGB(255, 33, 150, 243); // Blue
-      case 'DY':
-        return const Color.fromARGB(255, 255, 68, 68); // Red
-      case 'DX':
-        return const Color.fromARGB(255, 76, 175, 80); // Green
-      case 'AY':
-        return Colors.white; // White
-      default:
-        return Colors.grey; // Default grey
-    }
+    return AirlineHelper.getAirlineColor(airline);
   }
 }

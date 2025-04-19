@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/airline_helper.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
 class MyDeparturesUI extends StatelessWidget {
@@ -58,8 +59,9 @@ class MyDeparturesUI extends StatelessWidget {
                     backgroundColor: flight['color'],
                     child: Text(
                       flight['airline'],
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AirlineHelper.getTextColorForAirline(
+                            flight['airline']),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
