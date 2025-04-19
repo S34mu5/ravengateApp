@@ -7,6 +7,8 @@ class CacheService {
   static const String _flightsKey = 'cached_flights';
   static const String _filtersKey = 'cached_filters';
   static const String _lastUpdatedKey = 'last_updated';
+  static const String _norwegianEquivalenceKey =
+      'norwegian_equivalence_enabled';
 
   /// Almacena los vuelos en la caché persistente
   static Future<bool> saveFlights(List<Map<String, dynamic>> flights) async {
@@ -29,10 +31,10 @@ class CacheService {
       // Guardar la fecha y hora de la última actualización
       await prefs.setString(_lastUpdatedKey, DateTime.now().toIso8601String());
 
-      print('LOG: Vuelos guardados en caché (${flights.length} vuelos)');
+      print('LOG: Flights saved in cache (${flights.length} flights)');
       return true;
     } catch (e) {
-      print('ERROR: No se pudieron guardar los vuelos en caché: $e');
+      print('ERROR: Could not save flights in cache: $e');
       return false;
     }
   }
@@ -44,7 +46,7 @@ class CacheService {
       final jsonData = prefs.getString(_flightsKey);
 
       if (jsonData == null) {
-        print('LOG: No hay vuelos en caché');
+        print('LOG: No flights in cache');
         return null;
       }
 
@@ -58,10 +60,10 @@ class CacheService {
         return flight;
       }).toList();
 
-      print('LOG: Recuperados ${flights.length} vuelos de la caché');
+      print('LOG: Retrieved ${flights.length} flights from cache');
       return flights.cast<Map<String, dynamic>>();
     } catch (e) {
-      print('ERROR: No se pudieron recuperar los vuelos de la caché: $e');
+      print('ERROR: Could not retrieve flights from cache: $e');
       return null;
     }
   }
@@ -86,10 +88,10 @@ class CacheService {
       };
 
       await prefs.setString(_filtersKey, jsonEncode(filters));
-      print('LOG: Filtros guardados en caché');
+      print('LOG: Filters saved in cache');
       return true;
     } catch (e) {
-      print('ERROR: No se pudieron guardar los filtros en caché: $e');
+      print('ERROR: Could not save filters in cache: $e');
       return false;
     }
   }
@@ -101,7 +103,7 @@ class CacheService {
       final jsonData = prefs.getString(_filtersKey);
 
       if (jsonData == null) {
-        print('LOG: No hay filtros en caché');
+        print('LOG: No filters in cache');
         return null;
       }
 
@@ -122,7 +124,7 @@ class CacheService {
         'searchQuery': filters['searchQuery'],
       };
     } catch (e) {
-      print('ERROR: No se pudieron recuperar los filtros de la caché: $e');
+      print('ERROR: Could not retrieve filters from cache: $e');
       return null;
     }
   }
@@ -139,8 +141,34 @@ class CacheService {
 
       return DateTime.parse(timestamp);
     } catch (e) {
-      print('ERROR: No se pudo obtener la fecha de última actualización: $e');
+      print('ERROR: Could not get last updated date: $e');
       return null;
+    }
+  }
+
+  /// Guarda la preferencia para la equivalencia de códigos DY/D8 de Norwegian
+  static Future<bool> saveNorwegianEquivalencePreference(bool isEnabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_norwegianEquivalenceKey, isEnabled);
+      print('LOG: Norwegian equivalence preference saved: $isEnabled');
+      return true;
+    } catch (e) {
+      print('ERROR: Could not save Norwegian preference: $e');
+      return false;
+    }
+  }
+
+  /// Recupera la preferencia para la equivalencia de códigos DY/D8 de Norwegian
+  static Future<bool> getNorwegianEquivalencePreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Por defecto esta característica está activada (true)
+      final isEnabled = prefs.getBool(_norwegianEquivalenceKey) ?? true;
+      return isEnabled;
+    } catch (e) {
+      print('ERROR: Could not retrieve Norwegian preference: $e');
+      return true; // Por defecto activado
     }
   }
 
@@ -151,10 +179,11 @@ class CacheService {
       await prefs.remove(_flightsKey);
       await prefs.remove(_filtersKey);
       await prefs.remove(_lastUpdatedKey);
-      print('LOG: Caché limpiada correctamente');
+      // No eliminamos _norwegianEquivalenceKey ya que es una preferencia de usuario
+      print('LOG: Cache cleared successfully');
       return true;
     } catch (e) {
-      print('ERROR: No se pudo limpiar la caché: $e');
+      print('ERROR: Could not clear cache: $e');
       return false;
     }
   }

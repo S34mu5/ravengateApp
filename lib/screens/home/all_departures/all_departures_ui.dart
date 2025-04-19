@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/cache/cache_service.dart';
+import '../flight_details/flight_details_screen.dart';
 
-/// Widget que muestra la interfaz de usuario para la lista de todos los vuelos de salida
+/// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
   final List<Map<String, dynamic>> flights;
   final Future<void> Function()? onRefresh;
+  final Future<void> Function(DateTime startDateTime, DateTime endDateTime)?
+      onCustomRangeLoad;
   final bool isRefreshing;
   final DateTime? lastUpdated;
 
   const AllDeparturesUI({
     required this.flights,
     this.onRefresh,
+    this.onCustomRangeLoad,
     this.isRefreshing = false,
     this.lastUpdated,
     super.key,
@@ -24,14 +28,17 @@ class AllDeparturesUI extends StatefulWidget {
 class _AllDeparturesUIState extends State<AllDeparturesUI> {
   String _searchQuery = '';
   List<Map<String, dynamic>> _filteredFlights = [];
+  bool _norwegianEquivalenceEnabled = true; // Enabled by default
 
-  // Filtros de fecha y hora
-  DateTime _startDate = DateTime.now();
-  TimeOfDay _startTime = TimeOfDay(hour: 0, minute: 0);
+  // Date and time filters
+  DateTime _startDate = DateTime.now().subtract(const Duration(hours: 3));
+  TimeOfDay _startTime = TimeOfDay(
+      hour: DateTime.now().subtract(const Duration(hours: 3)).hour,
+      minute: DateTime.now().subtract(const Duration(hours: 3)).minute);
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
   TimeOfDay _endTime = TimeOfDay(hour: 23, minute: 59);
 
-  // Formatters para fecha y hora
+  // Formatters for date and time
   final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
   final DateFormat _timeFormatter = DateFormat('HH:mm');
   final DateFormat _displayFormatter = DateFormat('dd MMM HH:mm');
@@ -41,9 +48,20 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     super.initState();
     _updateFilteredFlights();
     _loadFiltersFromCache();
+    _loadNorwegianPreference();
   }
 
-  // Cargar filtros guardados desde la caché
+  // Load Norwegian preference
+  Future<void> _loadNorwegianPreference() async {
+    final isEnabled = await CacheService.getNorwegianEquivalencePreference();
+    setState(() {
+      _norwegianEquivalenceEnabled = isEnabled;
+    });
+    print(
+        'LOG: Norwegian equivalence preference loaded: $_norwegianEquivalenceEnabled');
+  }
+
+  // Load saved filters from cache
   Future<void> _loadFiltersFromCache() async {
     try {
       final savedFilters = await CacheService.getFilters();
@@ -55,16 +73,16 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
           _endTime = savedFilters['endTime'] as TimeOfDay;
           _searchQuery = savedFilters['searchQuery'] as String;
         });
-        // Aplicar los filtros cargados
+        // Apply loaded filters
         _applyFilters();
-        print('LOG: Filtros cargados desde caché');
+        print('LOG: Filters loaded from cache');
       }
     } catch (e) {
-      print('ERROR: No se pudieron cargar los filtros desde caché: $e');
+      print('ERROR: Could not load filters from cache: $e');
     }
   }
 
-  // Guardar filtros actuales en la caché
+  // Save current filters to cache
   Future<void> _saveFiltersToCache() async {
     try {
       await CacheService.saveFilters(
@@ -74,29 +92,86 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
         endTime: _endTime,
         searchQuery: _searchQuery,
       );
-      print('LOG: Filtros guardados en caché');
+      print('LOG: Filters saved to cache');
     } catch (e) {
-      print('ERROR: No se pudieron guardar los filtros en caché: $e');
+      print('ERROR: Could not save filters to cache: $e');
     }
   }
 
   @override
   void didUpdateWidget(AllDeparturesUI oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Si los vuelos cambian, actualizar la lista filtrada
+    // If flights change, update the filtered list
     if (widget.flights != oldWidget.flights) {
       _updateFilteredFlights();
     }
   }
 
-  // Actualiza la lista de vuelos filtrados cuando cambian los datos
+  // Update the list of filtered flights when data changes
   void _updateFilteredFlights() {
     _filteredFlights = List.from(widget.flights);
-    // Aplicar filtros existentes
+    // Sort flights by departure time (ascending order)
+    _sortFlightsByDepartureTime();
+    // Apply existing filters
     _applyFilters();
   }
 
-  // Convertir TimeOfDay a DateTime
+  // Sort flights in ascending order by departure time
+  void _sortFlightsByDepartureTime() {
+    _filteredFlights.sort((a, b) {
+      try {
+        final aTime = a['schedule_time'].toString();
+        final bTime = b['schedule_time'].toString();
+
+        // Parse times to DateTime objects for comparison
+        DateTime aDateTime, bDateTime;
+
+        // Handle ISO format
+        if (aTime.contains('T')) {
+          aDateTime = DateTime.parse(aTime);
+        } else {
+          // Simple HH:MM format
+          final parts = aTime.split(':');
+          if (parts.length == 2) {
+            aDateTime = DateTime(
+              DateTime.now().year,
+              DateTime.now().month,
+              DateTime.now().day,
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+            );
+          } else {
+            return 0; // Invalid format, no change in order
+          }
+        }
+
+        if (bTime.contains('T')) {
+          bDateTime = DateTime.parse(bTime);
+        } else {
+          final parts = bTime.split(':');
+          if (parts.length == 2) {
+            bDateTime = DateTime(
+              DateTime.now().year,
+              DateTime.now().month,
+              DateTime.now().day,
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+            );
+          } else {
+            return 0; // Invalid format, no change in order
+          }
+        }
+
+        // Compare times and return sort order (ascending)
+        return aDateTime.compareTo(bDateTime);
+      } catch (e) {
+        print('LOG: Error sorting flights: $e');
+        return 0; // On error, no change in order
+      }
+    });
+  }
+
+  // Convert TimeOfDay to DateTime
   DateTime _timeOfDayToDateTime(DateTime date, TimeOfDay time) {
     return DateTime(
       date.year,
@@ -107,7 +182,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     );
   }
 
-  // Combinar fecha y hora para mostrar
+  // Combine date and time for display
   String _formatDateTimeRange() {
     final startDateTime = _timeOfDayToDateTime(_startDate, _startTime);
     final endDateTime = _timeOfDayToDateTime(_endDate, _endTime);
@@ -115,7 +190,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     return '${_displayFormatter.format(startDateTime)} to ${_displayFormatter.format(endDateTime)}';
   }
 
-  // Abrir modal para seleccionar fecha y hora
+  // Open modal to select date and time
   Future<void> _showDateTimeRangePicker(BuildContext context) async {
     await showDialog(
       context: context,
@@ -236,7 +311,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   child: const Text('Cancel'),
                 ),
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     // Validar que la fecha de inicio no sea posterior a la de fin
                     final startDateTime =
                         _timeOfDayToDateTime(tempStartDate, tempStartTime);
@@ -253,14 +328,37 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                       return;
                     }
 
+                    // Determinar si necesitamos cargar datos históricos
+                    final threePastHours =
+                        DateTime.now().subtract(const Duration(hours: 3));
+                    final needsHistoricalData =
+                        startDateTime.isBefore(threePastHours);
+
                     // Aplicar cambios
                     _startDate = tempStartDate;
                     _startTime = tempStartTime;
                     _endDate = tempEndDate;
                     _endTime = tempEndTime;
 
-                    _applyDateTimeFilter();
-                    _saveFiltersToCache(); // Guardar los filtros al cambiarlos
+                    if (needsHistoricalData &&
+                        widget.onCustomRangeLoad != null) {
+                      // Mostrar indicador de carga
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Cargando datos históricos...'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+
+                      // Cargar datos históricos desde la base de datos
+                      await widget.onCustomRangeLoad!(
+                          startDateTime, endDateTime);
+                    } else {
+                      // Solo filtrar los datos actuales
+                      _applyDateTimeFilter();
+                    }
+
+                    _saveFiltersToCache(); // Guardar los filtros
                     Navigator.of(context).pop();
                   },
                   child: const Text('Apply'),
@@ -273,43 +371,46 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     );
   }
 
-  // Aplicar filtro por texto de búsqueda y rango de fechas
+  // Apply text search filter and date range
   void _applyFilters() {
     _applyTextFilter(_searchQuery);
     _applyDateTimeFilter();
+    // Re-sort after filtering
+    _sortFlightsByDepartureTime();
   }
 
-  /// Filtra los vuelos según el texto de búsqueda
+  /// Filter flights by search text
   void _filterFlights(String query) {
     _searchQuery = query;
     _applyFilters();
-    _saveFiltersToCache(); // Guardar los filtros al cambiarlos
+    _saveFiltersToCache(); // Save filters when they change
   }
 
-  // Aplica solo el filtro de texto
+  // Apply only the text filter
   void _applyTextFilter(String query) {
     setState(() {
       _searchQuery = query.toLowerCase();
       if (_searchQuery.isEmpty) {
-        // Si la consulta está vacía, mostrar todos los vuelos
+        // If query is empty, show all flights
         _filteredFlights = List.from(widget.flights);
       } else {
-        // Filtrar por ID de vuelo o aeropuerto (destino)
+        // Filter by flight ID or airport (destination)
         _filteredFlights = widget.flights.where((flight) {
           final flightId = flight['flight_id'].toString().toLowerCase();
           final airport = flight['airport'].toString().toLowerCase();
           final airline = flight['airline'].toString().toLowerCase();
 
-          // Verificar si el usuario está buscando DY o D8 (equivalentes)
+          // Check if user is searching for DY or D8 (equivalents) and if preference is enabled
           bool isMatchingNorwegianAirline = false;
-          if (_searchQuery.contains('dy') || _searchQuery.contains('d8')) {
+          if (_norwegianEquivalenceEnabled &&
+              (_searchQuery.contains('dy') || _searchQuery.contains('d8'))) {
             isMatchingNorwegianAirline = flightId.contains('dy') ||
                 flightId.contains('d8') ||
                 airline == 'dy' ||
                 airline == 'd8';
           }
 
-          // Devuelve true si el ID, aeropuerto o aerolínea equivalente contienen la consulta
+          // Return true if ID, airport or equivalent airline contains the query
           return flightId.contains(_searchQuery) ||
               airport.contains(_searchQuery) ||
               isMatchingNorwegianAirline;
@@ -317,32 +418,32 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
       }
     });
 
-    // Aplicar filtro de fecha y hora a los resultados
+    // Apply date and time filter to results
     _applyDateTimeFilter();
   }
 
-  // Aplica el filtro de fecha y hora a los vuelos
+  // Apply date and time filter to flights
   void _applyDateTimeFilter() {
-    // Crear los DateTime para el rango
+    // Create DateTime for range
     final startDateTime = _timeOfDayToDateTime(_startDate, _startTime);
     final endDateTime = _timeOfDayToDateTime(_endDate, _endTime);
 
     print(
-        'LOG: Aplicando filtro de fecha: ${_dateFormatter.format(startDateTime)} ${_timeFormatter.format(startDateTime)} - ${_dateFormatter.format(endDateTime)} ${_timeFormatter.format(endDateTime)}');
+        'LOG: Applying date filter: ${_dateFormatter.format(startDateTime)} ${_timeFormatter.format(startDateTime)} - ${_dateFormatter.format(endDateTime)} ${_timeFormatter.format(endDateTime)}');
 
     setState(() {
-      // Filtrar los vuelos por rango de fechas
+      // Filter flights by date range
       _filteredFlights = _filteredFlights.where((flight) {
-        // Intentar parsear la fecha del vuelo
+        // Try to parse flight date
         try {
           final scheduleTimeStr = flight['schedule_time'].toString();
           DateTime flightDateTime;
 
-          // Manejar formato ISO
+          // Handle ISO format
           if (scheduleTimeStr.contains('T')) {
             flightDateTime = DateTime.parse(scheduleTimeStr);
           } else {
-            // Formato simple HH:MM, asumimos fecha actual
+            // Simple HH:MM format, assume current date
             final parts = scheduleTimeStr.split(':');
             if (parts.length == 2) {
               final hour = int.parse(parts[0]);
@@ -355,59 +456,109 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                 minute,
               );
             } else {
-              // Formato no reconocido
+              // Unrecognized format
               return false;
             }
           }
 
-          // Devuelve true si está dentro del rango
+          // Return true if within range
           return flightDateTime.isAfter(startDateTime) &&
               flightDateTime.isBefore(endDateTime);
         } catch (e) {
-          print('LOG: Error al analizar fecha para filtrado: $e');
+          print('LOG: Error parsing date for filtering: $e');
           return false;
         }
       }).toList();
     });
 
-    print(
-        'LOG: Se filtraron ${_filteredFlights.length} vuelos dentro del rango de fechas');
+    print('LOG: Filtered ${_filteredFlights.length} flights within date range');
   }
 
-  /// Extrae la hora del formato ISO 8601 o formato tradicional "HH:MM"
+  /// Extract time from ISO 8601 format or traditional "HH:MM" format
   String _extractTimeFromSchedule(String scheduleTime) {
     try {
-      // Verificar si está en formato ISO 8601 (contiene una 'T')
+      // Check if in ISO 8601 format (contains a 'T')
       if (scheduleTime.contains('T')) {
-        // Intentar parsear como ISO 8601
+        // Try to parse as ISO 8601
         final dateTime = DateTime.parse(scheduleTime);
 
-        // Crear un formateador para solo mostrar la hora
+        // Create formatter to show only time
         final formatter = DateFormat('HH:mm');
 
-        // Convertir a hora local y formatear
+        // Convert to local time and format
         return formatter.format(dateTime.toLocal());
       } else if (scheduleTime.contains(':')) {
-        // Si es solo un formato de hora "HH:MM", devolverlo directamente
+        // If it's just a time format "HH:MM", return it directly
         return scheduleTime;
       } else {
-        print('LOG: Formato de hora desconocido: $scheduleTime');
+        print('LOG: Unknown time format: $scheduleTime');
         return scheduleTime;
       }
     } catch (e) {
-      print('LOG: Error al formatear la hora: $e');
-      return scheduleTime; // Devolvemos el string original si hay error
+      print('LOG: Error formatting time: $e');
+      return scheduleTime; // Return original string if there's an error
+    }
+  }
+
+  /// Extract date from ISO 8601 format and format it as dd/MM
+  String _extractDateFromSchedule(String scheduleTime) {
+    try {
+      // Check if in ISO 8601 format (contains a 'T')
+      if (scheduleTime.contains('T')) {
+        // Try to parse as ISO 8601
+        final dateTime = DateTime.parse(scheduleTime);
+
+        // Create formatter to show only date in format dd/MM
+        final formatter = DateFormat('dd/MM');
+
+        // Convert to local time and format
+        return formatter.format(dateTime.toLocal());
+      } else {
+        // If it's just a time format, use current date
+        final now = DateTime.now();
+        return DateFormat('dd/MM').format(now);
+      }
+    } catch (e) {
+      print('LOG: Error extracting date: $e');
+      return ''; // Return empty string on error
+    }
+  }
+
+  /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
+  bool _isLaterTime(String time1, String time2) {
+    try {
+      // Convertir al formato actual de tiempo
+      final parts1 = time1.split(':');
+      final parts2 = time2.split(':');
+
+      if (parts1.length >= 2 && parts2.length >= 2) {
+        final hour1 = int.parse(parts1[0]);
+        final minute1 = int.parse(parts1[1]);
+        final hour2 = int.parse(parts2[0]);
+        final minute2 = int.parse(parts2[1]);
+
+        // Comparar horas y minutos
+        if (hour1 > hour2) {
+          return true;
+        } else if (hour1 == hour2) {
+          return minute1 > minute2;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('LOG: Error comparando tiempos: $e');
+      return false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     print(
-        'LOG: Construyendo UI para todos los vuelos (${_filteredFlights.length} vuelos mostrados de ${widget.flights.length} totales)');
+        'LOG: Building UI for all flights (${_filteredFlights.length} flights shown out of ${widget.flights.length} total)');
 
     return Column(
       children: [
-        // Selector de rango de fecha y hora simplificado
+        // Date and time range selector
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: InkWell(
@@ -435,7 +586,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
             ),
           ),
         ),
-        // Barra de búsqueda
+        // Search bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: TextField(
@@ -454,14 +605,14 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               filled: true,
               fillColor: Colors.white,
-              // Añadir botón de limpiar si hay texto
+              // Add clear button if there is text
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
                       icon: Icon(Icons.clear, color: Colors.grey.shade600),
                       onPressed: () {
-                        // Limpiar el campo de búsqueda
+                        // Clear search field
                         _filterFlights('');
-                        // También necesitamos limpiar el TextField
+                        // We also need to clear the TextField
                         final textFieldController = TextEditingController();
                         textFieldController.clear();
                       },
@@ -471,7 +622,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
             onChanged: _filterFlights,
           ),
         ),
-        // Contador de resultados
+        // Results counter
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
@@ -484,13 +635,14 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   color: Colors.grey.shade600,
                 ),
               ),
-              if (_searchQuery.toLowerCase().contains('dy'))
+              if (_norwegianEquivalenceEnabled &&
+                  _searchQuery.toLowerCase().contains('dy'))
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(
-                        255, 255, 68, 68), // Rojo (color de DY)
+                        255, 255, 68, 68), // Red (DY color)
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
@@ -502,13 +654,14 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                     ),
                   ),
                 )
-              else if (_searchQuery.toLowerCase().contains('d8'))
+              else if (_norwegianEquivalenceEnabled &&
+                  _searchQuery.toLowerCase().contains('d8'))
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(
-                        255, 255, 68, 68), // Rojo (color de DY)
+                        255, 255, 68, 68), // Red (DY color)
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
@@ -526,15 +679,22 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   onPressed: () {
                     // Reset search and date filters
                     _searchQuery = '';
-                    _startDate = DateTime.now();
-                    _startTime = TimeOfDay(hour: 0, minute: 0);
+                    _startDate =
+                        DateTime.now().subtract(const Duration(hours: 3));
+                    _startTime = TimeOfDay(
+                        hour: DateTime.now()
+                            .subtract(const Duration(hours: 3))
+                            .hour,
+                        minute: DateTime.now()
+                            .subtract(const Duration(hours: 3))
+                            .minute);
                     _endDate = DateTime.now().add(const Duration(days: 7));
                     _endTime = TimeOfDay(hour: 23, minute: 59);
                     setState(() {
                       _filteredFlights = List.from(widget.flights);
                     });
 
-                    // Guardar los filtros al resetearlos
+                    // Save filters when resetting them
                     _saveFiltersToCache();
                   },
                   icon: const Icon(Icons.refresh, size: 16),
@@ -573,8 +733,15 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                         onPressed: () {
                           // Reset all filters
                           _searchQuery = '';
-                          _startDate = DateTime.now();
-                          _startTime = TimeOfDay(hour: 0, minute: 0);
+                          _startDate =
+                              DateTime.now().subtract(const Duration(hours: 3));
+                          _startTime = TimeOfDay(
+                              hour: DateTime.now()
+                                  .subtract(const Duration(hours: 3))
+                                  .hour,
+                              minute: DateTime.now()
+                                  .subtract(const Duration(hours: 3))
+                                  .minute);
                           _endDate =
                               DateTime.now().add(const Duration(days: 7));
                           _endTime = TimeOfDay(hour: 23, minute: 59);
@@ -598,13 +765,32 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                     itemBuilder: (context, index) {
                       final flight = _filteredFlights[index];
 
-                      // Extraer solo la hora del schedule_time
+                      // Extract only the time from schedule_time
                       final formattedTime =
                           _extractTimeFromSchedule(flight['schedule_time']);
 
-                      // Para depuración
+                      // Extract date from schedule_time
+                      final formattedDate =
+                          _extractDateFromSchedule(flight['schedule_time']);
+
+                      // Extract status time if available
+                      final String? statusTime =
+                          flight['status_time'] != null &&
+                                  flight['status_time'].toString().isNotEmpty
+                              ? _extractTimeFromSchedule(flight['status_time'])
+                              : null;
+
+                      // Check if flight is delayed (status_time is different and later than schedule_time)
+                      final bool isDelayed = statusTime != null &&
+                          statusTime != formattedTime &&
+                          _isLaterTime(statusTime, formattedTime);
+
+                      // For debugging
                       print(
-                          'LOG: Vuelo ${flight['flight_id']} - Original: ${flight['schedule_time']}, Formateado: $formattedTime');
+                          'LOG: Flight ${flight['flight_id']} - Original: ${flight['schedule_time']}, Formatted: $formattedTime, Status: ${flight['status_time']}, Delayed: $isDelayed');
+
+                      // Check if flight is departed
+                      final bool isDeparted = flight['status_code'] == 'D';
 
                       return Card(
                         margin: const EdgeInsets.symmetric(
@@ -613,32 +799,108 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: flight['color'],
-                            child: Text(
-                              flight['airline'],
-                              style: TextStyle(
-                                color: flight['airline'] == 'AY'
-                                    ? const Color.fromARGB(255, 0, 114, 206)
-                                    : Colors.white,
-                                fontWeight: FontWeight.bold,
+                        child: Stack(
+                          children: [
+                            ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: flight['color'],
+                                child: Text(
+                                  flight['airline'],
+                                  style: TextStyle(
+                                    color: flight['airline'] == 'AY'
+                                        ? const Color.fromARGB(255, 0, 114, 206)
+                                        : Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
+                              title: Text(
+                                '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDeparted ? Colors.grey : Colors.black,
+                                  decoration: isDeparted
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                ),
+                              ),
+                              subtitle: Row(
+                                children: [
+                                  Text('Gate: ${flight['gate']}'),
+                                  if (isDelayed) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.shade700,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            'DELAYED',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            statusTime!,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              trailing:
+                                  const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () {
+                                print(
+                                    'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
+
+                                // Navegar a la pantalla de detalles
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => FlightDetailsScreen(
+                                      flightId: flight['flight_id'],
+                                      documentId: flight['id'] ?? '',
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          ),
-                          title: Text(
-                            '${flight['flight_id']} - $formattedTime ${flight['airport']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text('Gate: ${flight['gate']}'),
-                          trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 16),
-                          onTap: () {
-                            print(
-                                'LOG: Usuario seleccionó vuelo ${flight['flight_id']} para ${flight['airport']}');
-                          },
+                            if (isDeparted)
+                              Positioned(
+                                right: 0,
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Banner(
+                                    message: 'DEPARTED',
+                                    location: BannerLocation.topEnd,
+                                    color: Colors.red.shade700,
+                                    textStyle: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },

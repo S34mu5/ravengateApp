@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'dart:async'; // Importar para usar Timer
 import 'all_departures_ui.dart';
 import '../../../services/cache/cache_service.dart';
 
@@ -23,11 +24,17 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
   bool _usingFallbackData = false;
   bool _usingCachedData = false;
   DateTime? _lastUpdated;
+  Timer? _refreshTimer; // Timer para actualización periódica
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    // Configurar actualización automática cada 3 minutos (180000 ms)
+    _refreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
+      print('LOG: Actualizando datos automáticamente cada 3 minutos');
+      _loadFlights();
+    });
   }
 
   /// Método principal para cargar datos. Primero intenta cargar desde caché,
@@ -110,11 +117,22 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
         _usingFallbackData = false;
       });
 
-      // Realizar la consulta a Firestore usando la colección existente
+      // Calcular la hora de corte (3 horas antes de la hora actual)
+      final DateTime now = DateTime.now();
+      final DateTime cutoffTime = now.subtract(const Duration(hours: 3));
+      final String cutoffTimeString = cutoffTime.toIso8601String();
+
+      print(
+          'LOG: Filtrando vuelos a partir de: ${DateFormat('yyyy-MM-dd HH:mm').format(cutoffTime)}');
+
+      // Realizar la consulta a Firestore usando la colección existente con filtro de tiempo
       final QuerySnapshot snapshot = await _firestore
           .collection('flights') // Nombre de tu colección existente
           .orderBy('schedule_time',
-              descending: true) // Ordenar por hora de salida descendente
+              descending: false) // Ordenar por hora de salida ascendente
+          .where('schedule_time',
+              isGreaterThanOrEqualTo:
+                  cutoffTimeString) // Solo vuelos desde 3 horas antes
           .get();
 
       print(
@@ -184,22 +202,24 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
           'airline': data['airline'] ?? '',
           'flight_id': data['flight_id'] ?? '',
           'schedule_time': data['schedule_time'] ?? '',
+          'status_time': data['status_time'] ?? '',
           'airport': data['airport'] ?? '',
           'gate': data['gate'] ?? '',
+          'status_code': data['status_code'] ?? '',
           'color': flightColor,
         };
       }).toList();
 
       print('LOG: Se cargaron ${loadedFlights.length} vuelos desde Firestore');
 
-      // Ordenar los vuelos por hora de salida (descendente)
+      // Ordenar los vuelos por hora de salida (ascendente)
       loadedFlights.sort((a, b) {
         final timeA = a['schedule_time'] as String;
         final timeB = b['schedule_time'] as String;
-        return timeB.compareTo(timeA); // Orden invertido para descendente
+        return timeA.compareTo(timeB); // Orden ascendente
       });
 
-      print('LOG: Vuelos ordenados por hora de salida (descendente)');
+      print('LOG: Flights sorted by departure time (ascending)');
 
       // Verificar si el widget sigue montado antes de la actualización final
       if (!mounted) {
@@ -247,43 +267,169 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
         'airline': 'SK',
         'flight_id': 'SK1475',
         'schedule_time': '18:55',
+        'status_time': '19:25', // Con retraso
         'airport': 'CPH',
         'gate': 'D5',
+        'status_code': '',
         'color': const Color.fromARGB(255, 33, 150, 243),
       },
       {
         'airline': 'DY',
         'flight_id': 'DY328',
         'schedule_time': '17:50',
+        'status_time': '17:50', // A tiempo
         'airport': 'TOS',
         'gate': 'A8',
+        'status_code': 'D',
         'color': const Color.fromARGB(255, 255, 68, 68),
       },
       {
         'airline': 'DY',
         'flight_id': 'DY1054',
         'schedule_time': '17:55',
+        'status_time': '18:20', // Con retraso
         'airport': 'GDN',
         'gate': 'D4',
+        'status_code': '',
         'color': const Color.fromARGB(255, 255, 68, 68),
       },
       {
         'airline': 'SK',
         'flight_id': 'SK1330',
         'schedule_time': '18:10',
+        'status_time': '18:10', // A tiempo
         'airport': 'AES',
         'gate': 'A2',
+        'status_code': 'D',
         'color': const Color.fromARGB(255, 33, 150, 243),
       },
       {
         'airline': 'DX',
         'flight_id': 'DX578',
         'schedule_time': '18:15',
+        'status_time': '19:00', // Con retraso
         'airport': 'FRO',
         'gate': 'A27',
+        'status_code': '',
         'color': const Color.fromARGB(255, 76, 175, 80),
       },
     ];
+  }
+
+  // En AllDeparturesScreen, añadir el método para cargar con rango personalizado
+  Future<void> _loadFlightsWithCustomRange(
+      DateTime startDateTime, DateTime endDateTime) async {
+    print('LOG: Cargando vuelos con rango personalizado desde Firestore');
+    try {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      // Convertir fechas a formato ISO para la consulta
+      final String startTimeString = startDateTime.toIso8601String();
+      final String endTimeString = endDateTime.toIso8601String();
+
+      print(
+          'LOG: Filtrando vuelos desde: ${DateFormat('yyyy-MM-dd HH:mm').format(startDateTime)} '
+          'hasta: ${DateFormat('yyyy-MM-dd HH:mm').format(endDateTime)}');
+
+      // Realizar la consulta con el rango personalizado
+      final QuerySnapshot snapshot = await _firestore
+          .collection('flights')
+          .orderBy('schedule_time', descending: false)
+          .where('schedule_time', isGreaterThanOrEqualTo: startTimeString)
+          .where('schedule_time', isLessThanOrEqualTo: endTimeString)
+          .get();
+
+      print(
+          'LOG: Consulta a Firestore completada. Documentos encontrados: ${snapshot.docs.length}');
+
+      if (!mounted) return;
+
+      if (snapshot.docs.isEmpty) {
+        print(
+            'LOG: No se encontraron documentos en la colección para el rango personalizado');
+        setState(() {
+          _errorMessage = 'No se encontraron vuelos en el rango seleccionado';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Convertir los datos de Firestore a la estructura que espera nuestra UI
+      final List<Map<String, dynamic>> loadedFlights = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Manejar el color (convertir de string o valor numérico a Color)
+        Color flightColor;
+        if (data['color'] is int) {
+          flightColor = Color(data['color']);
+        } else {
+          // Color por defecto según aerolínea
+          final airline = data['airline'] ?? '';
+          switch (airline) {
+            case 'SK':
+              flightColor = const Color.fromARGB(255, 33, 150, 243); // Azul
+              break;
+            case 'DY':
+              flightColor = const Color.fromARGB(255, 255, 68, 68); // Rojo
+              break;
+            case 'DX':
+              flightColor = const Color.fromARGB(255, 76, 175, 80); // Verde
+              break;
+            case 'AY':
+              flightColor = Colors.white; // Blanco
+              break;
+            default:
+              flightColor = Colors.grey; // Gris por defecto
+          }
+        }
+
+        // Mapear los campos según la estructura existente
+        return {
+          'id': doc.id,
+          'airline': data['airline'] ?? '',
+          'flight_id': data['flight_id'] ?? '',
+          'schedule_time': data['schedule_time'] ?? '',
+          'status_time': data['status_time'] ?? '',
+          'airport': data['airport'] ?? '',
+          'gate': data['gate'] ?? '',
+          'status_code': data['status_code'] ?? '',
+          'color': flightColor,
+        };
+      }).toList();
+
+      print(
+          'LOG: Se cargaron ${loadedFlights.length} vuelos históricos desde Firestore');
+
+      // Ordenar los vuelos por hora de salida (ascendente)
+      loadedFlights.sort((a, b) {
+        final timeA = a['schedule_time'] as String;
+        final timeB = b['schedule_time'] as String;
+        return timeA.compareTo(timeB); // Orden ascendente
+      });
+
+      setState(() {
+        _flights = loadedFlights;
+        _isLoading = false;
+        _usingCachedData = false;
+        _lastUpdated = DateTime.now();
+      });
+
+      // Guardar en caché los nuevos datos
+      await CacheService.saveFlights(_flights);
+    } catch (e) {
+      print('LOG: ERROR al cargar vuelos históricos desde Firestore: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Error al cargar vuelos históricos: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -325,6 +471,7 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
             child: AllDeparturesUI(
               flights: _flights,
               onRefresh: _loadFlights,
+              onCustomRangeLoad: _loadFlightsWithCustomRange,
               isRefreshing: _isLoading,
               lastUpdated: _lastUpdated,
             ),
@@ -367,6 +514,7 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
             child: AllDeparturesUI(
               flights: _flights,
               onRefresh: _loadFlights,
+              onCustomRangeLoad: _loadFlightsWithCustomRange,
               isRefreshing: _isLoading,
               lastUpdated: _lastUpdated,
             ),
@@ -378,6 +526,7 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
     return AllDeparturesUI(
       flights: _flights,
       onRefresh: _loadFlights,
+      onCustomRangeLoad: _loadFlightsWithCustomRange,
       isRefreshing: _isLoading,
       lastUpdated: _lastUpdated,
     );
@@ -404,8 +553,9 @@ class _AllDeparturesScreenState extends State<AllDeparturesScreen> {
 
   @override
   void dispose() {
-    // Limpiar recursos si es necesario
-    print('LOG: Disposing AllDeparturesScreen');
+    // Cancelar el timer cuando se destruye el widget para evitar memory leaks
+    _refreshTimer?.cancel();
+    print('LOG: Disposing AllDeparturesScreen and cancelling refresh timer');
     super.dispose();
   }
 }
