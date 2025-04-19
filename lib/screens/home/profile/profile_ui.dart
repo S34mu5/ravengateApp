@@ -14,6 +14,8 @@ class ProfileUI extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print(
+        'LOG: Construyendo UI de perfil para usuario: ${user.displayName ?? "sin nombre"} (${user.email ?? "sin email"})');
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -38,7 +40,11 @@ class ProfileUI extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           OutlinedButton.icon(
-            onPressed: onLogout,
+            onPressed: () {
+              print(
+                  'LOG: Usuario pulsó el botón de logout en la pantalla de perfil');
+              onLogout();
+            },
             icon: const Icon(Icons.logout),
             label: const Text('Log Out'),
             style: OutlinedButton.styleFrom(

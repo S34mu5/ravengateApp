@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'all_departures/all_departures_screen_new.dart';
-import 'my_departures/my_departures_screen_new.dart';
-import 'profile/profile_screen_new.dart';
+import 'all_departures/all_departures_screen.dart';
+import 'my_departures/my_departures_screen.dart';
+import 'profile/profile_screen.dart';
 
 /// Widget que maneja la UI de la pantalla principal
 class HomeScreenUI extends StatefulWidget {
@@ -26,6 +26,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   final List<String> _titles = ['All Departures', 'My Departures', 'Profile'];
 
   void _onItemTapped(int index) {
+    print('LOG: Usuario navegó a ${_titles[index]}');
     setState(() {
       _selectedIndex = index;
     });
@@ -33,6 +34,8 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
 
   @override
   Widget build(BuildContext context) {
+    print(
+        'LOG: Construyendo UI de HomeScreen, sección actual: ${_titles[_selectedIndex]}');
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
@@ -53,16 +56,27 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
       ),
       body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: SizedBox(
+              width: 48,
+              height: 24,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.airplanemode_active, size: 16),
+                  Icon(Icons.airplanemode_active, size: 16),
+                  Icon(Icons.airplanemode_active, size: 16),
+                ],
+              ),
+            ),
             label: 'All Departures',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.flight),
             label: 'My Departures',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profile',
           ),
@@ -76,6 +90,8 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
 
   Widget _buildBody() {
     // Usar los componentes modularizados según el índice seleccionado
+    print(
+        'LOG: Cargando contenido para la sección: ${_titles[_selectedIndex]}');
     switch (_selectedIndex) {
       case 0:
         return const AllDeparturesScreen();

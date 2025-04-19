@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'my_departures_ui_new.dart';
+import 'my_departures_ui.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
 class MyDeparturesScreen extends StatelessWidget {
@@ -7,6 +7,7 @@ class MyDeparturesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen');
     // Lista ficticia para mostrar los vuelos del usuario (ordenados por hora)
     final List<Map<String, dynamic>> myFlights = [
       {
@@ -43,6 +44,8 @@ class MyDeparturesScreen extends StatelessWidget {
       },
     ];
 
+    print(
+        'LOG: Se cargaron ${myFlights.length} vuelos del usuario en MyDeparturesScreen');
     // En el futuro, aquí podrías agregar lógica para cargar datos de usuario desde una API,
     // filtrar por fechas, recordatorios de check-in, etc.
 

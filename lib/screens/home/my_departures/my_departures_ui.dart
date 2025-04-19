@@ -11,6 +11,7 @@ class MyDeparturesUI extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('LOG: Construyendo UI para mis vuelos (${flights.length} vuelos)');
     return Column(
       children: [
         Padding(
@@ -25,6 +26,9 @@ class MyDeparturesUI extends StatelessWidget {
               filled: true,
               fillColor: Colors.grey.shade100,
             ),
+            onChanged: (value) {
+              print('LOG: Usuario buscando en sus vuelos con texto: $value');
+            },
           ),
         ),
         Container(
@@ -68,6 +72,10 @@ class MyDeparturesUI extends StatelessWidget {
                   ),
                   subtitle: Text('Gate: ${flight['gate']}'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    print(
+                        'LOG: Usuario seleccionó su vuelo ${flight['flight_id']} para ${flight['airport']}');
+                  },
                 ),
               );
             },
