@@ -673,7 +673,7 @@ class FlightDetailsUI extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: airlineColor,
+                      backgroundColor: Colors.blue.shade600,
                       foregroundColor: Colors.white,
                       elevation: 2,
                       padding: const EdgeInsets.symmetric(
