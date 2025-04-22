@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/cache/cache_service.dart';
+import '../../../services/user/user_flights_service.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../../../utils/airline_helper.dart';
+import '../../../utils/progress_dialog.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -27,8 +29,17 @@ class AllDeparturesUI extends StatefulWidget {
 }
 
 class _AllDeparturesUIState extends State<AllDeparturesUI> {
-  String _searchQuery = '';
+  bool _isLoading = true;
+  bool _isSelectionMode = false;
   List<Map<String, dynamic>> _filteredFlights = [];
+  Set<int> _selectedFlightIndices = {};
+  // Variables para la búsqueda
+  bool _showSearchBar = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchAirline = '';
+  String _searchAirport = '';
+  String _searchGate = '';
+  String _searchQuery = '';
   bool _norwegianEquivalenceEnabled = true; // Enabled by default
 
   // Scroll Controller para manejar el desplazamiento automático
@@ -733,350 +744,645 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     });
   }
 
+  // Métodos para la selección múltiple
+
+  /// Activar o desactivar el modo de selección múltiple
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      // Si desactivamos el modo selección, limpiar las selecciones
+      if (!_isSelectionMode) {
+        _selectedFlightIndices.clear();
+      }
+    });
+  }
+
+  /// Seleccionar o deseleccionar un vuelo por su índice
+  void _toggleFlightSelection(int index) {
+    setState(() {
+      if (_selectedFlightIndices.contains(index)) {
+        _selectedFlightIndices.remove(index);
+      } else {
+        _selectedFlightIndices.add(index);
+      }
+
+      // Si no quedan vuelos seleccionados, desactivar el modo selección
+      if (_selectedFlightIndices.isEmpty && _isSelectionMode) {
+        _isSelectionMode = false;
+      }
+    });
+  }
+
+  /// Seleccionar todos los vuelos filtrados
+  void _selectAllFlights() {
+    setState(() {
+      _selectedFlightIndices = Set<int>.from(
+          List<int>.generate(_filteredFlights.length, (index) => index));
+    });
+  }
+
+  /// Deseleccionar todos los vuelos
+  void _deselectAllFlights() {
+    setState(() {
+      _selectedFlightIndices.clear();
+    });
+  }
+
+  /// Guardar vuelos seleccionados en la lista de MyFlights
+  void _saveSelectedFlights() async {
+    // Obtener los vuelos seleccionados de la lista filtrada
+    List<Map<String, dynamic>> selectedFlights = [];
+    for (int index in _selectedFlightIndices) {
+      selectedFlights.add(_filteredFlights[index]);
+    }
+
+    // Mostrar indicador de progreso
+    final progressDialog = ProgressDialog(
+      context,
+      type: ProgressDialogType.normal,
+      isDismissible: false,
+    );
+
+    progressDialog.style(
+      message: 'Guardando vuelos...',
+      borderRadius: 10.0,
+      backgroundColor: Colors.white,
+      progressWidget: const CircularProgressIndicator(),
+      elevation: 10.0,
+      insetAnimCurve: Curves.easeInOut,
+    );
+
+    progressDialog.show();
+
+    int savedCount = 0;
+    int alreadySavedCount = 0;
+
+    try {
+      // Guardar cada vuelo seleccionado
+      for (final index in _selectedFlightIndices) {
+        if (index < _filteredFlights.length) {
+          final flight = _filteredFlights[index];
+          final wasAdded = await UserFlightsService.saveFlight(flight);
+
+          if (wasAdded) {
+            savedCount++;
+          } else {
+            alreadySavedCount++;
+          }
+        }
+      }
+
+      // Cerrar el diálogo de progreso
+      if (progressDialog.isShowing) {
+        await progressDialog.hide();
+      }
+
+      if (!mounted) return;
+
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Añadidos $savedCount vuelos a tu lista${alreadySavedCount > 0 ? ' ($alreadySavedCount ya guardados)' : ''}',
+          ),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // Desactivar el modo selección y limpiar selecciones
+      setState(() {
+        _isSelectionMode = false;
+        _selectedFlightIndices.clear();
+      });
+    } catch (e) {
+      // Cerrar el diálogo de progreso
+      if (progressDialog.isShowing) {
+        await progressDialog.hide();
+      }
+
+      if (!mounted) return;
+
+      // Mostrar mensaje de error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar vuelos: $e'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Mostrar diálogo de filtros
+  Future<void> _showFilterDialog() async {
+    // Implementar en el futuro
+    // Por ahora solo mostramos un mensaje
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Filtros próximamente'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    print(
-        'LOG: Building UI for all flights (${_filteredFlights.length} flights shown out of ${widget.flights.length} total)');
-
-    return Column(
-      children: [
-        // Date and time range selector
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: InkWell(
-            onTap: () => _showDateTimeRangePicker(context),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.date_range, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Show departures from ${_formatDateTimeRange()}',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
-                ],
-              ),
-            ),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'All Departures',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        // Search bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Search by flight number or destination',
-              prefixIcon: const Icon(Icons.search, color: Colors.blue),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              filled: true,
-              fillColor: Colors.white,
-              // Add clear button if there is text
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear, color: Colors.grey.shade600),
-                      onPressed: () {
-                        // Clear search field
-                        _filterFlights('');
-                        // We also need to clear the TextField
-                        final textFieldController = TextEditingController();
-                        textFieldController.clear();
-                      },
-                    )
-                  : null,
-            ),
-            onChanged: _filterFlights,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              setState(() {
+                _showSearchBar = !_showSearchBar;
+                if (!_showSearchBar) {
+                  _searchController.clear();
+                  _searchAirline = '';
+                  _searchAirport = '';
+                  _searchGate = '';
+                }
+              });
+            },
           ),
-        ),
-        // Results counter
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${_filteredFlights.length} flights',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              if (_norwegianEquivalenceEnabled &&
-                  _searchQuery.toLowerCase().contains('dy'))
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AirlineHelper.getAirlineColor('DY'),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Showing also D8',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                )
-              else if (_norwegianEquivalenceEnabled &&
-                  _searchQuery.toLowerCase().contains('d8'))
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AirlineHelper.getAirlineColor('DY'),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Showing also DY',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              if (_searchQuery.isNotEmpty ||
-                  widget.flights.length != _filteredFlights.length)
-                TextButton.icon(
-                  onPressed: () {
-                    // Reset search and date filters
-                    _resetToDefaultFilters();
-                  },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Reset Filters'),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () async {
+              await _showFilterDialog();
+            },
           ),
-        ),
-        Expanded(
-          child: _filteredFlights.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+        ],
+      ),
+      // Añadir FloatingActionButton cuando estamos en modo selección
+      floatingActionButton: _isSelectionMode
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Botón para guardar los vuelos seleccionados
+                FloatingActionButton.extended(
+                  heroTag: 'saveSelectedFlights',
+                  onPressed: _selectedFlightIndices.isNotEmpty
+                      ? _saveSelectedFlights
+                      : null,
+                  backgroundColor: _selectedFlightIndices.isNotEmpty
+                      ? Colors.green.shade300
+                      : Colors.grey,
+                  elevation: 4,
+                  label: Row(
                     children: [
-                      const Icon(
-                        Icons.search_off,
-                        size: 48,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
+                      const Icon(Icons.save),
+                      const SizedBox(width: 8),
                       Text(
-                        _searchQuery.isNotEmpty
-                            ? 'No flights found for "$_searchQuery"'
-                            : 'No flights in selected date range',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () {
-                          // Reset all filters
-                          _resetToDefaultFilters();
-                        },
-                        child: const Text('Show all flights'),
+                        'Add to My Flights (${_selectedFlightIndices.length})',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: widget.onRefresh ?? () async {},
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: _filteredFlights.length,
-                    itemBuilder: (context, index) {
-                      final flight = _filteredFlights[index];
-
-                      // Extract only the time from schedule_time
-                      final formattedTime =
-                          _extractTimeFromSchedule(flight['schedule_time']);
-
-                      // Extract date from schedule_time
-                      final formattedDate =
-                          _extractDateFromSchedule(flight['schedule_time']);
-
-                      // Extract status time if available
-                      final String? statusTime =
-                          flight['status_time'] != null &&
-                                  flight['status_time'].toString().isNotEmpty
-                              ? _extractTimeFromSchedule(flight['status_time'])
-                              : null;
-
-                      // Check if flight is delayed (status_time is different and later than schedule_time)
-                      final bool isDelayed = statusTime != null &&
-                          statusTime != formattedTime &&
-                          _isLaterTime(statusTime, formattedTime);
-
-                      // For debugging
-                      print(
-                          'LOG: Flight ${flight['flight_id']} - Original: ${flight['schedule_time']}, Formatted: $formattedTime, Status: ${flight['status_time']}, Delayed: $isDelayed');
-
-                      // Check if flight is departed
-                      final bool isDeparted = flight['status_code'] == 'D';
-
-                      // Check if flight is cancelled
-                      final bool isCancelled = flight['status_code'] == 'C';
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Stack(
-                          children: [
-                            ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: flight['color'],
-                                child: Text(
-                                  flight['airline'],
-                                  style: TextStyle(
-                                    color: AirlineHelper.getTextColorForAirline(
-                                        flight['airline']),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDeparted || isCancelled
-                                      ? Colors.grey
-                                      : Colors.black,
-                                  decoration: isDeparted || isCancelled
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              subtitle: Row(
-                                children: [
-                                  Text('Gate: ${flight['gate']}'),
-                                  if (isDelayed && !isCancelled) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.amber.shade700,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text(
-                                            'DELAYED',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            statusTime!,
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              trailing:
-                                  const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: () {
-                                print(
-                                    'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
-
-                                // Navegar a la pantalla de detalles
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => FlightDetailsScreen(
-                                      flightId: flight['flight_id'],
-                                      documentId: flight['id'] ?? '',
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            if (isDeparted)
-                              Positioned(
-                                right: 0,
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Banner(
-                                    message: 'DEPARTED',
-                                    location: BannerLocation.topEnd,
-                                    color: Colors.red.shade700,
-                                    textStyle: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (isCancelled)
-                              Positioned(
-                                right: 0,
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Banner(
-                                    message: 'CANCELLED',
-                                    location: BannerLocation.topEnd,
-                                    color: Colors.grey.shade800,
-                                    textStyle: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
+                ),
+                const SizedBox(height: 12),
+                // Botón para seleccionar todos los vuelos
+                FloatingActionButton(
+                  heroTag: 'selectAll',
+                  onPressed: _filteredFlights.isNotEmpty
+                      ? () {
+                          if (_selectedFlightIndices.length ==
+                              _filteredFlights.length) {
+                            _deselectAllFlights();
+                          } else {
+                            _selectAllFlights();
+                          }
+                        }
+                      : null,
+                  backgroundColor: _filteredFlights.isNotEmpty
+                      ? Colors.white
+                      : Colors.grey.shade200,
+                  foregroundColor: Colors.black87,
+                  elevation: 3,
+                  mini: true,
+                  child: Icon(
+                    _selectedFlightIndices.length == _filteredFlights.length &&
+                            _filteredFlights.isNotEmpty
+                        ? Icons.deselect
+                        : Icons.select_all,
                   ),
                 ),
-        ),
-      ],
+                const SizedBox(height: 12),
+                // Botón para salir del modo selección
+                FloatingActionButton(
+                  heroTag: 'exitSelection',
+                  onPressed: () {
+                    _toggleSelectionMode();
+                  },
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  elevation: 3,
+                  mini: true,
+                  child: const Icon(Icons.close),
+                ),
+              ],
+            )
+          : null,
+      body: Column(
+        children: [
+          // Date and time range selector
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: InkWell(
+              onTap: () => _showDateTimeRangePicker(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.date_range, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Show departures from ${_formatDateTimeRange()}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                    Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Search bar
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search by flight number or destination',
+                prefixIcon: const Icon(Icons.search, color: Colors.blue),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                filled: true,
+                fillColor: Colors.white,
+                // Add clear button if there is text
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, color: Colors.grey.shade600),
+                        onPressed: () {
+                          // Clear search field
+                          _filterFlights('');
+                          // We also need to clear the TextField
+                          final textFieldController = TextEditingController();
+                          textFieldController.clear();
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: _filterFlights,
+            ),
+          ),
+          // Results counter
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_filteredFlights.length} flights',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                Row(
+                  children: [
+                    // Botón para activar modo selección
+                    if (!_isSelectionMode)
+                      TextButton.icon(
+                        onPressed: _toggleSelectionMode,
+                        icon: const Icon(Icons.checklist, size: 16),
+                        label: const Text('Select'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+
+                    // Información de Norwegian si es relevante
+                    if (_norwegianEquivalenceEnabled &&
+                        _searchQuery.toLowerCase().contains('dy'))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AirlineHelper.getAirlineColor('DY'),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Showing also D8',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )
+                    else if (_norwegianEquivalenceEnabled &&
+                        _searchQuery.toLowerCase().contains('d8'))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AirlineHelper.getAirlineColor('DY'),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Showing also DY',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+
+                    // Botón para resetear filtros
+                    if (_searchQuery.isNotEmpty ||
+                        widget.flights.length != _filteredFlights.length)
+                      TextButton.icon(
+                        onPressed: () {
+                          // Reset search and date filters
+                          _resetToDefaultFilters();
+                        },
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Reset Filters'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _filteredFlights.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.search_off,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isNotEmpty
+                              ? 'No flights found for "$_searchQuery"'
+                              : 'No flights in selected date range',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            // Reset all filters
+                            _resetToDefaultFilters();
+                          },
+                          child: const Text('Show all flights'),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: widget.onRefresh ?? () async {},
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: _filteredFlights.length,
+                      itemBuilder: (context, index) {
+                        final flight = _filteredFlights[index];
+
+                        // Extract only the time from schedule_time
+                        final formattedTime =
+                            _extractTimeFromSchedule(flight['schedule_time']);
+
+                        // Extract date from schedule_time
+                        final formattedDate =
+                            _extractDateFromSchedule(flight['schedule_time']);
+
+                        // Extract status time if available
+                        final String? statusTime = flight['status_time'] !=
+                                    null &&
+                                flight['status_time'].toString().isNotEmpty
+                            ? _extractTimeFromSchedule(flight['status_time'])
+                            : null;
+
+                        // Check if flight is delayed (status_time is different and later than schedule_time)
+                        final bool isDelayed = statusTime != null &&
+                            statusTime != formattedTime &&
+                            _isLaterTime(statusTime, formattedTime);
+
+                        // For debugging
+                        print(
+                            'LOG: Flight ${flight['flight_id']} - Original: ${flight['schedule_time']}, Formatted: $formattedTime, Status: ${flight['status_time']}, Delayed: $isDelayed');
+
+                        // Check if flight is departed
+                        final bool isDeparted = flight['status_code'] == 'D';
+
+                        // Check if flight is cancelled
+                        final bool isCancelled = flight['status_code'] == 'C';
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Stack(
+                            children: [
+                              ListTile(
+                                leading: _isSelectionMode
+                                    ? Checkbox(
+                                        value: _selectedFlightIndices
+                                            .contains(index),
+                                        onChanged: (bool? value) {
+                                          _toggleFlightSelection(index);
+                                        },
+                                        activeColor: Colors.green.shade300,
+                                      )
+                                    : CircleAvatar(
+                                        backgroundColor: flight['color'],
+                                        child: Text(
+                                          flight['airline'],
+                                          style: TextStyle(
+                                            color: AirlineHelper
+                                                .getTextColorForAirline(
+                                                    flight['airline']),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                title: Text(
+                                  '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isDeparted || isCancelled
+                                        ? Colors.grey
+                                        : Colors.black,
+                                    decoration: isDeparted || isCancelled
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                                subtitle: Row(
+                                  children: [
+                                    Text('Gate: ${flight['gate']}'),
+                                    if (isDelayed && !isCancelled) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade700,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Text(
+                                              'DELAYED',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              statusTime!,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                trailing: _isSelectionMode
+                                    ? null
+                                    : const Icon(Icons.arrow_forward_ios,
+                                        size: 16),
+                                onTap: () {
+                                  if (_isSelectionMode) {
+                                    // En modo selección, seleccionar/deseleccionar
+                                    _toggleFlightSelection(index);
+                                  } else {
+                                    // En modo normal, navegar a detalles
+                                    print(
+                                        'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
+
+                                    // Navegar a la pantalla de detalles
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            FlightDetailsScreen(
+                                          flightId: flight['flight_id'],
+                                          documentId: flight['id'] ?? '',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                onLongPress: _isSelectionMode
+                                    ? null
+                                    : () async {
+                                        // Si no estamos en modo selección, activarlo y seleccionar este vuelo
+                                        if (!_isSelectionMode) {
+                                          setState(() {
+                                            _isSelectionMode = true;
+                                            _selectedFlightIndices.add(index);
+                                          });
+                                        }
+                                      },
+                              ),
+                              if (isDeparted)
+                                Positioned(
+                                  right: 0,
+                                  left: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Banner(
+                                      message: 'DEPARTED',
+                                      location: BannerLocation.topEnd,
+                                      color: Colors.red.shade700,
+                                      textStyle: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              if (isCancelled)
+                                Positioned(
+                                  right: 0,
+                                  left: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Banner(
+                                      message: 'CANCELLED',
+                                      location: BannerLocation.topEnd,
+                                      color: Colors.grey.shade800,
+                                      textStyle: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

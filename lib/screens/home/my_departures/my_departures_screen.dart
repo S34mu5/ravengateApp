@@ -1,55 +1,133 @@
 import 'package:flutter/material.dart';
 import 'my_departures_ui.dart';
 import '../../../utils/airline_helper.dart';
+import '../../../services/user/user_flights_service.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
-class MyDeparturesScreen extends StatelessWidget {
+class MyDeparturesScreen extends StatefulWidget {
   const MyDeparturesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<MyDeparturesScreen> createState() => _MyDeparturesScreenState();
+}
+
+class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
+  List<Map<String, dynamic>> _userFlights = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserFlights();
+  }
+
+  /// Cargar los vuelos guardados por el usuario
+  Future<void> _loadUserFlights() async {
     print('LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen');
-    // Lista ficticia para mostrar los vuelos del usuario (ordenados por hora)
-    final List<Map<String, dynamic>> myFlights = [
-      {
-        'airline': 'DY',
-        'flight_id': 'DY2218',
-        'schedule_time': '08:45',
-        'airport': 'BCN',
-        'gate': 'B7',
-        'color': AirlineHelper.getAirlineColor('DY'),
-      },
-      {
-        'airline': 'DY',
-        'flight_id': 'DY7432',
-        'schedule_time': '12:30',
-        'airport': 'LGW',
-        'gate': 'C4',
-        'color': AirlineHelper.getAirlineColor('DY'),
-      },
-      {
-        'airline': 'DY',
-        'flight_id': 'DY85323',
-        'schedule_time': '19:50',
-        'airport': 'ALC',
-        'gate': 'D9',
-        'color': AirlineHelper.getAirlineColor('DY'),
-      },
-      {
-        'airline': 'DY',
-        'flight_id': 'DY9104',
-        'schedule_time': '22:10',
-        'airport': 'ARN',
-        'gate': 'A2',
-        'color': AirlineHelper.getAirlineColor('DY'),
-      },
-    ];
 
-    print(
-        'LOG: Se cargaron ${myFlights.length} vuelos del usuario en MyDeparturesScreen');
-    // En el futuro, aquí podrías agregar lógica para cargar datos de usuario desde una API,
-    // filtrar por fechas, recordatorios de check-in, etc.
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
 
-    return MyDeparturesUI(flights: myFlights);
+      // Obtener vuelos del usuario desde el servicio
+      final userFlights = await UserFlightsService.getUserFlights();
+
+      setState(() {
+        _userFlights = userFlights;
+        _isLoading = false;
+      });
+
+      print('LOG: Se cargaron ${_userFlights.length} vuelos del usuario');
+    } catch (e) {
+      print('LOG: Error al cargar vuelos del usuario: $e');
+      setState(() {
+        _errorMessage = 'Error loading flights: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text(
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red.shade700),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadUserFlights,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadUserFlights,
+                  child: MyDeparturesUI(
+                    flights: _userFlights,
+                    onRemoveFlight: _removeFlight,
+                  ),
+                ),
+    );
+  }
+
+  /// Eliminar un vuelo de la lista del usuario
+  Future<void> _removeFlight(String flightId) async {
+    try {
+      // Mostrar indicador de carga
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Eliminar el vuelo
+      final wasRemoved = await UserFlightsService.removeFlight(flightId);
+
+      // Recargar la lista
+      await _loadUserFlights();
+
+      if (!mounted) return;
+
+      // Mostrar mensaje de éxito o error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            wasRemoved ? 'Flight removed from your list' : 'Flight not found',
+          ),
+          backgroundColor:
+              wasRemoved ? Colors.green.shade700 : Colors.orange.shade700,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      print('LOG: Error removing flight: $e');
+
+      if (!mounted) return;
+
+      // Mostrar mensaje de error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error removing flight: $e'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Recargar la lista de todos modos
+      _loadUserFlights();
+    }
   }
 }

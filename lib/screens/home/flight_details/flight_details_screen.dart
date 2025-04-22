@@ -55,6 +55,43 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
       final Map<String, dynamic> flightData =
           flightDoc.data() as Map<String, dynamic>;
 
+      // Calculate the cutoff time (2 hours before scheduled flight time)
+      DateTime? cutoffTime;
+      try {
+        // Get the schedule_time from flight data
+        final String scheduleTimeStr = flightData['schedule_time'] ?? '';
+        if (scheduleTimeStr.isNotEmpty) {
+          // Create a DateTime object based on schedule_time
+          DateTime scheduleDateTime;
+
+          // Check if it's in ISO 8601 format (contains 'T')
+          if (scheduleTimeStr.contains('T')) {
+            scheduleDateTime = DateTime.parse(scheduleTimeStr);
+          } else {
+            // It's in HH:MM format, we need to create a DateTime for today
+            final List<String> timeParts = scheduleTimeStr.split(':');
+            if (timeParts.length == 2) {
+              final int hour = int.parse(timeParts[0]);
+              final int minute = int.parse(timeParts[1]);
+              final DateTime now = DateTime.now();
+              scheduleDateTime =
+                  DateTime(now.year, now.month, now.day, hour, minute);
+            } else {
+              throw FormatException('Invalid time format: $scheduleTimeStr');
+            }
+          }
+
+          // Calculate 2 hours before the schedule time
+          cutoffTime = scheduleDateTime.subtract(const Duration(hours: 2));
+
+          print(
+              'LOG: Schedule time: $scheduleDateTime, Cutoff time: $cutoffTime');
+        }
+      } catch (timeError) {
+        print('LOG: Error calculating cutoff time: $timeError');
+        // If there's an error, we'll continue without filtering
+      }
+
       // Load gate change history from the 'history' subcollection
       List<Map<String, dynamic>> gateHistory = [];
 
@@ -81,6 +118,23 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
               'old_gate': data['old_gate'] ?? '-',
             };
           }).toList();
+
+          // Filter history items if cutoff time is available
+          if (cutoffTime != null) {
+            gateHistory = gateHistory.where((item) {
+              // Convert timestamp to DateTime
+              final timestamp = item['timestamp'];
+              final DateTime changeTime = timestamp is Timestamp
+                  ? timestamp.toDate()
+                  : DateTime.parse(timestamp.toString());
+
+              // Compare with cutoff time
+              return changeTime.isAfter(cutoffTime!);
+            }).toList();
+
+            print(
+                'LOG: Filtered to ${gateHistory.length} gate history records after cutoff time');
+          }
         }
 
         print('LOG: Loaded ${gateHistory.length} gate history records');

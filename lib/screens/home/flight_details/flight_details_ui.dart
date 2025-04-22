@@ -168,6 +168,40 @@ class FlightDetailsUI extends StatelessWidget {
               ),
             ),
 
+            // Subtitle explaining the filter
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey.shade600,
+                  ),
+                  children: [
+                    const TextSpan(text: 'Showing changes from '),
+                    TextSpan(
+                      text: '2 hours before',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    const TextSpan(text: ' scheduled departure at '),
+                    TextSpan(
+                      text: formattedScheduleTime,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
             // Gate change history list
             gateHistory.isEmpty
                 ? const Padding(
@@ -232,21 +266,27 @@ class FlightDetailsUI extends StatelessWidget {
                   ),
 
             // Additional flight information
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Additional Information',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: ElevatedButton.icon(
+                onPressed: () => _showAdditionalInfoModal(context),
+                icon: const Icon(Icons.info_outline),
+                label: const Text('Show Additional Information'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: airlineColor.withOpacity(0.3),
+                  foregroundColor: AirlineHelper.getTextColorForAirline(
+                      flightDetails['airline'] ?? ''),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(
+                      color: airlineColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  elevation: 2,
                 ),
               ),
-            ),
-
-            // Show all available fields that haven't been displayed yet
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildAdditionalInfo(),
             ),
 
             const SizedBox(height: 16),
@@ -544,5 +584,110 @@ class FlightDetailsUI extends StatelessWidget {
   /// Returns the color corresponding to each airline
   Color _getAirlineColor(String airline) {
     return AirlineHelper.getAirlineColor(airline);
+  }
+
+  void _showAdditionalInfoModal(BuildContext context) {
+    // Get the size of available screen
+    final Size screenSize = MediaQuery.of(context).size;
+    // Get airline color from the same source used in build method
+    final Color airlineColor =
+        AirlineHelper.getAirlineColor(flightDetails['airline'] ?? '');
+    final Color airlineBgColor = airlineColor.withOpacity(0.3);
+    // Get airline text color
+    final Color airlineTextColor =
+        AirlineHelper.getTextColorForAirline(flightDetails['airline'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 8,
+          child: Container(
+            width: screenSize.width * 0.9,
+            constraints: BoxConstraints(
+              maxHeight: screenSize.height * 0.8,
+            ),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: airlineColor.withOpacity(0.5),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: airlineBgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: airlineColor,
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.info, size: 16, color: airlineTextColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Additional Information',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: airlineTextColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: airlineTextColor),
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: 'Close',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Content
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: _buildAdditionalInfo(),
+                  ),
+                ),
+                // Footer
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: airlineColor,
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      minimumSize: const Size(80, 36),
+                    ),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
