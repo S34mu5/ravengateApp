@@ -202,7 +202,7 @@ class MyApp extends StatelessWidget {
         // Material 3
         useMaterial3: true,
       ),
-      themeMode: ThemeMode.system, // Seguir la configuración del sistema
+      themeMode: ThemeMode.light, // Usar siempre tema claro
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {

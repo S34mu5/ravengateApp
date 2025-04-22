@@ -1219,7 +1219,9 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                 ),
                                 subtitle: Row(
                                   children: [
-                                    Text('Gate: ${flight['gate']}'),
+                                    Text(
+                                      'Gate: ${flight['gate']}',
+                                    ),
                                     if (isDelayed && !isCancelled) ...[
                                       const SizedBox(width: 8),
                                       Container(

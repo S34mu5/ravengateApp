@@ -362,12 +362,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
                                 '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isDeparted || isCancelled
-                                      ? Colors.grey
-                                      : Colors.black,
-                                  decoration: isDeparted || isCancelled
-                                      ? TextDecoration.lineThrough
-                                      : null,
+                                  color: Colors.black87,
                                 ),
                               ),
                               subtitle: Column(
@@ -375,7 +370,9 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
                                 children: [
                                   Row(
                                     children: [
-                                      Text('Gate: ${flight['gate']}'),
+                                      Text(
+                                        'Gate: ${flight['gate']}',
+                                      ),
                                       if (isDelayed && !isCancelled) ...[
                                         const SizedBox(width: 8),
                                         Container(
