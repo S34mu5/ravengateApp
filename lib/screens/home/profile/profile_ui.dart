@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/cache/cache_service.dart';
+import '../../../services/developer/developer_mode_service.dart';
+import '../../../services/user/user_flights_service.dart';
+import '../../../utils/progress_dialog.dart';
 
 /// Widget que muestra la interfaz de usuario para la pantalla de perfil
 class ProfileUI extends StatefulWidget {
@@ -19,11 +22,21 @@ class ProfileUI extends StatefulWidget {
 
 class _ProfileUIState extends State<ProfileUI> {
   bool _norwegianEquivalenceEnabled = true;
+  bool _developerModeEnabled = false;
+  final TextEditingController _pinController = TextEditingController();
+  int _pinAttempts = 0;
 
   @override
   void initState() {
     super.initState();
     _loadNorwegianPreference();
+    _loadDeveloperModeStatus();
+  }
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNorwegianPreference() async {
@@ -31,6 +44,205 @@ class _ProfileUIState extends State<ProfileUI> {
     setState(() {
       _norwegianEquivalenceEnabled = isEnabled;
     });
+  }
+
+  Future<void> _loadDeveloperModeStatus() async {
+    final isEnabled = await DeveloperModeService.isDeveloperModeEnabled();
+    setState(() {
+      _developerModeEnabled = isEnabled;
+    });
+  }
+
+  Future<bool> _showPinDialog() async {
+    // Resetear el controlador
+    _pinController.clear();
+
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Developer Mode PIN'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter the developer PIN to continue:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              obscureText: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                counterText: '',
+                hintText: '****',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final enteredPin = _pinController.text.trim();
+
+              if (DeveloperModeService.verifyPin(enteredPin)) {
+                Navigator.of(context).pop(true);
+                _pinAttempts = 0;
+              } else {
+                _pinAttempts++;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(_pinAttempts >= 3
+                        ? 'Incorrect PIN. Hint: Year of the RavenGate...'
+                        : 'Incorrect PIN. Try again.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                Navigator.of(context).pop(false);
+              }
+            },
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+
+    return result == true;
+  }
+
+  Future<void> _toggleDeveloperMode(bool newValue) async {
+    if (newValue && !_developerModeEnabled) {
+      // Si está intentando activar el modo, pedir PIN
+      final result = await _showPinDialog();
+
+      if (result == true) {
+        // PIN correcto, activar modo
+        await DeveloperModeService.setDeveloperModeEnabled(true);
+        setState(() {
+          _developerModeEnabled = true;
+        });
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Developer mode activated'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else if (!newValue && _developerModeEnabled) {
+      // Desactivar modo sin pedir PIN
+      await DeveloperModeService.setDeveloperModeEnabled(false);
+      setState(() {
+        _developerModeEnabled = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Developer mode deactivated'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
+  }
+
+  Future<void> _runFirebaseDiagnostic() async {
+    // Primero verificar si el modo desarrollador está activo
+    final isEnabled = await DeveloperModeService.isDeveloperModeEnabled();
+    if (!isEnabled) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Developer mode is not enabled'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Mostrar un diálogo confirmando la acción
+    final shouldRunDiagnostic = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Firebase Diagnostic'),
+        content: const Text(
+            'This will run a diagnostic to check and fix Firebase structure. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Run Diagnostic'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRunDiagnostic != true) return;
+
+    // Mostrar indicador de progreso
+    final progressDialog = ProgressDialog(
+      context,
+      type: ProgressDialogType.normal,
+      isDismissible: false,
+    );
+
+    progressDialog.style(
+      message: 'Running Firebase Diagnostic...',
+      borderRadius: 10.0,
+      backgroundColor: Colors.white,
+      progressWidget: const CircularProgressIndicator(),
+      elevation: 10.0,
+      insetAnimCurve: Curves.easeInOut,
+    );
+
+    await progressDialog.show();
+
+    try {
+      // Ejecutar el diagnóstico
+      await UserFlightsService.ensureFirestoreStructure();
+
+      // Cerrar el diálogo de progreso
+      if (progressDialog.isShowing) {
+        await progressDialog.hide();
+      }
+
+      if (!mounted) return;
+
+      // Mostrar resultado
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Diagnosis completed. Check logs for details.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      // Cerrar el diálogo de progreso
+      if (progressDialog.isShowing) {
+        await progressDialog.hide();
+      }
+
+      if (!mounted) return;
+
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   @override
@@ -91,6 +303,27 @@ class _ProfileUIState extends State<ProfileUI> {
                         value);
                   },
                 ),
+                const Divider(),
+                // Opción de Developer Mode
+                SwitchListTile(
+                  title: const Text('Developer Mode'),
+                  subtitle: const Text(
+                      'Enable advanced diagnostics and debugging tools'),
+                  value: _developerModeEnabled,
+                  activeColor: Colors.purple,
+                  onChanged: _toggleDeveloperMode,
+                ),
+                // Botón de diagnóstico (solo visible si el modo desarrollador está activado)
+                if (_developerModeEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16.0, top: 8.0),
+                    child: TextButton.icon(
+                      onPressed: _runFirebaseDiagnostic,
+                      icon: const Icon(Icons.bug_report, color: Colors.purple),
+                      label: const Text('Run Firebase Diagnostic',
+                          style: TextStyle(color: Colors.purple)),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -82,7 +82,8 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
+        selectedItemColor: const Color(0xFF202124), // Negro Google
+        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
     );

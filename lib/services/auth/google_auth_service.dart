@@ -12,8 +12,12 @@ class GoogleAuthService implements AuthService {
 
   GoogleAuthService()
       : _googleSignIn = GoogleSignIn(
-          scopes: ['email', 'profile'],
+          // Configuración básica con solo los elementos esenciales
+          scopes: ['email'],
+          // El signInOption explícito puede ayudar con ciertos dispositivos
           signInOption: SignInOption.standard,
+          // Agregamos hostedDomain: null para evitar restricciones de dominio
+          hostedDomain: null,
         ),
         _auth = FirebaseAuth.instance;
 
@@ -96,24 +100,71 @@ class GoogleAuthService implements AuthService {
   @override
   Future<AuthResult> authenticate() async {
     try {
-      // Primero verificamos si hay una sesión activa
+      print('🔄 Iniciando flujo de Google Sign In...');
+
+      // Verificamos si hay una sesión activa primero
       final currentSession = await checkCurrentUser();
       if (currentSession.success) {
         return currentSession;
       }
 
-      print('🔄 Iniciando flujo de Google Sign In...');
-
       // Si no hay sesión, pedimos seleccionar cuenta
       print('🔄 Solicitando selección de cuenta de Google...');
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
-      if (googleUser == null) {
-        print('❌ Usuario canceló el login de Google');
+      // Manejo detallado de errores
+      GoogleSignInAccount? googleUser;
+      try {
+        // Intento alternativo con desconexión previa
+        // Esto puede ayudar en casos donde hay un estado inconsistente
+        await _googleSignIn.signOut();
+        googleUser = await _googleSignIn.signIn();
+
+        if (googleUser == null) {
+          print('❌ Usuario canceló el login de Google');
+          return AuthResult(
+            success: false,
+            method: method,
+            error: 'Google Sign In cancelled by user',
+          );
+        }
+      } catch (signInError) {
+        print('🔍 Error detallado en signIn: $signInError');
+
+        // Análisis detallado del error
+        final errorString = signInError.toString();
+        if (errorString.contains('ApiException: 10')) {
+          print(
+              '⚠️ Error ApiException:10 - Problema con la configuración del proyecto');
+          return AuthResult(
+            success: false,
+            method: method,
+            error:
+                'ERROR 10: La aplicación no está correctamente registrada en Google. Verifica que todas las huellas SHA-1 y SHA-256 estén configuradas en Firebase.',
+          );
+        } else if (errorString.contains('ApiException: 7')) {
+          print('⚠️ Error ApiException:7 - Problema de red');
+          return AuthResult(
+            success: false,
+            method: method,
+            error:
+                'ERROR 7: Problema de conectividad. Verifica tu conexión a Internet.',
+          );
+        } else if (errorString.contains('ApiException: 12500')) {
+          print(
+              '⚠️ Error ApiException:12500 - Problema con Google Play Services');
+          return AuthResult(
+            success: false,
+            method: method,
+            error:
+                'ERROR 12500: Google Play Services no está disponible o actualizado.',
+          );
+        }
+
+        // Mensaje genérico para otros errores
         return AuthResult(
           success: false,
           method: method,
-          error: 'Google Sign In cancelled by user',
+          error: 'Error de autenticación: $errorString',
         );
       }
 

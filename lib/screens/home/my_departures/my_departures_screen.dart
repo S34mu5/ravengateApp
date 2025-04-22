@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'my_departures_ui.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/user/user_flights_service.dart';
+import '../../../utils/progress_dialog.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
 class MyDeparturesScreen extends StatefulWidget {
@@ -27,6 +28,9 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
     print('LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen');
 
     try {
+      // Verificar si el widget está montado antes de actualizar estado
+      if (!mounted) return;
+
       setState(() {
         _isLoading = true;
         _errorMessage = null;
@@ -34,6 +38,9 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
 
       // Obtener vuelos del usuario desde el servicio
       final userFlights = await UserFlightsService.getUserFlights();
+
+      // Verificar nuevamente si el widget sigue montado
+      if (!mounted) return;
 
       setState(() {
         _userFlights = userFlights;
@@ -43,6 +50,10 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       print('LOG: Se cargaron ${_userFlights.length} vuelos del usuario');
     } catch (e) {
       print('LOG: Error al cargar vuelos del usuario: $e');
+
+      // Verificar si el widget sigue montado antes de actualizar estado de error
+      if (!mounted) return;
+
       setState(() {
         _errorMessage = 'Error loading flights: $e';
         _isLoading = false;
@@ -80,6 +91,7 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
                   child: MyDeparturesUI(
                     flights: _userFlights,
                     onRemoveFlight: _removeFlight,
+                    onRefresh: _loadUserFlights,
                   ),
                 ),
     );
@@ -88,6 +100,9 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
   /// Eliminar un vuelo de la lista del usuario
   Future<void> _removeFlight(String flightId) async {
     try {
+      // Verificar si el widget está montado antes de actualizar estado
+      if (!mounted) return;
+
       // Mostrar indicador de carga
       setState(() {
         _isLoading = true;
@@ -96,9 +111,13 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       // Eliminar el vuelo
       final wasRemoved = await UserFlightsService.removeFlight(flightId);
 
+      // Verificar si el widget sigue montado antes de recargar la lista
+      if (!mounted) return;
+
       // Recargar la lista
       await _loadUserFlights();
 
+      // Esta verificación ya existe, se mantiene
       if (!mounted) return;
 
       // Mostrar mensaje de éxito o error
@@ -115,6 +134,7 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
     } catch (e) {
       print('LOG: Error removing flight: $e');
 
+      // Esta verificación ya existe, se mantiene
       if (!mounted) return;
 
       // Mostrar mensaje de error
@@ -126,8 +146,18 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
         ),
       );
 
+      // Verificar montado antes de recargar
+      if (!mounted) return;
+
       // Recargar la lista de todos modos
       _loadUserFlights();
     }
+  }
+
+  @override
+  void dispose() {
+    // Agregar limpieza o cancelación de operaciones pendientes si es necesario
+    print('LOG: Disposing MyDeparturesScreen');
+    super.dispose();
   }
 }

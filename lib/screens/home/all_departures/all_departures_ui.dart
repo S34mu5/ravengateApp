@@ -5,6 +5,7 @@ import '../../../services/user/user_flights_service.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../utils/progress_dialog.dart';
+import '../../../utils/flight_search_helper.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -34,7 +35,6 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   List<Map<String, dynamic>> _filteredFlights = [];
   Set<int> _selectedFlightIndices = {};
   // Variables para la búsqueda
-  bool _showSearchBar = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchAirline = '';
   String _searchAirport = '';
@@ -502,32 +502,11 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   void _applyTextFilter(String query) {
     setState(() {
       _searchQuery = query.toLowerCase();
-      if (_searchQuery.isEmpty) {
-        // If query is empty, show all flights
-        _filteredFlights = List.from(widget.flights);
-      } else {
-        // Filter by flight ID or airport (destination)
-        _filteredFlights = widget.flights.where((flight) {
-          final flightId = flight['flight_id'].toString().toLowerCase();
-          final airport = flight['airport'].toString().toLowerCase();
-          final airline = flight['airline'].toString().toLowerCase();
-
-          // Check if user is searching for DY or D8 (equivalents) and if preference is enabled
-          bool isMatchingNorwegianAirline = false;
-          if (_norwegianEquivalenceEnabled &&
-              (_searchQuery.contains('dy') || _searchQuery.contains('d8'))) {
-            isMatchingNorwegianAirline = flightId.contains('dy') ||
-                flightId.contains('d8') ||
-                airline == 'dy' ||
-                airline == 'd8';
-          }
-
-          // Return true if ID, airport or equivalent airline contains the query
-          return flightId.contains(_searchQuery) ||
-              airport.contains(_searchQuery) ||
-              isMatchingNorwegianAirline;
-        }).toList();
-      }
+      _filteredFlights = FlightSearchHelper.filterFlights(
+        flights: widget.flights,
+        searchQuery: query,
+        norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+      );
     });
 
     // Apply date and time filter to results
@@ -545,42 +524,11 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
     setState(() {
       // Filter flights by date range
-      _filteredFlights = _filteredFlights.where((flight) {
-        // Try to parse flight date
-        try {
-          final scheduleTimeStr = flight['schedule_time'].toString();
-          DateTime flightDateTime;
-
-          // Handle ISO format
-          if (scheduleTimeStr.contains('T')) {
-            flightDateTime = DateTime.parse(scheduleTimeStr);
-          } else {
-            // Simple HH:MM format, assume current date
-            final parts = scheduleTimeStr.split(':');
-            if (parts.length == 2) {
-              final hour = int.parse(parts[0]);
-              final minute = int.parse(parts[1]);
-              flightDateTime = DateTime(
-                _startDate.year,
-                _startDate.month,
-                _startDate.day,
-                hour,
-                minute,
-              );
-            } else {
-              // Unrecognized format
-              return false;
-            }
-          }
-
-          // Return true if within range
-          return flightDateTime.isAfter(startDateTime) &&
-              flightDateTime.isBefore(endDateTime);
-        } catch (e) {
-          print('LOG: Error parsing date for filtering: $e');
-          return false;
-        }
-      }).toList();
+      _filteredFlights = FlightSearchHelper.filterFlightsByDateRange(
+        flights: _filteredFlights,
+        startDateTime: startDateTime,
+        endDateTime: endDateTime,
+      );
     });
 
     print('LOG: Filtered ${_filteredFlights.length} flights within date range');
@@ -790,22 +738,17 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   /// Guardar vuelos seleccionados en la lista de MyFlights
   void _saveSelectedFlights() async {
-    // Obtener los vuelos seleccionados de la lista filtrada
-    List<Map<String, dynamic>> selectedFlights = [];
-    for (int index in _selectedFlightIndices) {
-      selectedFlights.add(_filteredFlights[index]);
-    }
+    if (_selectedFlightIndices.isEmpty) return;
 
-    // Mostrar indicador de progreso
-    final progressDialog = ProgressDialog(
+    // Show loading dialog
+    final ProgressDialog progressDialog = ProgressDialog(
       context,
       type: ProgressDialogType.normal,
       isDismissible: false,
     );
 
     progressDialog.style(
-      message: 'Guardando vuelos...',
-      borderRadius: 10.0,
+      message: 'Saving flights...',
       backgroundColor: Colors.white,
       progressWidget: const CircularProgressIndicator(),
       elevation: 10.0,
@@ -816,6 +759,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
     int savedCount = 0;
     int alreadySavedCount = 0;
+    int restoredCount = 0; // Counter for restored flights
 
     try {
       // Guardar cada vuelo seleccionado
@@ -825,7 +769,12 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
           final wasAdded = await UserFlightsService.saveFlight(flight);
 
           if (wasAdded) {
-            savedCount++;
+            // Check if the flight was previously archived
+            if (flight['was_archived'] == true) {
+              restoredCount++;
+            } else {
+              savedCount++;
+            }
           } else {
             alreadySavedCount++;
           }
@@ -839,12 +788,26 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
       if (!mounted) return;
 
+      // Build the message based on counters
+      String message = '';
+      if (savedCount > 0) {
+        message = 'Added $savedCount flights';
+      }
+
+      if (restoredCount > 0) {
+        if (message.isNotEmpty) message += ', ';
+        message += 'Restored $restoredCount previously archived flights';
+      }
+
+      if (alreadySavedCount > 0) {
+        if (message.isNotEmpty) message += ', ';
+        message += '$alreadySavedCount already in your list';
+      }
+
       // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Añadidos $savedCount vuelos a tu lista${alreadySavedCount > 0 ? ' ($alreadySavedCount ya guardados)' : ''}',
-          ),
+          content: Text(message),
           backgroundColor: Colors.green.shade700,
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
@@ -867,7 +830,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
       // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al guardar vuelos: $e'),
+          content: Text('Error saving flights: $e'),
           backgroundColor: Colors.red.shade700,
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
@@ -888,37 +851,59 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     );
   }
 
+  /// Acción al pulsar botón de guardado para un solo vuelo
+  void _saveFlight(Map<String, dynamic> flight) async {
+    try {
+      // Guardar el vuelo
+      final wasAdded = await UserFlightsService.saveFlight(flight);
+
+      if (!mounted) return;
+
+      if (wasAdded) {
+        // Verificar si el vuelo fue restaurado de archivados
+        final wasArchived = flight['was_archived'] == true;
+
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              wasArchived
+                  ? 'Flight ${flight['flight_id']} added (previously archived)'
+                  : 'Flight ${flight['flight_id']} added to your list',
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        // Mostrar mensaje de que ya estaba guardado
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Flight ${flight['flight_id']} already in your list'),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding flight: $e'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'All Departures',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              setState(() {
-                _showSearchBar = !_showSearchBar;
-                if (!_showSearchBar) {
-                  _searchController.clear();
-                  _searchAirline = '';
-                  _searchAirport = '';
-                  _searchGate = '';
-                }
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () async {
-              await _showFilterDialog();
-            },
-          ),
-        ],
-      ),
+      // Eliminamos el AppBar completamente
       // Añadir FloatingActionButton cuando estamos en modo selección
       floatingActionButton: _isSelectionMode
           ? Column(
@@ -991,16 +976,18 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
           : null,
       body: Column(
         children: [
+          // Añadir un pequeño espacio en la parte superior
+          const SizedBox(height: 8),
           // Date and time range selector
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.only(
+                left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
             child: InkWell(
               onTap: () => _showDateTimeRangePicker(context),
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(8),
@@ -1023,8 +1010,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
           ),
           // Search bar
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.only(
+                left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Search by flight number or destination',
@@ -1038,7 +1025,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 contentPadding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                 filled: true,
                 fillColor: Colors.white,
                 // Add clear button if there is text
@@ -1060,8 +1047,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
           ),
           // Results counter
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.only(
+                left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1088,41 +1075,13 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
                     // Información de Norwegian si es relevante
                     if (_norwegianEquivalenceEnabled &&
-                        _searchQuery.toLowerCase().contains('dy'))
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AirlineHelper.getAirlineColor('DY'),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Showing also D8',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      )
-                    else if (_norwegianEquivalenceEnabled &&
-                        _searchQuery.toLowerCase().contains('d8'))
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AirlineHelper.getAirlineColor('DY'),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Showing also DY',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                        (_searchQuery.toLowerCase().contains('dy') ||
+                            _searchQuery.toLowerCase().contains('d8')))
+                      FlightSearchHelper.buildNorwegianEquivalenceIndicator(
+                        searchQuery: _searchQuery,
+                        norwegianEquivalenceEnabled:
+                            _norwegianEquivalenceEnabled,
+                      )!,
 
                     // Botón para resetear filtros
                     if (_searchQuery.isNotEmpty ||
