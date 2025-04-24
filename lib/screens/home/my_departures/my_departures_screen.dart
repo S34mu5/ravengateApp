@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async'; // Importar para usar Timer
 import 'my_departures_ui.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/user/user_flights_service.dart';
@@ -16,11 +17,20 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
   List<Map<String, dynamic>> _userFlights = [];
   bool _isLoading = true;
   String? _errorMessage;
+  Timer? _refreshTimer; // Timer para actualización periódica
+  DateTime? _lastUpdated; // Tiempo de última actualización
 
   @override
   void initState() {
     super.initState();
     _loadUserFlights();
+
+    // Configurar actualización automática cada 3 minutos
+    _refreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
+      print(
+          'LOG: Actualizando datos de vuelos del usuario automáticamente cada 3 minutos');
+      _loadUserFlights();
+    });
   }
 
   /// Cargar los vuelos guardados por el usuario
@@ -45,6 +55,7 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       setState(() {
         _userFlights = userFlights;
         _isLoading = false;
+        _lastUpdated = DateTime.now();
       });
 
       print('LOG: Se cargaron ${_userFlights.length} vuelos del usuario');
@@ -92,6 +103,7 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
                     flights: _userFlights,
                     onRemoveFlight: _removeFlight,
                     onRefresh: _loadUserFlights,
+                    lastUpdated: _lastUpdated,
                   ),
                 ),
     );
@@ -156,8 +168,9 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
 
   @override
   void dispose() {
-    // Agregar limpieza o cancelación de operaciones pendientes si es necesario
-    print('LOG: Disposing MyDeparturesScreen');
+    // Cancelar el timer cuando se destruye el widget
+    _refreshTimer?.cancel();
+    print('LOG: Disposing MyDeparturesScreen and canceling refresh timer');
     super.dispose();
   }
 }

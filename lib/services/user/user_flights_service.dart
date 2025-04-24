@@ -322,6 +322,40 @@ class UserFlightsService {
     }
   }
 
+  /// Elimina permanentemente un vuelo archivado
+  /// Returns true if the flight was permanently deleted, false otherwise
+  static Future<bool> permanentlyDeleteFlight(String docId) async {
+    try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      print(
+          'LOG: Iniciando proceso de eliminación permanente para vuelo con docId: $docId');
+
+      if (user != null) {
+        // Si usuario está autenticado, eliminar de Firestore
+        final userFlightsRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('saved_flights');
+
+        print(
+            'LOG: Ruta de Firestore para eliminación: users/${user.uid}/saved_flights/$docId');
+
+        // Buscar el documento específico para eliminarlo
+        await userFlightsRef.doc(docId).delete();
+        print('LOG: Vuelo eliminado permanentemente: $docId');
+        return true;
+      } else {
+        // Si usuario no está autenticado, eliminar del almacenamiento local
+        // En este caso podemos usar el mismo método de eliminación estándar
+        return await _removeFlightFromLocalStorage(docId);
+      }
+    } catch (e) {
+      print('LOG: Error al eliminar permanentemente el vuelo: $e');
+      return false;
+    }
+  }
+
   /// Get user's archived flights
   static Future<List<Map<String, dynamic>>> getUserArchivedFlights() async {
     try {

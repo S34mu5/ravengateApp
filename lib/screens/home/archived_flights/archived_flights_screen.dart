@@ -134,6 +134,80 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
     }
   }
 
+  /// Eliminar permanentemente un vuelo archivado
+  Future<void> _permanentlyDeleteFlight(String docId) async {
+    try {
+      // Verificar si el widget está montado
+      if (!mounted) return;
+
+      // Mostrar indicador de progreso
+      final progressDialog = ProgressDialog(
+        context,
+        type: ProgressDialogType.normal,
+        isDismissible: false,
+      );
+
+      progressDialog.style(
+        message: 'Eliminando vuelo...',
+        borderRadius: 10.0,
+        backgroundColor: Colors.white,
+        progressWidget: const CircularProgressIndicator(),
+        elevation: 10.0,
+        insetAnimCurve: Curves.easeInOut,
+      );
+
+      progressDialog.show();
+
+      print('LOG: Intentando eliminar permanentemente vuelo con ID: $docId');
+
+      // Eliminar permanentemente el vuelo usando el ID del documento
+      final wasDeleted =
+          await UserFlightsService.permanentlyDeleteFlight(docId);
+
+      // Cerrar el diálogo de progreso
+      if (progressDialog.isShowing) {
+        await progressDialog.hide();
+      }
+
+      // Verificar si el widget sigue montado
+      if (!mounted) return;
+
+      // Mostrar mensaje de éxito o error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            wasDeleted
+                ? 'Flight permanently deleted'
+                : 'Could not delete flight',
+          ),
+          backgroundColor:
+              wasDeleted ? Colors.red.shade700 : Colors.orange.shade700,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Recargar la lista de vuelos archivados
+      await _loadArchivedFlights();
+    } catch (e) {
+      print('LOG: Error deleting flight with document ID $docId: $e');
+
+      // Verificar si el widget sigue montado
+      if (!mounted) return;
+
+      // Mostrar mensaje de error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting flight: $e'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Recargar la lista de todos modos
+      _loadArchivedFlights();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -174,6 +248,7 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
                     flights: _archivedFlights,
                     onRefresh: _loadArchivedFlights,
                     onRestoreFlight: _restoreFlight,
+                    onDeleteFlight: _permanentlyDeleteFlight,
                   ),
                 ),
     );

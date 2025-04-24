@@ -5,17 +5,20 @@ import '../../../utils/flight_search_helper.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../utils/progress_dialog.dart';
+import '../../../common/widgets/flight_card.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos archivados
 class ArchivedFlightsUI extends StatefulWidget {
   final List<Map<String, dynamic>> flights;
   final Future<void> Function()? onRefresh;
   final Future<void> Function(String flightId)? onRestoreFlight;
+  final Future<void> Function(String flightId)? onDeleteFlight;
 
   const ArchivedFlightsUI({
     required this.flights,
     this.onRefresh,
     this.onRestoreFlight,
+    this.onDeleteFlight,
     super.key,
   });
 
@@ -335,161 +338,82 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
                           ? _formatArchivedDate(flight['archived_at'])
                           : 'Unknown date';
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Stack(
-                          children: [
-                            ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: flight['color'] ??
-                                    AirlineHelper.getAirlineColor(
-                                        flight['airline']),
-                                child: Text(
-                                  flight['airline'],
-                                  style: TextStyle(
-                                    color: AirlineHelper.getTextColorForAirline(
-                                        flight['airline']),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Gate: ${flight['gate']}',
-                                      ),
-                                      if (isDelayed && !isCancelled) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.amber.shade700,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text(
-                                                'DELAYED',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                statusTime!,
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  // Mostrar información de archivado
-                                  Text(
-                                    'Archived on: $archivedDate',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(
-                                  Icons.restore,
-                                  color: Colors.blue,
-                                ),
-                                onPressed: () => _confirmRestoreFlight(
-                                  flight['doc_id'] ??
-                                      flight['id'] ??
-                                      flight['flight_id'],
-                                  flight['flight_id'],
-                                ),
-                                tooltip: 'Restore flight',
-                              ),
-                              onTap: () {
-                                print(
-                                    'LOG: Usuario seleccionó el vuelo archivado ${flight['flight_id']} para ${flight['airport']}');
+                      return FlightCard(
+                        flight: flight,
+                        isSelectionMode: false,
+                        isSelected: false,
+                        isDismissible:
+                            true, // Permitir deslizar para eliminar permanentemente
+                        selectionColor: Colors.blue.shade300,
+                        onTap: () {
+                          print(
+                              'LOG: Usuario seleccionó el vuelo archivado ${flight['flight_id']} para ${flight['airport']}');
 
-                                // Navegar a la pantalla de detalles
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => FlightDetailsScreen(
-                                      flightId: flight['flight_id'],
-                                      documentId: flight['id'] ?? '',
-                                    ),
-                                  ),
-                                );
-                              },
+                          // Navegar a la pantalla de detalles
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => FlightDetailsScreen(
+                                flightId: flight['flight_id'],
+                                documentId: flight['id'] ?? '',
+                              ),
                             ),
-                            if (isDeparted)
-                              Positioned(
-                                right: 0,
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Banner(
-                                    message: 'DEPARTED',
-                                    location: BannerLocation.topEnd,
-                                    color: Colors.red.shade700,
-                                    textStyle: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (isCancelled)
-                              Positioned(
-                                right: 0,
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Banner(
-                                    message: 'CANCELLED',
-                                    location: BannerLocation.topEnd,
-                                    color: Colors.grey.shade800,
-                                    textStyle: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+                          );
+                        },
+                        // Botón de restaurar
+                        trailing: IconButton(
+                          icon: const Icon(
+                            Icons.restore,
+                            color: Colors.blue,
+                          ),
+                          onPressed: () => _confirmRestoreFlight(
+                            flight['doc_id'] ??
+                                flight['id'] ??
+                                flight['flight_id'],
+                            flight['flight_id'],
+                          ),
+                          tooltip: 'Restore flight',
                         ),
+                        // Confirmar antes de eliminar permanentemente
+                        confirmDismiss: (direction) async {
+                          // Mostrar diálogo de confirmación para eliminar permanentemente
+                          return await showDialog<bool>(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title:
+                                        const Text("Eliminar permanentemente"),
+                                    content: Text(
+                                        "¿Estás seguro que deseas eliminar permanentemente el vuelo ${flight['flight_id']}? Esta acción no se puede deshacer."),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text("Cancelar"),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                        ),
+                                        child: const Text(
+                                            "Eliminar permanentemente"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                        },
+                        // Función para eliminar permanentemente
+                        onDismissed: (direction) {
+                          if (widget.onDeleteFlight != null) {
+                            final docId = flight['doc_id'] ??
+                                flight['id'] ??
+                                flight['flight_id'];
+                            widget.onDeleteFlight!(docId);
+                          }
+                        },
                       );
                     },
                   ),

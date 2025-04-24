@@ -6,6 +6,11 @@ import '../flight_details/flight_details_screen.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../utils/progress_dialog.dart';
 import '../../../utils/flight_search_helper.dart';
+import '../../../utils/flight_filter_util.dart';
+import '../../../common/widgets/flight_card.dart';
+import '../../../common/widgets/flight_search_bar.dart';
+import '../../../common/widgets/flights_counter_display.dart';
+import '../../../common/widgets/flight_selection_controls.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -53,11 +58,6 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
   TimeOfDay _endTime = const TimeOfDay(hour: 23, minute: 59);
 
-  // Formatters for date and time
-  final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
-  final DateFormat _timeFormatter = DateFormat('HH:mm');
-  final DateFormat _displayFormatter = DateFormat('dd MMM HH:mm');
-
   @override
   void initState() {
     super.initState();
@@ -75,7 +75,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   // Load Norwegian preference
   Future<void> _loadNorwegianPreference() async {
-    final isEnabled = await CacheService.getNorwegianEquivalencePreference();
+    final isEnabled = await FlightFilterUtil.loadNorwegianPreference();
     setState(() {
       _norwegianEquivalenceEnabled = isEnabled;
     });
@@ -205,7 +205,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
       });
 
       print(
-          'LOG: End date filter updated to: ${_dateFormatter.format(_endDate)} ${_timeFormatter.format(DateTime(2022, 1, 1, _endTime.hour, _endTime.minute))}');
+          'LOG: End date filter updated to: ${FlightFilterUtil.dateFormatter.format(_endDate)} ${FlightFilterUtil.timeFormatter.format(DateTime(2022, 1, 1, _endTime.hour, _endTime.minute))}');
     } else {
       // Si no encontramos ninguna fecha válida, usar 7 días como valor predeterminado
       setState(() {
@@ -297,7 +297,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     final startDateTime = _timeOfDayToDateTime(_startDate, _startTime);
     final endDateTime = _timeOfDayToDateTime(_endDate, _endTime);
 
-    return '${_displayFormatter.format(startDateTime)} to ${_displayFormatter.format(endDateTime)}';
+    return '${FlightFilterUtil.displayFormatter.format(startDateTime)} to ${FlightFilterUtil.displayFormatter.format(endDateTime)}';
   }
 
   // Open modal to select date and time
@@ -323,8 +323,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                     const SizedBox(height: 8),
                     // Selector de fecha inicial
                     ListTile(
-                      title:
-                          Text(DateFormat('yyyy-MM-dd').format(tempStartDate)),
+                      title: Text(
+                          FlightFilterUtil.dateFormatter.format(tempStartDate)),
                       leading: const Icon(Icons.calendar_today),
                       onTap: () async {
                         final DateTime? picked = await showDatePicker(
@@ -371,7 +371,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                     const SizedBox(height: 8),
                     // Selector de fecha final
                     ListTile(
-                      title: Text(DateFormat('yyyy-MM-dd').format(tempEndDate)),
+                      title: Text(
+                          FlightFilterUtil.dateFormatter.format(tempEndDate)),
                       leading: const Icon(Icons.calendar_today),
                       onTap: () async {
                         final DateTime? picked = await showDatePicker(
@@ -493,16 +494,24 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   /// Filter flights by search text
   void _filterFlights(String query) {
-    _searchQuery = query;
-    _applyFilters();
-    _saveFiltersToCache(); // Save filters when they change
+    setState(() {
+      _searchQuery = query;
+      _filteredFlights = FlightFilterUtil.filterFlights(
+        flights: widget.flights,
+        searchQuery: query,
+        norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+      );
+
+      // Aplicar filtros de fecha después de la búsqueda de texto
+      _applyFilters();
+    });
   }
 
   // Apply only the text filter
   void _applyTextFilter(String query) {
     setState(() {
       _searchQuery = query.toLowerCase();
-      _filteredFlights = FlightSearchHelper.filterFlights(
+      _filteredFlights = FlightFilterUtil.filterFlights(
         flights: widget.flights,
         searchQuery: query,
         norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
@@ -520,11 +529,11 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     final endDateTime = _timeOfDayToDateTime(_endDate, _endTime);
 
     print(
-        'LOG: Applying date filter: ${_dateFormatter.format(startDateTime)} ${_timeFormatter.format(startDateTime)} - ${_dateFormatter.format(endDateTime)} ${_timeFormatter.format(endDateTime)}');
+        'LOG: Applying date filter: ${FlightFilterUtil.dateFormatter.format(startDateTime)} ${FlightFilterUtil.timeFormatter.format(startDateTime)} - ${FlightFilterUtil.dateFormatter.format(endDateTime)} ${FlightFilterUtil.timeFormatter.format(endDateTime)}');
 
     setState(() {
       // Filter flights by date range
-      _filteredFlights = FlightSearchHelper.filterFlightsByDateRange(
+      _filteredFlights = FlightFilterUtil.filterFlightsByDateRange(
         flights: _filteredFlights,
         startDateTime: startDateTime,
         endDateTime: endDateTime,
@@ -536,98 +545,17 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   /// Extract time from ISO 8601 format or traditional "HH:MM" format
   String _extractTimeFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only time
-        final formatter = DateFormat('HH:mm');
-
-        // Convert to local time and format
-        // Ensure the UTC timezone is properly handled when converting to local
-        // The Z at the end of the ISO string means it's UTC
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          print(
-              'LOG: Converting UTC time $dateTime to local time $localDateTime for flight');
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else if (scheduleTime.contains(':')) {
-        // If it's just a time format "HH:MM", return it directly
-        return scheduleTime;
-      } else {
-        print('LOG: Unknown time format: $scheduleTime');
-        return scheduleTime;
-      }
-    } catch (e) {
-      print('LOG: Error formatting time: $e');
-      return scheduleTime; // Return original string if there's an error
-    }
+    return FlightFilterUtil.extractTimeFromSchedule(scheduleTime);
   }
 
   /// Extract date from ISO 8601 format and format it as dd/MM
   String _extractDateFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only date in format dd/MM
-        final formatter = DateFormat('dd/MM');
-
-        // Convert to local time and format
-        // Ensure the UTC timezone is properly handled when converting to local
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else {
-        // If it's just a time format, use current date
-        final now = DateTime.now();
-        return DateFormat('dd/MM').format(now);
-      }
-    } catch (e) {
-      print('LOG: Error extracting date: $e');
-      return ''; // Return empty string on error
-    }
+    return FlightFilterUtil.extractDateFromSchedule(scheduleTime);
   }
 
   /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
   bool _isLaterTime(String time1, String time2) {
-    try {
-      // Convertir al formato actual de tiempo
-      final parts1 = time1.split(':');
-      final parts2 = time2.split(':');
-
-      if (parts1.length >= 2 && parts2.length >= 2) {
-        final hour1 = int.parse(parts1[0]);
-        final minute1 = int.parse(parts1[1]);
-        final hour2 = int.parse(parts2[0]);
-        final minute2 = int.parse(parts2[1]);
-
-        // Comparar horas y minutos
-        if (hour1 > hour2) {
-          return true;
-        } else if (hour1 == hour2) {
-          return minute1 > minute2;
-        }
-      }
-      return false;
-    } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
-      return false;
-    }
+    return FlightFilterUtil.isLaterTime(time1, time2);
   }
 
   // Reset to default filters but using the current latest flight date
@@ -903,75 +831,18 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Eliminamos el AppBar completamente
-      // Añadir FloatingActionButton cuando estamos en modo selección
+      // Reemplazar el FloatingActionButton con FlightSelectionControls
       floatingActionButton: _isSelectionMode
-          ? Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Botón para guardar los vuelos seleccionados
-                FloatingActionButton.extended(
-                  heroTag: 'saveSelectedFlights',
-                  onPressed: _selectedFlightIndices.isNotEmpty
-                      ? _saveSelectedFlights
-                      : null,
-                  backgroundColor: _selectedFlightIndices.isNotEmpty
-                      ? Colors.green.shade300
-                      : Colors.grey,
-                  elevation: 4,
-                  label: Row(
-                    children: [
-                      const Icon(Icons.save),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Add to My Flights (${_selectedFlightIndices.length})',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Botón para seleccionar todos los vuelos
-                FloatingActionButton(
-                  heroTag: 'selectAll',
-                  onPressed: _filteredFlights.isNotEmpty
-                      ? () {
-                          if (_selectedFlightIndices.length ==
-                              _filteredFlights.length) {
-                            _deselectAllFlights();
-                          } else {
-                            _selectAllFlights();
-                          }
-                        }
-                      : null,
-                  backgroundColor: _filteredFlights.isNotEmpty
-                      ? Colors.white
-                      : Colors.grey.shade200,
-                  foregroundColor: Colors.black87,
-                  elevation: 3,
-                  mini: true,
-                  child: Icon(
-                    _selectedFlightIndices.length == _filteredFlights.length &&
-                            _filteredFlights.isNotEmpty
-                        ? Icons.deselect
-                        : Icons.select_all,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Botón para salir del modo selección
-                FloatingActionButton(
-                  heroTag: 'exitSelection',
-                  onPressed: () {
-                    _toggleSelectionMode();
-                  },
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  elevation: 3,
-                  mini: true,
-                  child: const Icon(Icons.close),
-                ),
-              ],
+          ? FlightSelectionControls(
+              selectedCount: _selectedFlightIndices.length,
+              totalFlights: _filteredFlights.length,
+              onSelectAll: _selectAllFlights,
+              onDeselectAll: _deselectAllFlights,
+              onExit: _toggleSelectionMode,
+              onAction: _saveSelectedFlights,
+              actionLabel: 'Add to My Flights',
+              actionColor: Colors.green.shade300,
+              actionIcon: Icons.save,
             )
           : null,
       body: Column(
@@ -1008,100 +879,26 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
               ),
             ),
           ),
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.only(
-                left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search by flight number or destination',
-                prefixIcon: const Icon(Icons.search, color: Colors.blue),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                filled: true,
-                fillColor: Colors.white,
-                // Add clear button if there is text
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: Colors.grey.shade600),
-                        onPressed: () {
-                          // Clear search field
-                          _filterFlights('');
-                          // We also need to clear the TextField
-                          final textFieldController = TextEditingController();
-                          textFieldController.clear();
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: _filterFlights,
-            ),
+          // Barra de búsqueda reutilizable
+          FlightSearchBar(
+            controller: _searchController,
+            onSearch: _filterFlights,
+            onClear: () {
+              _filterFlights('');
+            },
           ),
-          // Results counter
-          Padding(
-            padding: const EdgeInsets.only(
-                left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${_filteredFlights.length} flights',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                Row(
-                  children: [
-                    // Botón para activar modo selección
-                    if (!_isSelectionMode)
-                      TextButton.icon(
-                        onPressed: _toggleSelectionMode,
-                        icon: const Icon(Icons.checklist, size: 16),
-                        label: const Text('Select'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-
-                    // Información de Norwegian si es relevante
-                    if (_norwegianEquivalenceEnabled &&
-                        (_searchQuery.toLowerCase().contains('dy') ||
-                            _searchQuery.toLowerCase().contains('d8')))
-                      FlightSearchHelper.buildNorwegianEquivalenceIndicator(
-                        searchQuery: _searchQuery,
-                        norwegianEquivalenceEnabled:
-                            _norwegianEquivalenceEnabled,
-                      )!,
-
-                    // Botón para resetear filtros
-                    if (_searchQuery.isNotEmpty ||
-                        widget.flights.length != _filteredFlights.length)
-                      TextButton.icon(
-                        onPressed: () {
-                          // Reset search and date filters
-                          _resetToDefaultFilters();
-                        },
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Reset Filters'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+          // Contador de vuelos reutilizable
+          FlightsCounterDisplay(
+            flightCount: _filteredFlights.length,
+            searchQuery: _searchQuery,
+            norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+            onSelectMode: !_isSelectionMode ? _toggleSelectionMode : null,
+            onResetFilters: (_searchQuery.isNotEmpty ||
+                    widget.flights.length != _filteredFlights.length)
+                ? _resetToDefaultFilters
+                : null,
+            showResetButton: _searchQuery.isNotEmpty ||
+                widget.flights.length != _filteredFlights.length,
           ),
           Expanded(
             child: _filteredFlights.isEmpty
@@ -1144,199 +941,47 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                       itemBuilder: (context, index) {
                         final flight = _filteredFlights[index];
 
-                        // Extract only the time from schedule_time
-                        final formattedTime =
-                            _extractTimeFromSchedule(flight['schedule_time']);
+                        return FlightCard(
+                          flight: flight,
+                          isSelectionMode: _isSelectionMode,
+                          isSelected: _selectedFlightIndices.contains(index),
+                          isDismissible:
+                              false, // No se puede deslizar en All Departures
+                          selectionColor: Colors.green.shade300,
+                          onSelectionToggle: (bool? value) {
+                            _toggleFlightSelection(index);
+                          },
+                          onTap: () {
+                            if (_isSelectionMode) {
+                              // En modo selección, seleccionar/deseleccionar
+                              _toggleFlightSelection(index);
+                            } else {
+                              // En modo normal, navegar a detalles
+                              print(
+                                  'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
 
-                        // Extract date from schedule_time
-                        final formattedDate =
-                            _extractDateFromSchedule(flight['schedule_time']);
-
-                        // Extract status time if available
-                        final String? statusTime = flight['status_time'] !=
-                                    null &&
-                                flight['status_time'].toString().isNotEmpty
-                            ? _extractTimeFromSchedule(flight['status_time'])
-                            : null;
-
-                        // Check if flight is delayed (status_time is different and later than schedule_time)
-                        final bool isDelayed = statusTime != null &&
-                            statusTime != formattedTime &&
-                            _isLaterTime(statusTime, formattedTime);
-
-                        // For debugging
-                        print(
-                            'LOG: Flight ${flight['flight_id']} - Original: ${flight['schedule_time']}, Formatted: $formattedTime, Status: ${flight['status_time']}, Delayed: $isDelayed');
-
-                        // Check if flight is departed
-                        final bool isDeparted = flight['status_code'] == 'D';
-
-                        // Check if flight is cancelled
-                        final bool isCancelled = flight['status_code'] == 'C';
-
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Stack(
-                            children: [
-                              ListTile(
-                                leading: _isSelectionMode
-                                    ? Checkbox(
-                                        value: _selectedFlightIndices
-                                            .contains(index),
-                                        onChanged: (bool? value) {
-                                          _toggleFlightSelection(index);
-                                        },
-                                        activeColor: Colors.green.shade300,
-                                      )
-                                    : CircleAvatar(
-                                        backgroundColor: flight['color'],
-                                        child: Text(
-                                          flight['airline'],
-                                          style: TextStyle(
-                                            color: AirlineHelper
-                                                .getTextColorForAirline(
-                                                    flight['airline']),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                title: Text(
-                                  '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: isDeparted || isCancelled
-                                        ? Colors.grey
-                                        : Colors.black,
-                                    decoration: isDeparted || isCancelled
-                                        ? TextDecoration.lineThrough
-                                        : null,
+                              // Navegar a la pantalla de detalles
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => FlightDetailsScreen(
+                                    flightId: flight['flight_id'],
+                                    documentId: flight['id'] ?? '',
                                   ),
                                 ),
-                                subtitle: Row(
-                                  children: [
-                                    Text(
-                                      'Gate: ${flight['gate']}',
-                                    ),
-                                    if (isDelayed && !isCancelled) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.amber.shade700,
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Text(
-                                              'DELAYED',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              statusTime!,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                trailing: _isSelectionMode
-                                    ? null
-                                    : const Icon(Icons.arrow_forward_ios,
-                                        size: 16),
-                                onTap: () {
-                                  if (_isSelectionMode) {
-                                    // En modo selección, seleccionar/deseleccionar
-                                    _toggleFlightSelection(index);
-                                  } else {
-                                    // En modo normal, navegar a detalles
-                                    print(
-                                        'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
-
-                                    // Navegar a la pantalla de detalles
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            FlightDetailsScreen(
-                                          flightId: flight['flight_id'],
-                                          documentId: flight['id'] ?? '',
-                                        ),
-                                      ),
-                                    );
+                              );
+                            }
+                          },
+                          onLongPress: _isSelectionMode
+                              ? null
+                              : () async {
+                                  // Si no estamos en modo selección, activarlo y seleccionar este vuelo
+                                  if (!_isSelectionMode) {
+                                    setState(() {
+                                      _isSelectionMode = true;
+                                      _selectedFlightIndices.add(index);
+                                    });
                                   }
                                 },
-                                onLongPress: _isSelectionMode
-                                    ? null
-                                    : () async {
-                                        // Si no estamos en modo selección, activarlo y seleccionar este vuelo
-                                        if (!_isSelectionMode) {
-                                          setState(() {
-                                            _isSelectionMode = true;
-                                            _selectedFlightIndices.add(index);
-                                          });
-                                        }
-                                      },
-                              ),
-                              if (isDeparted)
-                                Positioned(
-                                  right: 0,
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Banner(
-                                      message: 'DEPARTED',
-                                      location: BannerLocation.topEnd,
-                                      color: Colors.red.shade700,
-                                      textStyle: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              if (isCancelled)
-                                Positioned(
-                                  right: 0,
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Banner(
-                                      message: 'CANCELLED',
-                                      location: BannerLocation.topEnd,
-                                      color: Colors.grey.shade800,
-                                      textStyle: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
                         );
                       },
                     ),
