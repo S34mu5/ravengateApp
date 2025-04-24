@@ -9,6 +9,7 @@ import 'services/auth/google_auth_service.dart';
 import 'services/auth/email_password_auth_service.dart';
 import 'controllers/auth_controller.dart';
 import 'screens/auth/email_verification/email_verification_screen.dart';
+import 'services/notifications/notification_service.dart';
 
 // Referencia global al controlador de autenticación para acceder desde cualquier lugar
 late AuthController authController;
@@ -21,6 +22,9 @@ void main() async {
 
   // Initialize authentication services
   initializeAuthServices();
+
+  // Initialize notification service
+  await initializeNotificationService();
 
   runApp(MyApp(authController: authController));
 }
@@ -36,6 +40,18 @@ void initializeAuthServices() {
 
   // Create the controller with the services
   authController = AuthController(authServices);
+}
+
+/// Inicializa el servicio de notificaciones
+Future<void> initializeNotificationService() async {
+  try {
+    print('🔔 Inicializando servicio de notificaciones...');
+    final notificationService = NotificationService();
+    await notificationService.init();
+    print('✅ Servicio de notificaciones inicializado correctamente');
+  } catch (e) {
+    print('❌ Error al inicializar el servicio de notificaciones: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {

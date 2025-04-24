@@ -4,6 +4,8 @@ import 'my_departures_ui.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
+import '../../../services/notifications/notification_service.dart';
+import '../../../services/flight_delay_detector.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
 class MyDeparturesScreen extends StatefulWidget {
@@ -15,22 +17,34 @@ class MyDeparturesScreen extends StatefulWidget {
 
 class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
   List<Map<String, dynamic>> _userFlights = [];
+  List<Map<String, dynamic>> _previousUserFlights = [];
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _refreshTimer; // Timer para actualización periódica
   DateTime? _lastUpdated; // Tiempo de última actualización
+  final NotificationService _notificationService = NotificationService();
+  final FlightDelayDetector _delayDetector = FlightDelayDetector();
 
   @override
   void initState() {
     super.initState();
+    _initializeServices();
     _loadUserFlights();
 
     // Configurar actualización automática cada 3 minutos
     _refreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
       print(
           'LOG: Actualizando datos de vuelos del usuario automáticamente cada 3 minutos');
+      // Guardar los vuelos actuales como "anteriores" antes de cargar los nuevos
+      _previousUserFlights = List.from(_userFlights);
       _loadUserFlights();
     });
+  }
+
+  /// Inicializa los servicios necesarios
+  Future<void> _initializeServices() async {
+    // Inicializar el servicio de notificaciones
+    await _notificationService.init();
   }
 
   /// Cargar los vuelos guardados por el usuario
@@ -52,11 +66,22 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       // Verificar nuevamente si el widget sigue montado
       if (!mounted) return;
 
+      // Guardar vuelos actuales
+      final List<Map<String, dynamic>> newFlights = userFlights;
+
+      // Verificar si hay retrasos comparando con los vuelos anteriores
+      if (_previousUserFlights.isNotEmpty) {
+        await _delayDetector.checkForDelays(_previousUserFlights, newFlights);
+      }
+
       setState(() {
-        _userFlights = userFlights;
+        _userFlights = newFlights;
         _isLoading = false;
         _lastUpdated = DateTime.now();
       });
+
+      // Actualizar la lista de vuelos anteriores para futuras comparaciones
+      _previousUserFlights = List.from(newFlights);
 
       print('LOG: Se cargaron ${_userFlights.length} vuelos del usuario');
     } catch (e) {
@@ -163,6 +188,19 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
 
       // Recargar la lista de todos modos
       _loadUserFlights();
+    }
+  }
+
+  /// Envía una notificación de prueba
+  Future<void> _sendTestNotification() async {
+    try {
+      await _notificationService.showNotification(
+        id: 1,
+        title: "Prueba de notificación",
+        body: "Esta es una notificación de prueba de RavenGate",
+      );
+    } catch (e) {
+      print('LOG: Error enviando notificación de prueba: $e');
     }
   }
 
