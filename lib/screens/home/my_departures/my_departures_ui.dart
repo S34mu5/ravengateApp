@@ -331,36 +331,6 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     }
   }
 
-  /// Muestra un diálogo de confirmación antes de eliminar un vuelo
-  void _confirmRemoveFlight(String docId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('¿Eliminar vuelo?'),
-        content: const Text('Este vuelo se eliminará de tu lista. ¿Continuar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Eliminar el vuelo si el usuario confirma
-              if (widget.onRemoveFlight != null) {
-                widget.onRemoveFlight!(docId);
-              }
-            },
-            child: const Text('Eliminar'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -397,33 +367,6 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
               _filterFlights('');
             },
           ),
-
-          // Mostrar información de última actualización si está disponible
-          if (widget.lastUpdated != null)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-              color: Colors.blue.shade50,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.access_time, color: Colors.blue, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Actualizado: ${_formatLastUpdated(widget.lastUpdated!)}',
-                    style: TextStyle(color: Colors.blue.shade900, fontSize: 12),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 14),
-                    onPressed: widget.onRefresh,
-                    tooltip: 'Actualizar ahora',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
 
           // Contador de vuelos reutilizable con botón de archivo
           FlightsCounterDisplay(
@@ -468,49 +411,40 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
                 final flight = _filteredFlights[index];
 
                 // Widget del vuelo individual
-                return Stack(
-                  children: [
-                    FlightCard(
-                      flight: flight,
-                      isSelectionMode: _isSelectionMode,
-                      isSelected: _selectedFlightIndices.contains(index),
-                      onSelectionToggle: (isSelected) {
-                        _toggleFlightSelection(index);
-                      },
-                      onTap: () {
-                        if (_isSelectionMode) {
-                          _toggleFlightSelection(index);
-                        } else {
-                          // Navegar a detalles del vuelo
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FlightDetailsScreen(
-                                flightId: flight['flight_id'],
-                                documentId: flight['id'] ?? '',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-
-                    // Botón de eliminar (sólo si no está en modo selección)
-                    if (!_isSelectionMode && widget.onRemoveFlight != null)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.redAccent),
-                          onPressed: () =>
-                              _confirmRemoveFlight(flight['doc_id']),
-                          tooltip: 'Eliminar',
-                          visualDensity: VisualDensity.compact,
-                          iconSize: 24,
+                return FlightCard(
+                  flight: flight,
+                  isSelectionMode: _isSelectionMode,
+                  isSelected: _selectedFlightIndices.contains(index),
+                  onSelectionToggle: (isSelected) {
+                    _toggleFlightSelection(index);
+                  },
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleFlightSelection(index);
+                    } else {
+                      // Navegar a detalles del vuelo
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FlightDetailsScreen(
+                            flightId: flight['flight_id'],
+                            documentId: flight['id'] ?? '',
+                          ),
                         ),
-                      ),
-                  ],
+                      );
+                    }
+                  },
+                  onLongPress: _isSelectionMode
+                      ? null
+                      : () {
+                          // Si no estamos en modo selección, activarlo y seleccionar este vuelo
+                          if (!_isSelectionMode) {
+                            setState(() {
+                              _isSelectionMode = true;
+                              _selectedFlightIndices.add(index);
+                            });
+                          }
+                        },
                 );
               },
             ),
@@ -518,21 +452,5 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
         ],
       ),
     );
-  }
-
-  // Formatear la fecha de última actualización en formato legible
-  String _formatLastUpdated(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return 'justo ahora';
-    } else if (difference.inMinutes < 60) {
-      return 'hace ${difference.inMinutes} min';
-    } else if (difference.inHours < 24) {
-      return 'hace ${difference.inHours} h';
-    } else {
-      return '${DateFormat('dd/MM HH:mm').format(dateTime)}';
-    }
   }
 }
