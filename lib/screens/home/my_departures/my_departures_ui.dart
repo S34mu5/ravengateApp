@@ -425,39 +425,13 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
             },
           ),
 
-          // Mostrar información de última actualización si está disponible
-          if (widget.lastUpdated != null)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-              color: Colors.blue.shade50,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.access_time, color: Colors.blue, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Actualizado: ${_formatLastUpdated(widget.lastUpdated!)}',
-                    style: TextStyle(color: Colors.blue.shade900, fontSize: 12),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 14),
-                    onPressed: widget.onRefresh,
-                    tooltip: 'Actualizar ahora',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-
           // Contador de vuelos reutilizable con botón de archivo
           FlightsCounterDisplay(
             flightCount: _filteredFlights.length,
             searchQuery: _searchQuery,
             norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-            onSelectMode: !_isSelectionMode ? _toggleSelectionMode : null,
+            onSelectMode:
+                null, // Ya no necesitamos este botón, usamos pulsación larga
             showResetButton: _searchQuery.isNotEmpty,
             onResetFilters: _searchQuery.isNotEmpty
                 ? () {
@@ -514,7 +488,8 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
                         MaterialPageRoute(
                           builder: (context) => FlightDetailsScreen(
                             flightId: flight['flight_id'],
-                            documentId: flight['id'] ?? '',
+                            documentId:
+                                flight['flight_ref'] ?? flight['id'] ?? '',
                           ),
                         ),
                       );
@@ -538,21 +513,5 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
         ],
       ),
     );
-  }
-
-  // Formatear la fecha de última actualización en formato legible
-  String _formatLastUpdated(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return 'justo ahora';
-    } else if (difference.inMinutes < 60) {
-      return 'hace ${difference.inMinutes} min';
-    } else if (difference.inHours < 24) {
-      return 'hace ${difference.inHours} h';
-    } else {
-      return '${DateFormat('dd/MM HH:mm').format(dateTime)}';
-    }
   }
 }

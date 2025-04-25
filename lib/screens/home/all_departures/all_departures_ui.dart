@@ -892,7 +892,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
             flightCount: _filteredFlights.length,
             searchQuery: _searchQuery,
             norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-            onSelectMode: !_isSelectionMode ? _toggleSelectionMode : null,
+            onSelectMode: null,
             onResetFilters: (_searchQuery.isNotEmpty ||
                     widget.flights.length != _filteredFlights.length)
                 ? _resetToDefaultFilters
@@ -965,7 +965,9 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                 MaterialPageRoute(
                                   builder: (context) => FlightDetailsScreen(
                                     flightId: flight['flight_id'],
-                                    documentId: flight['id'] ?? '',
+                                    documentId: flight['flight_ref'] ??
+                                        flight['id'] ??
+                                        '',
                                   ),
                                 ),
                               );

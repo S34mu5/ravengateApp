@@ -16,10 +16,13 @@ class UserFlightsService {
       // Get current user
       final user = FirebaseAuth.instance.currentUser;
 
-      // Prepare basic saved flight data (only reference)
+      // IMPORTANTE: flight_ref es la referencia única al documento original en la colección 'flights'
+      // Nunca debe usarse flight_id como identificador único, ya que pueden existir múltiples vuelos
+      // con el mismo código de vuelo (flight_id) pero en diferentes fechas
       final Map<String, dynamic> savedFlightData = {
         'flight_ref': flight['id'], // Reference to original flight document
-        'flight_id': flight['flight_id'], // Keep flight ID for easier queries
+        'flight_id': flight[
+            'flight_id'], // Solo para mostrar el código del vuelo, no para identificación
         'saved_at': DateTime.now().toIso8601String(),
       };
 
@@ -95,6 +98,9 @@ class UserFlightsService {
         // Get the flight document from main collection using the reference
         final flightId = ref['flight_ref'];
 
+        print(
+            'LOG: Obteniendo datos completos para vuelo con flight_ref: $flightId');
+
         // Get the flight document from main collection
         final flightDoc = await FirebaseFirestore.instance
             .collection('flights')
@@ -104,12 +110,19 @@ class UserFlightsService {
         if (flightDoc.exists) {
           // Create combined data with user metadata and updated flight info
           final flightData = flightDoc.data() as Map<String, dynamic>;
+
+          // IMPORTANTE: Mantener el ID original del vuelo guardado
+          // en lugar de usar un ID potencialmente actualizado
           final completeData = {
             ...flightData,
-            'id': flightDoc.id,
+            'id':
+                flightId, // Asegurar que siempre usamos el flight_ref original
+            'original_id': flightId, // Mantener una referencia al ID original
             'saved_at': ref['saved_at'],
             'doc_id': ref['doc_id'], // Keep reference to user's saved document
           };
+
+          print('LOG: Usando flight_ref original: $flightId como ID del vuelo');
 
           // Add airline color if not present
           if (!completeData.containsKey('color')) {
@@ -122,9 +135,11 @@ class UserFlightsService {
         } else {
           // Flight no longer exists, add a flag and use basic reference data
           print(
-              'LOG: Flight ${ref['flight_id']} no longer exists, using reference data');
+              'LOG: Flight ${ref['flight_id']} no longer exists, using reference data for flight_ref: $flightId');
           final basicData = {
             ...ref,
+            'id': flightId, // Mantener el flight_ref original como ID
+            'original_id': flightId,
             'flight_removed': true,
             'airport': 'Unknown',
             'gate': 'N/A',
@@ -143,8 +158,11 @@ class UserFlightsService {
         print(
             'LOG: Error getting complete flight data for ${ref['flight_id']}: $e');
         // Add a minimal reference as fallback with error flag
+        final flightId = ref['flight_ref'];
         completeFlights.add({
           ...ref,
+          'id': flightId, // Mantener el flight_ref original como ID
+          'original_id': flightId,
           'data_error': true,
           'airport': 'Error',
           'gate': 'Error',
@@ -181,10 +199,11 @@ class UserFlightsService {
   static Future<bool> isFlightSaved(String flightId) async {
     try {
       final flights = await getUserFlights();
-      // Check both 'id' and 'flight_id' fields to ensure proper matching
+      // Verificar únicamente por 'id' (flight_ref) y no por flight_id
+      // para evitar confusiones con vuelos diferentes pero mismo código
       return flights.any((flight) =>
           (flight['id'] != null && flight['id'] == flightId) ||
-          (flight['flight_id'] != null && flight['flight_id'] == flightId));
+          (flight['flight_ref'] != null && flight['flight_ref'] == flightId));
     } catch (e) {
       print('LOG: Error checking if flight is saved: $e');
       return false;
@@ -934,7 +953,8 @@ class UserFlightsService {
       bool flightWasArchived = false;
       String? existingDocId;
 
-      // First try to check by 'flight_ref' if available
+      // IMPORTANTE: Usar ÚNICAMENTE flight_ref para identificar vuelos
+      // No usar flight_id como criterio de búsqueda para evitar confusiones
       if (flightData['flight_ref'] != null) {
         print(
             'LOG: Verificando si el vuelo ya existe por flight_ref: ${flightData['flight_ref']}');
@@ -953,31 +973,13 @@ class UserFlightsService {
           flightWasArchived = docData['archived'] == true;
 
           print(
-              'LOG: Vuelo ya existe por flight_ref, archived: $flightWasArchived');
+              'LOG: Vuelo ya existe por flight_ref, archived: $flightWasArchived, ID: $existingDocId');
         }
-      }
-
-      // Then check by 'flight_id' as backup (only if not found by ref)
-      if (!flightAlreadyExists && flightData['flight_id'] != null) {
+      } else {
         print(
-            'LOG: Verificando si el vuelo ya existe por flight_id: ${flightData['flight_id']}');
-        existingFlights = await userFlightsRef
-            .where('flight_id', isEqualTo: flightData['flight_id'])
-            .get();
-
-        if (existingFlights.docs.isNotEmpty) {
-          // Flight already exists by flight_id
-          flightAlreadyExists = true;
-          existingDocId = existingFlights.docs.first.id;
-
-          // Check if it was archived
-          final docData =
-              existingFlights.docs.first.data() as Map<String, dynamic>;
-          flightWasArchived = docData['archived'] == true;
-
-          print(
-              'LOG: Vuelo ya existe por flight_id, archived: $flightWasArchived');
-        }
+            'LOG: ERROR - El vuelo no tiene flight_ref, no se puede guardar correctamente');
+        // No se puede guardar correctamente sin flight_ref
+        return false;
       }
 
       // If flight exists and was archived, restore it
@@ -1183,15 +1185,17 @@ class UserFlightsService {
       // Get current flights list
       List<Map<String, dynamic>> flights = await _getFlightsFromLocalStorage();
 
-      // Check if flight already exists by 'id' or 'flight_id'
+      // Verificar solo por 'id' (flight_ref) para evitar confusiones con vuelos diferentes pero mismo código
       if (flights.any((f) =>
           (f['id'] != null &&
               flight['id'] != null &&
               f['id'] == flight['id']) ||
-          (f['flight_id'] != null &&
-              flight['flight_id'] != null &&
-              f['flight_id'] == flight['flight_id']))) {
+          (f['flight_ref'] != null &&
+              flight['flight_ref'] != null &&
+              f['flight_ref'] == flight['flight_ref']))) {
         // Flight already saved
+        print(
+            'LOG: Vuelo ya guardado en almacenamiento local: ${flight['id'] ?? flight['flight_ref']}');
         return false;
       }
 
@@ -1204,6 +1208,8 @@ class UserFlightsService {
       final flightsJson = flights.map((f) => jsonEncode(f)).toList();
       await prefs.setStringList(_userFlightsKey, flightsJson);
 
+      print(
+          'LOG: Vuelo guardado en almacenamiento local: ${flight['id'] ?? flight['flight_ref']}');
       return true;
     } catch (e) {
       print('LOG: Error saving flight to local storage: $e');

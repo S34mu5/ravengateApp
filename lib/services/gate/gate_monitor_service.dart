@@ -17,8 +17,8 @@ class GateMonitorService {
   // Streams de suscripción para monitorear cambios de puerta
   final Map<String, StreamSubscription<QuerySnapshot>>
       _gateMonitorSubscriptions = {};
-  // Último valor conocido de las puertas para cada vuelo
-  final Map<String, String> _lastKnownGates = {};
+  // Último valor conocido de las marcas de tiempo del cambio de puerta para cada vuelo
+  final Map<String, Timestamp> _lastChangeTimestamps = {};
   // Verificar si ya hemos inicializado el servicio
   bool _isInitialized = false;
 
@@ -90,7 +90,7 @@ class GateMonitorService {
   }
 
   /// Monitorea los cambios de puerta para un vuelo específico
-  void _monitorFlightGate(String docId, Map<String, dynamic> flightData) {
+  void _monitorFlightGate(String docId, Map<String, dynamic> flightData) async {
     // Verificar el estado del vuelo
     final String statusCode = flightData['status_code']?.toString() ?? '';
     // No monitorear vuelos que ya han despegado (D) o aterrizado (L)
@@ -100,27 +100,50 @@ class GateMonitorService {
       return;
     }
 
-    // Obtener la puerta actual (si existe)
-    final String currentGate = flightData['gate']?.toString() ?? '';
-    // Almacenar la puerta actual como referencia
-    _lastKnownGates[docId] = currentGate;
-
     final String flightId = flightData['flight_id'] ?? '';
-    print(
-        'LOG: Starting gate monitoring for flight $flightId, current gate: $currentGate');
+
+    // Obtener el último cambio de puerta (si existe) para establecer la línea base
+    try {
+      final QuerySnapshot lastChangeSnapshot = await _firestore
+          .collection('flights')
+          .doc(docId)
+          .collection('history')
+          .orderBy('change_time', descending: true)
+          .limit(1)
+          .get();
+
+      // Si hay al menos un cambio previo, guardamos su timestamp como referencia
+      if (lastChangeSnapshot.docs.isNotEmpty) {
+        final lastChangeDoc = lastChangeSnapshot.docs.first;
+        final Map<String, dynamic> lastChangeData =
+            lastChangeDoc.data() as Map<String, dynamic>;
+
+        if (lastChangeData.containsKey('change_time')) {
+          _lastChangeTimestamps[docId] =
+              lastChangeData['change_time'] as Timestamp;
+          print(
+              'LOG: Last gate change for flight $flightId was at ${_lastChangeTimestamps[docId]!.toDate()}');
+        }
+      } else {
+        print('LOG: No previous gate changes for flight $flightId');
+      }
+    } catch (e) {
+      print('LOG: Error getting last gate change: $e');
+    }
+
+    print('LOG: Starting gate monitoring for flight $flightId');
 
     // Suscribirse a cambios en la subcolección history del vuelo
+    // Ordenamos por change_time para asegurar que obtenemos los cambios en orden cronológico
     final StreamSubscription<QuerySnapshot> subscription = _firestore
         .collection('flights')
         .doc(docId)
         .collection('history')
         .orderBy('change_time', descending: true)
-        .limit(1) // Solo necesitamos el cambio más reciente
+        .limit(5) // Observamos los últimos cambios por si acaso
         .snapshots()
         .listen((QuerySnapshot snapshot) {
-      if (snapshot.docs.isNotEmpty) {
-        _handleHistoryUpdate(snapshot.docs.first, docId, flightId);
-      }
+      _handleHistoryChanges(snapshot, docId, flightId);
     }, onError: (error) {
       print('LOG: Error monitoring gate changes for flight $flightId: $error');
     });
@@ -129,25 +152,13 @@ class GateMonitorService {
     _gateMonitorSubscriptions[docId] = subscription;
   }
 
-  /// Maneja las actualizaciones de un documento de history
-  void _handleHistoryUpdate(
-      DocumentSnapshot snapshot, String docId, String flightId) async {
-    if (!snapshot.exists) {
-      print('LOG: History document for flight $flightId no longer exists');
-      return;
-    }
+  /// Maneja los cambios en la colección history
+  void _handleHistoryChanges(
+      QuerySnapshot snapshot, String docId, String flightId) async {
+    // Si no hay documentos, no hay nada que hacer
+    if (snapshot.docs.isEmpty) return;
 
-    final Map<String, dynamic> historyData =
-        snapshot.data() as Map<String, dynamic>;
-
-    // Verificar si contiene información de cambio de puerta
-    if (!historyData.containsKey('new_gate') ||
-        !historyData.containsKey('old_gate')) {
-      // Este registro de history no es un cambio de puerta
-      return;
-    }
-
-    // Obtener información del documento principal del vuelo para verificar estado
+    // Verificar si el vuelo aún existe y su estado
     try {
       final DocumentSnapshot flightDoc =
           await _firestore.collection('flights').doc(docId).get();
@@ -169,17 +180,27 @@ class GateMonitorService {
         return;
       }
 
-      // Obtener información del cambio de puerta
-      final String newGate = historyData['new_gate']?.toString() ?? '';
-      final String oldGate = historyData['old_gate']?.toString() ?? '';
+      // Obtenemos el documento más reciente (debería ser el primero ya que ordenamos por change_time descendente)
+      final DocumentSnapshot latestChangeDoc = snapshot.docs.first;
+      final Map<String, dynamic> latestChangeData =
+          latestChangeDoc.data() as Map<String, dynamic>;
 
-      // Para evitar notificaciones duplicadas, usamos el último gate conocido
-      final String lastKnownGate = _lastKnownGates[docId] ?? '';
+      // Verificamos si este cambio tiene timestamp
+      if (!latestChangeData.containsKey('change_time')) return;
 
-      // Solo notificar si esta es una nueva puerta que no hemos notificado antes
-      if (newGate.isNotEmpty && newGate != lastKnownGate) {
+      final Timestamp changeTimestamp =
+          latestChangeData['change_time'] as Timestamp;
+      final Timestamp? lastKnownTimestamp = _lastChangeTimestamps[docId];
+
+      // Verificar si este es un cambio nuevo que no hemos procesado antes
+      if (lastKnownTimestamp == null ||
+          changeTimestamp.compareTo(lastKnownTimestamp) > 0) {
+        // Es un cambio nuevo
+        final String newGate = latestChangeData['new_gate']?.toString() ?? '';
+        final String oldGate = latestChangeData['old_gate']?.toString() ?? '';
+
         print(
-            'LOG: Gate change detected for flight $flightId: $oldGate -> $newGate');
+            'LOG: New gate change detected for flight $flightId: $oldGate -> $newGate (at ${changeTimestamp.toDate()})');
 
         // Verificar que las notificaciones estén habilitadas
         final bool notificationsEnabled =
@@ -187,8 +208,8 @@ class GateMonitorService {
         if (!notificationsEnabled) {
           print(
               'LOG: Gate change notifications disabled, not sending notification');
-          // Actualizar la última puerta conocida aunque no enviemos notificación
-          _lastKnownGates[docId] = newGate;
+          // Actualizar el último timestamp conocido aunque no enviemos notificación
+          _lastChangeTimestamps[docId] = changeTimestamp;
           return;
         }
 
@@ -199,18 +220,18 @@ class GateMonitorService {
             airline: flightData['airline'] ?? '',
             destination: flightData['airport'] ?? '',
             newGate: newGate,
-            oldGate: oldGate.isNotEmpty ? oldGate : null,
+            oldGate: oldGate,
           );
 
-          // Actualizar la última puerta conocida
-          _lastKnownGates[docId] = newGate;
+          // Actualizar el último timestamp conocido
+          _lastChangeTimestamps[docId] = changeTimestamp;
           print('LOG: Gate change notification sent for flight $flightId');
         } catch (e) {
           print('LOG: Error sending gate change notification: $e');
         }
       }
     } catch (e) {
-      print('LOG: Error processing gate change for flight $flightId: $e');
+      print('LOG: Error processing gate changes for flight $flightId: $e');
     }
   }
 
@@ -221,7 +242,7 @@ class GateMonitorService {
     if (subscription != null) {
       subscription.cancel();
       _gateMonitorSubscriptions.remove(docId);
-      _lastKnownGates.remove(docId);
+      _lastChangeTimestamps.remove(docId);
       print('LOG: Stopped monitoring flight with document ID $docId');
     }
   }
@@ -232,7 +253,7 @@ class GateMonitorService {
       subscription.cancel();
     }
     _gateMonitorSubscriptions.clear();
-    _lastKnownGates.clear();
+    _lastChangeTimestamps.clear();
     print('LOG: Stopped all gate monitoring');
   }
 
