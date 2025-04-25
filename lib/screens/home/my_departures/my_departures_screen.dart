@@ -45,6 +45,11 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
   Future<void> _initializeServices() async {
     // Inicializar el servicio de notificaciones
     await _notificationService.init();
+
+    // Solicitar permisos para las notificaciones
+    final bool hasPermission = await _notificationService.requestPermissions();
+    print(
+        'LOG: Permisos de notificaciones ${hasPermission ? 'concedidos' : 'denegados'}');
   }
 
   /// Cargar los vuelos guardados por el usuario

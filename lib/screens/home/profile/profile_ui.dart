@@ -22,6 +22,9 @@ class ProfileUI extends StatefulWidget {
 
 class _ProfileUIState extends State<ProfileUI> {
   bool _norwegianEquivalenceEnabled = true;
+  bool _delayNotificationsEnabled = true;
+  bool _departureNotificationsEnabled = true;
+  bool _gateChangeNotificationsEnabled = true;
   bool _developerModeEnabled = false;
   final TextEditingController _pinController = TextEditingController();
   int _pinAttempts = 0;
@@ -30,6 +33,9 @@ class _ProfileUIState extends State<ProfileUI> {
   void initState() {
     super.initState();
     _loadNorwegianPreference();
+    _loadNotificationsPreference();
+    _loadDepartureNotificationsPreference();
+    _loadGateChangeNotificationsPreference();
     _loadDeveloperModeStatus();
   }
 
@@ -43,6 +49,27 @@ class _ProfileUIState extends State<ProfileUI> {
     final isEnabled = await CacheService.getNorwegianEquivalencePreference();
     setState(() {
       _norwegianEquivalenceEnabled = isEnabled;
+    });
+  }
+
+  Future<void> _loadNotificationsPreference() async {
+    final isEnabled = await CacheService.getDelayNotificationsPreference();
+    setState(() {
+      _delayNotificationsEnabled = isEnabled;
+    });
+  }
+
+  Future<void> _loadDepartureNotificationsPreference() async {
+    final isEnabled = await CacheService.getDepartureNotificationsPreference();
+    setState(() {
+      _departureNotificationsEnabled = isEnabled;
+    });
+  }
+
+  Future<void> _loadGateChangeNotificationsPreference() async {
+    final isEnabled = await CacheService.getGateChangeNotificationsPreference();
+    setState(() {
+      _gateChangeNotificationsEnabled = isEnabled;
     });
   }
 
@@ -302,6 +329,51 @@ class _ProfileUIState extends State<ProfileUI> {
                         _norwegianEquivalenceEnabled = value;
                       });
                       await CacheService.saveNorwegianEquivalencePreference(
+                          value);
+                    },
+                  ),
+                  const Divider(),
+                  SwitchListTile(
+                    title: const Text('Flight Delay Notifications'),
+                    subtitle: const Text(
+                        'Receive alerts when flights saved in My Departures are delayed'),
+                    value: _delayNotificationsEnabled,
+                    activeColor: Colors.blue,
+                    onChanged: (bool value) async {
+                      setState(() {
+                        _delayNotificationsEnabled = value;
+                      });
+                      await CacheService.saveDelayNotificationsPreference(
+                          value);
+                    },
+                  ),
+                  const Divider(),
+                  SwitchListTile(
+                    title: const Text('Flight Departure Notifications'),
+                    subtitle: const Text(
+                        'Receive alerts when flights saved in My Departures have departed'),
+                    value: _departureNotificationsEnabled,
+                    activeColor: Colors.blue,
+                    onChanged: (bool value) async {
+                      setState(() {
+                        _departureNotificationsEnabled = value;
+                      });
+                      await CacheService.saveDepartureNotificationsPreference(
+                          value);
+                    },
+                  ),
+                  const Divider(),
+                  SwitchListTile(
+                    title: const Text('Gate Change Notifications'),
+                    subtitle: const Text(
+                        'Receive alerts when flights saved in My Departures have gate changes'),
+                    value: _gateChangeNotificationsEnabled,
+                    activeColor: Colors.blue,
+                    onChanged: (bool value) async {
+                      setState(() {
+                        _gateChangeNotificationsEnabled = value;
+                      });
+                      await CacheService.saveGateChangeNotificationsPreference(
                           value);
                     },
                   ),

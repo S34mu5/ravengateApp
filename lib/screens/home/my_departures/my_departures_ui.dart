@@ -62,12 +62,43 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
   // Actualizar la lista filtrada cuando cambian los datos
   void _updateFilteredFlights() {
+    // Primero filtrar los vuelos según el criterio de búsqueda
+    final filteredList = FlightFilterUtil.filterFlights(
+      flights: widget.flights,
+      searchQuery: _searchQuery,
+      norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+    );
+
+    // Ordenar los vuelos por tiempo (primero los más tempranos)
+    filteredList.sort((a, b) {
+      try {
+        // Primero intentamos comparar por status_time (el tiempo actual del vuelo)
+        final aStatusTime = a['status_time']?.toString() ?? '';
+        final bStatusTime = b['status_time']?.toString() ?? '';
+
+        // Si ambos tienen status_time, comparamos esos valores
+        if (aStatusTime.isNotEmpty && bStatusTime.isNotEmpty) {
+          final aTime = _extractTimeFromSchedule(aStatusTime);
+          final bTime = _extractTimeFromSchedule(bStatusTime);
+          return aTime.compareTo(bTime);
+        }
+
+        // Si no tienen status_time, comparamos schedule_time
+        final aScheduleTime = a['schedule_time'].toString();
+        final bScheduleTime = b['schedule_time'].toString();
+
+        final aTime = _extractTimeFromSchedule(aScheduleTime);
+        final bTime = _extractTimeFromSchedule(bScheduleTime);
+
+        return aTime.compareTo(bTime);
+      } catch (e) {
+        print('LOG: Error ordenando vuelos: $e');
+        return 0; // En caso de error, no cambiamos el orden
+      }
+    });
+
     setState(() {
-      _filteredFlights = FlightFilterUtil.filterFlights(
-        flights: widget.flights,
-        searchQuery: _searchQuery,
-        norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-      );
+      _filteredFlights = filteredList;
     });
   }
 
@@ -75,11 +106,7 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
   void _filterFlights(String query) {
     setState(() {
       _searchQuery = query;
-      _filteredFlights = FlightFilterUtil.filterFlights(
-        flights: widget.flights,
-        searchQuery: query,
-        norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-      );
+      _updateFilteredFlights();
     });
   }
 
@@ -468,49 +495,42 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
                 final flight = _filteredFlights[index];
 
                 // Widget del vuelo individual
-                return Stack(
-                  children: [
-                    FlightCard(
-                      flight: flight,
-                      isSelectionMode: _isSelectionMode,
-                      isSelected: _selectedFlightIndices.contains(index),
-                      onSelectionToggle: (isSelected) {
-                        _toggleFlightSelection(index);
-                      },
-                      onTap: () {
-                        if (_isSelectionMode) {
-                          _toggleFlightSelection(index);
-                        } else {
-                          // Navegar a detalles del vuelo
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FlightDetailsScreen(
-                                flightId: flight['flight_id'],
-                                documentId: flight['id'] ?? '',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-
-                    // Botón de eliminar (sólo si no está en modo selección)
-                    if (!_isSelectionMode && widget.onRemoveFlight != null)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.redAccent),
-                          onPressed: () =>
-                              _confirmRemoveFlight(flight['doc_id']),
-                          tooltip: 'Eliminar',
-                          visualDensity: VisualDensity.compact,
-                          iconSize: 24,
+                return FlightCard(
+                  flight: flight,
+                  isSelectionMode: _isSelectionMode,
+                  isSelected: _selectedFlightIndices.contains(index),
+                  isDismissible:
+                      !_isSelectionMode, // Solo permitir deslizar para eliminar fuera del modo selección
+                  onSelectionToggle: (isSelected) {
+                    _toggleFlightSelection(index);
+                  },
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleFlightSelection(index);
+                    } else {
+                      // Navegar a detalles del vuelo
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FlightDetailsScreen(
+                            flightId: flight['flight_id'],
+                            documentId: flight['id'] ?? '',
+                          ),
                         ),
-                      ),
-                  ],
+                      );
+                    }
+                  },
+                  onLongPress: _isSelectionMode
+                      ? null
+                      : () async {
+                          // Si no estamos en modo selección, activarlo y seleccionar este vuelo
+                          if (!_isSelectionMode) {
+                            setState(() {
+                              _isSelectionMode = true;
+                              _selectedFlightIndices.add(index);
+                            });
+                          }
+                        },
                 );
               },
             ),

@@ -50,14 +50,14 @@ class NotificationService {
         onDidReceiveNotificationResponse:
             (NotificationResponse response) async {
           // Esta función maneja cuando el usuario toca una notificación
-          print('LOG: Usuario tocó notificación: ${response.payload}');
+          print('LOG: User tapped notification: ${response.payload}');
         },
       );
 
       _initialized = true;
-      print('LOG: Servicio de notificaciones inicializado');
+      print('LOG: Notification service initialized');
     } catch (e) {
-      print('LOG: Error al inicializar notificaciones: $e');
+      print('LOG: Error initializing notifications: $e');
     }
   }
 
@@ -86,7 +86,7 @@ class NotificationService {
         return result ?? true;
       } catch (e) {
         // Si hay error, verificamos si las notificaciones están habilitadas de otra manera
-        print('LOG: Error al solicitar permisos: $e');
+        print('LOG: Error requesting permissions: $e');
         final bool? areEnabled = await _flutterLocalNotificationsPlugin
             .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin>()
@@ -113,8 +113,8 @@ class NotificationService {
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
         'flight_delay_channel',
-        'Retrasos de Vuelos',
-        channelDescription: 'Notificaciones sobre retrasos en tus vuelos',
+        'Flight Delays',
+        channelDescription: 'Notifications about flight delays',
         importance: Importance.high,
         priority: Priority.high,
         showWhen: true,
@@ -132,9 +132,9 @@ class NotificationService {
         payload: payload,
       );
 
-      print('LOG: Notificación enviada: $title - $body');
+      print('LOG: Notification sent: $title - $body');
     } catch (e) {
-      print('LOG: Error al mostrar notificación: $e');
+      print('LOG: Error showing notification: $e');
     }
   }
 
@@ -146,10 +146,55 @@ class NotificationService {
     String? newTime,
   }) async {
     final int notificationId = flightId.hashCode;
-    final String title = 'Retraso en vuelo $flightId';
+    final String title = 'Flight $flightId Delayed';
     final String body = newTime != null
-        ? 'Tu vuelo de $airline a $destination se ha retrasado. Nueva hora: $newTime'
-        : 'Tu vuelo de $airline a $destination ha sufrido un retraso';
+        ? '$airline to $destination delayed. New time: $newTime'
+        : '$airline to $destination delayed';
+
+    await showNotification(
+      id: notificationId,
+      title: title,
+      body: body,
+      payload: flightId,
+    );
+  }
+
+  /// Notificar despegue de vuelo específico
+  Future<void> notifyFlightDeparture({
+    required String flightId,
+    required String airline,
+    required String destination,
+    String? departureTime,
+  }) async {
+    final int notificationId =
+        flightId.hashCode + 1000; // Diferente ID para evitar conflictos
+    final String title = 'Flight $flightId Departed';
+    final String body = departureTime != null
+        ? '$airline to $destination departed at $departureTime'
+        : '$airline to $destination departed';
+
+    await showNotification(
+      id: notificationId,
+      title: title,
+      body: body,
+      payload: flightId,
+    );
+  }
+
+  /// Notificar cambio de puerta para un vuelo específico
+  Future<void> notifyGateChange({
+    required String flightId,
+    required String airline,
+    required String destination,
+    required String newGate,
+    String? oldGate,
+  }) async {
+    final int notificationId = flightId.hashCode +
+        2000; // ID diferente para notificaciones de cambios de puerta
+    final String title = 'Gate Change: Flight $flightId';
+    final String body = oldGate != null
+        ? '$airline to $destination: Gate changed from $oldGate to $newGate'
+        : '$airline to $destination: New gate assigned: $newGate';
 
     await showNotification(
       id: notificationId,
@@ -170,8 +215,8 @@ class NotificationService {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'flight_reminder_channel',
-      'Recordatorios de Vuelos',
-      channelDescription: 'Recordatorios programados para tus vuelos',
+      'Flight Reminders',
+      channelDescription: 'Scheduled flight reminders',
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
@@ -198,18 +243,18 @@ class NotificationService {
     );
 
     print(
-        'LOG: Notificación programada para ${scheduledDate.toIso8601String()}: $title');
+        'LOG: Notification scheduled for ${scheduledDate.toIso8601String()}: $title');
   }
 
   /// Cancelar una notificación específica
   Future<void> cancelNotification(int id) async {
     await _flutterLocalNotificationsPlugin.cancel(id);
-    print('LOG: Notificación con ID $id cancelada');
+    print('LOG: Notification with ID $id canceled');
   }
 
   /// Cancelar todas las notificaciones
   Future<void> cancelAllNotifications() async {
     await _flutterLocalNotificationsPlugin.cancelAll();
-    print('LOG: Todas las notificaciones canceladas');
+    print('LOG: All notifications canceled');
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'notifications/notification_service.dart';
+import 'cache/cache_service.dart';
 
 /// Clase para detectar retrasos en vuelos comparando datos actualizados
 class FlightDelayDetector {
@@ -20,10 +21,24 @@ class FlightDelayDetector {
     List<Map<String, dynamic>> previousFlights,
     List<Map<String, dynamic>> currentFlights,
   ) async {
-    print('LOG: Verificando retrasos en ${currentFlights.length} vuelos');
+    print('LOG: Verifying delays in ${currentFlights.length} flights');
 
     // Inicializar el servicio de notificaciones
     await _notificationService.init();
+
+    // Verificar si las notificaciones de retrasos están habilitadas
+    final bool delayNotificationsEnabled =
+        await CacheService.getDelayNotificationsPreference();
+
+    // Verificar si las notificaciones de despegue están habilitadas
+    final bool departureNotificationsEnabled =
+        await CacheService.getDepartureNotificationsPreference();
+
+    // Si ambas notificaciones están desactivadas, salir
+    if (!delayNotificationsEnabled && !departureNotificationsEnabled) {
+      print('LOG: Flight notifications are disabled by user');
+      return;
+    }
 
     // Mapear los vuelos anteriores por ID para búsqueda más rápida
     final Map<String, Map<String, dynamic>> previousFlightsMap = {
@@ -40,31 +55,82 @@ class FlightDelayDetector {
         final Map<String, dynamic> previousFlight =
             previousFlightsMap[flightId]!;
 
-        // Detectar cambios de horario
-        final bool hasDelayChange = _detectDelayChange(
-          previousFlight: previousFlight,
-          currentFlight: currentFlight,
-        );
-
-        // Si hay un retraso, enviar notificación
-        if (hasDelayChange) {
-          final String airline = currentFlight['airline'] ?? '';
-          final String destination = currentFlight['airport'] ?? '';
-          final String newTime =
-              _extractTimeFromSchedule(currentFlight['schedule_time'] ?? '');
-
-          // Notificar al usuario sobre el retraso
-          await _notificationService.notifyFlightDelay(
-            flightId: flightCode,
-            airline: airline,
-            destination: destination,
-            newTime: newTime,
+        // Si las notificaciones de retrasos están habilitadas, verificar retrasos
+        if (delayNotificationsEnabled) {
+          // Detectar cambios de horario
+          final bool hasDelayChange = _detectDelayChange(
+            previousFlight: previousFlight,
+            currentFlight: currentFlight,
           );
 
-          print(
-              'LOG: Retraso detectado en vuelo $flightCode - Nueva hora: $newTime');
+          // Si hay un retraso, enviar notificación
+          if (hasDelayChange) {
+            final String airline = currentFlight['airline'] ?? '';
+            final String destination = currentFlight['airport'] ?? '';
+            final String newTime =
+                _extractTimeFromSchedule(currentFlight['status_time'] ?? '');
+
+            // Notificar al usuario sobre el retraso
+            await _notificationService.notifyFlightDelay(
+              flightId: flightCode,
+              airline: airline,
+              destination: destination,
+              newTime: newTime,
+            );
+
+            print(
+                'LOG: Delay detected in flight $flightCode - New time: $newTime');
+          }
+        }
+
+        // Si las notificaciones de despegue están habilitadas, verificar despegues
+        if (departureNotificationsEnabled) {
+          // Detectar si el vuelo ha despegado
+          final bool hasDeparted = _detectDeparture(
+            previousFlight: previousFlight,
+            currentFlight: currentFlight,
+          );
+
+          // Si el vuelo ha despegado, enviar notificación
+          if (hasDeparted) {
+            final String airline = currentFlight['airline'] ?? '';
+            final String destination = currentFlight['airport'] ?? '';
+            final String departureTime =
+                _extractTimeFromSchedule(currentFlight['status_time'] ?? '');
+
+            // Notificar al usuario sobre el despegue usando el método específico
+            await _notificationService.notifyFlightDeparture(
+              flightId: flightCode,
+              airline: airline,
+              destination: destination,
+              departureTime: departureTime,
+            );
+
+            print(
+                'LOG: Departure detected for flight $flightCode at time: $departureTime');
+          }
         }
       }
+    }
+  }
+
+  /// Detecta si un vuelo ha despegado (cambio de status_code a 'D')
+  bool _detectDeparture({
+    required Map<String, dynamic> previousFlight,
+    required Map<String, dynamic> currentFlight,
+  }) {
+    try {
+      // Obtener el estado actual y anterior
+      final String currentStatus =
+          currentFlight['status_code']?.toString() ?? '';
+      final String previousStatus =
+          previousFlight['status_code']?.toString() ?? '';
+
+      // El vuelo ha despegado si el status_code ha cambiado a 'D' (Departed)
+      return previousStatus != 'D' && currentStatus == 'D';
+    } catch (e) {
+      print('LOG: Error detecting departure: $e');
+      return false;
     }
   }
 
@@ -74,46 +140,62 @@ class FlightDelayDetector {
     required Map<String, dynamic> currentFlight,
   }) {
     try {
-      // Obtener horarios programados
-      final String previousScheduleStr =
-          previousFlight['schedule_time']?.toString() ?? '';
-      final String currentScheduleStr =
-          currentFlight['schedule_time']?.toString() ?? '';
+      // Comprobar si el vuelo ya ha despegado o está cancelado
+      final String currentStatus =
+          currentFlight['status_code']?.toString() ?? '';
 
-      // Si no hay información de horario, no podemos detectar retrasos
-      if (previousScheduleStr.isEmpty || currentScheduleStr.isEmpty) {
+      // Si el vuelo ya ha despegado (D = Departed) o está cancelado (C = Cancelled), no notificar retrasos
+      if (currentStatus == 'D' || currentStatus == 'C') {
         return false;
       }
 
-      // Detectar si el vuelo ha sido retrasado
-      if (previousScheduleStr != currentScheduleStr) {
+      // Obtener el campo booleano 'delayed' proporcionado por Firebase
+      final bool wasDelayedBefore = previousFlight['delayed'] == true;
+      final bool isDelayedNow = currentFlight['delayed'] == true;
+
+      // Si delayed ha cambiado de false a true, notificar
+      if (!wasDelayedBefore && isDelayedNow) {
+        print(
+            'LOG: Delay detected based on delayed flag change for flight ${currentFlight['flight_id']}');
+        return true;
+      }
+
+      // Obtener horario programado original (schedule_time)
+      final String scheduleTimeStr =
+          currentFlight['schedule_time']?.toString() ?? '';
+
+      // Obtener horario de estado actual (status_time)
+      final String statusTimeStr =
+          currentFlight['status_time']?.toString() ?? '';
+
+      // Obtener horario de estado anterior para verificar cambios
+      final String previousStatusTimeStr =
+          previousFlight['status_time']?.toString() ?? '';
+
+      // Si no hay información de horarios, no podemos detectar retrasos
+      if (scheduleTimeStr.isEmpty) {
+        return false;
+      }
+
+      // Si hay un status_time (horario actualizado):
+      if (statusTimeStr.isNotEmpty) {
         // Extraer solo la hora para comparar
-        final String previousTimeStr =
-            _extractTimeFromSchedule(previousScheduleStr);
-        final String currentTimeStr =
-            _extractTimeFromSchedule(currentScheduleStr);
+        final String scheduleTimeFormatted =
+            _extractTimeFromSchedule(scheduleTimeStr);
+        final String statusTimeFormatted =
+            _extractTimeFromSchedule(statusTimeStr);
 
-        // Si la nueva hora es posterior a la anterior, es un retraso
-        if (_isTimeAfter(currentTimeStr, previousTimeStr)) {
-          return true;
-        }
-
-        // También verificar cambios de estado que indiquen retraso
-        final String previousStatus =
-            previousFlight['status_code']?.toString() ?? '';
-        final String currentStatus =
-            currentFlight['status_code']?.toString() ?? '';
-
-        if (previousStatus != currentStatus &&
-            (currentStatus.toLowerCase().contains('delay') ||
-                currentStatus.toLowerCase().contains('retraso'))) {
-          return true;
+        // El vuelo está retrasado si status_time es posterior a schedule_time
+        if (_isTimeAfter(statusTimeFormatted, scheduleTimeFormatted)) {
+          // Verificar si es un nuevo retraso (comparando con el status_time anterior)
+          // Solo notificar si el status_time ha cambiado
+          return previousStatusTimeStr != statusTimeStr;
         }
       }
 
       return false;
     } catch (e) {
-      print('LOG: Error al detectar retraso: $e');
+      print('LOG: Error detecting delay: $e');
       return false;
     }
   }
