@@ -331,6 +331,22 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     }
   }
 
+  /// Navega a la pantalla de detalles del vuelo seleccionado
+  void _navigateToFlightDetails(
+      BuildContext context, Map<String, dynamic> flight) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightDetailsScreen(
+          flightId: flight['flight_id'],
+          documentId: flight['flight_ref'] ?? flight['id'] ?? '',
+          flightsList: widget.flights, // Pasar toda la lista de vuelos
+          flightsSource: 'my', // Indicar que viene de "mis vuelos"
+        ),
+      ),
+    );
+  }
+
   /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
   bool _isLaterTime(String time1, String time2) {
     try {
@@ -483,16 +499,7 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
                       _toggleFlightSelection(index);
                     } else {
                       // Navegar a detalles del vuelo
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FlightDetailsScreen(
-                            flightId: flight['flight_id'],
-                            documentId:
-                                flight['flight_ref'] ?? flight['id'] ?? '',
-                          ),
-                        ),
-                      );
+                      _navigateToFlightDetails(context, flight);
                     }
                   },
                   onLongPress: _isSelectionMode

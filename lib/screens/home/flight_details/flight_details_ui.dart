@@ -3,24 +3,169 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../../../utils/airline_helper.dart';
+import '../../../services/developer/developer_mode_service.dart';
 
 /// Widget that displays the user interface for a specific flight details
-class FlightDetailsUI extends StatelessWidget {
+class FlightDetailsUI extends StatefulWidget {
   final Map<String, dynamic> flightDetails;
   final List<Map<String, dynamic>> gateHistory;
+  final List<Map<String, dynamic>> fullHistory;
   final Future<void> Function() onRefresh;
   final String documentId;
+  final bool canSwipe; // Flag para saber si se puede hacer swipe
+  final Function(DragEndDetails)? onSwipe; // Callback para el swipe
+  final Function(DragStartDetails, bool)?
+      onDragStart; // Callback para el inicio del arrastre
+  final Map<String, dynamic>?
+      adjacentFlightDetails; // Detalles del vuelo adyacente
 
   const FlightDetailsUI({
     required this.flightDetails,
     required this.gateHistory,
+    required this.fullHistory,
     required this.onRefresh,
     required this.documentId,
+    this.canSwipe = false,
+    this.onSwipe,
+    this.onDragStart,
+    this.adjacentFlightDetails,
     super.key,
   });
 
   @override
+  _FlightDetailsUIState createState() => _FlightDetailsUIState();
+}
+
+class _FlightDetailsUIState extends State<FlightDetailsUI>
+    with SingleTickerProviderStateMixin {
+  // Añadir una variable para controlar la visibilidad de la sección de depuración
+  bool _developerModeEnabled = false;
+
+  // Controlador para la animación de swipe
+  late AnimationController _swipeController;
+  Animation<Offset>? _swipeAnimation;
+  Offset _dragOffset = Offset.zero;
+  bool _isDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDeveloperMode();
+
+    // Inicializar el controlador de animación
+    _swipeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _swipeController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        // Reiniciar la animación cuando termine
+        setState(() {
+          _dragOffset = Offset.zero;
+          _isDragging = false;
+        });
+        _swipeController.reset();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _swipeController.dispose();
+    super.dispose();
+  }
+
+  /// Verifica si el modo desarrollador está activado
+  Future<void> _checkDeveloperMode() async {
+    final isEnabled = await DeveloperModeService.isDeveloperModeEnabled();
+    setState(() {
+      _developerModeEnabled = isEnabled;
+    });
+    // El modo desarrollador solo debe afectar a las secciones de depuración,
+    // no a la funcionalidad principal como el swipe
+  }
+
+  // Manejar el inicio del arrastre
+  void _onDragStart(DragStartDetails details) {
+    setState(() {
+      _isDragging = true;
+    });
+
+    // Determinar la dirección hacia la que se está arrastrando
+    // Si esto aún no se puede determinar, asumimos que es un arrastre horizontal
+    // La dirección real se determinará en _onDragUpdate
+    if (widget.onDragStart != null) {
+      // No podemos determinar la dirección exacta en el inicio, pero podemos actualizar
+      // cuando tengamos más información en _onDragUpdate
+      widget.onDragStart!(details, false);
+    }
+  }
+
+  // Manejar el arrastre
+  void _onDragUpdate(DragUpdateDetails details) {
+    final bool isRightDirection = details.delta.dx > 0;
+
+    // Si es la primera actualización y tenemos el callback, notificar la dirección
+    if (_dragOffset.dx == 0 &&
+        widget.onDragStart != null &&
+        details.delta.dx != 0) {
+      widget.onDragStart!(
+          DragStartDetails(
+            sourceTimeStamp: details.sourceTimeStamp,
+            globalPosition: details.globalPosition,
+            localPosition: details.localPosition,
+          ),
+          isRightDirection);
+    }
+
+    // Actualizar la posición del arrastre
+    setState(() {
+      _dragOffset = Offset(_dragOffset.dx + details.delta.dx, 0);
+    });
+  }
+
+  // Manejar el final del arrastre
+  void _onDragEnd(DragEndDetails details) {
+    // Calcular velocidad para determinar si es un swipe
+    final velocity = details.velocity.pixelsPerSecond.dx;
+
+    // Si la velocidad o el desplazamiento son suficientes, considerar como swipe
+    if (velocity.abs() > 500 || _dragOffset.dx.abs() > 100) {
+      // Crear la animación de salida
+      final targetOffset = Offset(velocity > 0 ? 1.5 : -1.5, 0);
+      _swipeAnimation = Tween<Offset>(
+        begin: Offset(_dragOffset.dx / MediaQuery.of(context).size.width, 0),
+        end: targetOffset,
+      ).animate(CurvedAnimation(
+        parent: _swipeController,
+        curve: Curves.easeOutCubic,
+      ));
+
+      // Iniciar la animación
+      _swipeController.forward();
+
+      // Notificar a la pantalla padre
+      if (widget.onSwipe != null) {
+        widget.onSwipe!(details);
+      }
+    } else {
+      // Si no es un swipe, volver a la posición inicial
+      setState(() {
+        _dragOffset = Offset.zero;
+        _isDragging = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final Map<String, dynamic> flightDetails = widget.flightDetails;
+    final List<Map<String, dynamic>> gateHistory = widget.gateHistory;
+    final List<Map<String, dynamic>> fullHistory = widget.fullHistory;
+    final Future<void> Function() onRefresh = widget.onRefresh;
+    final String documentId = widget.documentId;
+
     // Format scheduled time
     final String formattedScheduleTime =
         _formatTime(flightDetails['schedule_time'] ?? '');
@@ -46,226 +191,226 @@ class FlightDetailsUI extends StatelessWidget {
     final Color airlineColor =
         AirlineHelper.getAirlineColor(flightDetails['airline'] ?? '');
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with main flight information
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
-                ),
+    // Contenido principal
+    final Widget mainContent = SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with main flight information
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Row with flight number, airline and status
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: airlineColor,
-                        radius: 24,
-                        child: Text(
-                          flightDetails['airline'] ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AirlineHelper.getTextColorForAirline(
-                                flightDetails['airline'] ?? ''),
-                          ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Row with flight number, airline and status
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: airlineColor,
+                      radius: 24,
+                      child: Text(
+                        flightDetails['airline'] ?? '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AirlineHelper.getTextColorForAirline(
+                              flightDetails['airline'] ?? ''),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            flightDetails['flight_id'] ?? '',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          flightDetails['flight_id'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
-                          Text(
-                            'Destination: ${flightDetails['airport'] ?? ''}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                            ),
+                        ),
+                        Text(
+                          'Destination: ${flightDetails['airport'] ?? ''}',
+                          style: const TextStyle(
+                            fontSize: 16,
                           ),
-                        ],
-                      ),
-                      const Spacer(),
-                      if (isDeparted)
-                        _buildStatusChip('DEPARTED', Colors.red.shade700),
-                      if (isCancelled)
-                        _buildStatusChip('CANCELLED', Colors.grey.shade800),
-                      if (isDelayed && !isDeparted && !isCancelled)
-                        _buildStatusChip('DELAYED', Colors.amber.shade700),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Time and gate information
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    child: Column(
-                      children: [
+                    const Spacer(),
+                    if (isDeparted)
+                      _buildStatusChip('DEPARTED', Colors.red.shade700),
+                    if (isCancelled)
+                      _buildStatusChip('CANCELLED', Colors.grey.shade800),
+                    if (isDelayed && !isDeparted && !isCancelled)
+                      _buildStatusChip('DELAYED', Colors.amber.shade700),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Time and gate information
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _buildInfoRow(
+                        'Scheduled time:',
+                        formattedScheduleTime,
+                        Icons.schedule,
+                        textDecoration:
+                            isCancelled ? TextDecoration.lineThrough : null,
+                      ),
+                      if (isDelayed && !isCancelled)
                         _buildInfoRow(
-                          'Scheduled time:',
-                          formattedScheduleTime,
-                          Icons.schedule,
-                          textDecoration:
-                              isCancelled ? TextDecoration.lineThrough : null,
+                          'New time:',
+                          formattedStatusTime!,
+                          Icons.timer,
+                          textColor: Colors.red,
                         ),
-                        if (isDelayed && !isCancelled)
-                          _buildInfoRow(
-                            'New time:',
-                            formattedStatusTime!,
-                            Icons.timer,
-                            textColor: Colors.red,
-                          ),
-                        _buildInfoRow(
-                          'Gate:',
-                          flightDetails['gate'] ?? '-',
-                          Icons.door_front_door,
-                          textDecoration:
-                              isCancelled ? TextDecoration.lineThrough : null,
-                        ),
-                      ],
+                      _buildInfoRow(
+                        'Gate:',
+                        flightDetails['gate'] ?? '-',
+                        Icons.door_front_door,
+                        textDecoration:
+                            isCancelled ? TextDecoration.lineThrough : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Title for history section
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Gate Change History',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+          // Subtitle explaining the filter
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey.shade600,
+                ),
+                children: [
+                  const TextSpan(text: 'Showing changes from '),
+                  TextSpan(
+                    text: '2 hours before',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  const TextSpan(text: ' scheduled departure at '),
+                  TextSpan(
+                    text: formattedScheduleTime,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
                     ),
                   ),
                 ],
               ),
             ),
+          ),
 
-            // Title for history section
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Gate Change History',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+          const SizedBox(height: 8),
 
-            // Subtitle explaining the filter
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey.shade600,
+          // Gate change history list
+          gateHistory.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    'No gate changes recorded for this flight.',
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
                   ),
-                  children: [
-                    const TextSpan(text: 'Showing changes from '),
-                    TextSpan(
-                      text: '2 hours before',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                    const TextSpan(text: ' scheduled departure at '),
-                    TextSpan(
-                      text: formattedScheduleTime,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: gateHistory.length,
+                  itemBuilder: (context, index) {
+                    final historyItem = gateHistory[index];
+                    final DateTime timestamp = historyItem['timestamp']
+                            is Timestamp
+                        ? (historyItem['timestamp'] as Timestamp).toDate()
+                        : DateTime.parse(historyItem['timestamp'].toString());
 
-            const SizedBox(height: 8),
-
-            // Gate change history list
-            gateHistory.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      'No gate changes recorded for this flight.',
-                      style: TextStyle(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: gateHistory.length,
-                    itemBuilder: (context, index) {
-                      final historyItem = gateHistory[index];
-                      final DateTime timestamp = historyItem['timestamp']
-                              is Timestamp
-                          ? (historyItem['timestamp'] as Timestamp).toDate()
-                          : DateTime.parse(historyItem['timestamp'].toString());
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        child: ListTile(
-                          leading: const Icon(Icons.compare_arrows,
-                              color: Colors.blue),
-                          title: RichText(
-                            text: TextSpan(
-                              style: DefaultTextStyle.of(context).style,
-                              children: [
-                                const TextSpan(
-                                  text: 'Changed from ',
-                                  style: TextStyle(color: Colors.grey),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: ListTile(
+                        leading: const Icon(Icons.compare_arrows,
+                            color: Colors.blue),
+                        title: RichText(
+                          text: TextSpan(
+                            style: DefaultTextStyle.of(context).style,
+                            children: [
+                              const TextSpan(
+                                text: 'Changed from ',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              TextSpan(
+                                text: '${historyItem['old_gate']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                TextSpan(
-                                  text: '${historyItem['old_gate']}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              ),
+                              const TextSpan(
+                                text: ' to ',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              TextSpan(
+                                text: '${historyItem['new_gate']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
                                 ),
-                                const TextSpan(
-                                  text: ' to ',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                                TextSpan(
-                                  text: '${historyItem['new_gate']}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          subtitle: Text(_formatDateTime(timestamp)),
                         ),
-                      );
-                    },
-                  ),
+                        subtitle: Text(_formatDateTime(timestamp)),
+                      ),
+                    );
+                  },
+                ),
 
-            // Additional flight information
+          // Additional flight information - solo visible en modo desarrollador
+          if (_developerModeEnabled)
             Padding(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton.icon(
@@ -289,9 +434,10 @@ class FlightDetailsUI extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-            // Debug Information
+          // Debug Information - solo visible en modo desarrollador
+          if (_developerModeEnabled)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -369,10 +515,97 @@ class FlightDetailsUI extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
-          ],
-        ),
+          const SizedBox(height: 24),
+        ],
       ),
+    );
+
+    // Aplicar animación de swipe si está activa
+    Widget content = mainContent;
+
+    if (widget.canSwipe) {
+      // Preparar el contenido del vuelo adyacente (si existe)
+      Widget? adjacentContent;
+      if (widget.adjacentFlightDetails != null) {
+        // Crear una versión simplificada de la UI para el vuelo adyacente
+        adjacentContent =
+            _buildSimplifiedFlightContent(widget.adjacentFlightDetails!);
+      }
+
+      if (_swipeAnimation != null && _swipeController.isAnimating) {
+        // Si hay una animación en curso, usar SlideTransition
+        if (adjacentContent != null) {
+          // Mostrar el vuelo adyacente debajo y el actual con animación encima
+          content = Stack(
+            children: [
+              adjacentContent,
+              SlideTransition(
+                position: _swipeAnimation!,
+                child: mainContent,
+              ),
+            ],
+          );
+        } else {
+          // Si no hay vuelo adyacente disponible, solo mostrar la animación
+          content = SlideTransition(
+            position: _swipeAnimation!,
+            child: mainContent,
+          );
+        }
+      } else if (_isDragging && _dragOffset.dx.abs() > 10) {
+        // Si está arrastrando (con un umbral mínimo), aplicar un Transform
+        final dragPercentage =
+            _dragOffset.dx / MediaQuery.of(context).size.width;
+        final isRightDirection = _dragOffset.dx > 0;
+
+        if (adjacentContent != null) {
+          // Calcular la opacidad del vuelo actual basado en cuánto se ha arrastrado
+          final contentOpacity =
+              1.0 - (dragPercentage.abs() * 0.3).clamp(0.0, 0.3);
+
+          // Calcular la escala del vuelo adyacente
+          // Comienza al 90% y aumenta hacia el 100% a medida que se arrastra
+          final adjacentScale =
+              0.9 + (dragPercentage.abs() * 0.1).clamp(0.0, 0.1);
+
+          content = Stack(
+            children: [
+              // Vuelo adyacente con transformación de escala
+              Transform.scale(
+                scale: adjacentScale,
+                child: adjacentContent,
+              ),
+              // Vuelo actual con transformación de posición y opacidad
+              Transform.translate(
+                offset: Offset(_dragOffset.dx, 0),
+                child: Opacity(
+                  opacity: contentOpacity,
+                  child: mainContent,
+                ),
+              ),
+            ],
+          );
+        } else {
+          // Si no hay vuelo adyacente, solo mostrar el arrastre
+          content = Transform.translate(
+            offset: Offset(_dragOffset.dx, 0),
+            child: mainContent,
+          );
+        }
+      }
+
+      // Envolver el contenido en un GestureDetector para detectar el swipe
+      content = GestureDetector(
+        onHorizontalDragStart: _onDragStart,
+        onHorizontalDragUpdate: _onDragUpdate,
+        onHorizontalDragEnd: _onDragEnd,
+        child: content,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: content,
     );
   }
 
@@ -432,26 +665,13 @@ class FlightDetailsUI extends StatelessWidget {
 
   /// Builds the additional information section with all remaining fields
   Widget _buildAdditionalInfo() {
-    // List of fields that have already been shown in the UI
-    final List<String> shownFields = [
-      'flight_id',
-      'airline',
-      'schedule_time',
-      'status_time',
-      'airport',
-      'gate',
-      'status_code',
-      'gate_history'
-    ];
+    // Mostrar todos los campos del documento de vuelo
+    final Map<String, dynamic> additionalInfo = Map.from(widget.flightDetails);
 
-    // Filter fields that haven't been shown yet
-    final Map<String, dynamic> additionalInfo = Map.from(flightDetails)
-      ..removeWhere((key, value) => shownFields.contains(key));
-
-    // If there's no additional information, show message
+    // If there's no information, show message
     if (additionalInfo.isEmpty) {
       return const Text(
-        'No additional information available.',
+        'No information available.',
         style: TextStyle(
           fontStyle: FontStyle.italic,
           color: Colors.grey,
@@ -459,7 +679,7 @@ class FlightDetailsUI extends StatelessWidget {
       );
     }
 
-    // Show each additional field
+    // Show each field
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: additionalInfo.entries.map((entry) {
@@ -470,13 +690,20 @@ class FlightDetailsUI extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${_formatFieldName(entry.key)}: ',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    '${_formatFieldName(entry.key)}: ',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 Expanded(
+                  flex: 3,
                   child: Text(
                     _formatFieldValue(entry.value),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
               ],
@@ -591,11 +818,11 @@ class FlightDetailsUI extends StatelessWidget {
     final Size screenSize = MediaQuery.of(context).size;
     // Get airline color from the same source used in build method
     final Color airlineColor =
-        AirlineHelper.getAirlineColor(flightDetails['airline'] ?? '');
+        AirlineHelper.getAirlineColor(widget.flightDetails['airline'] ?? '');
     final Color airlineBgColor = airlineColor.withOpacity(0.3);
     // Get airline text color
-    final Color airlineTextColor =
-        AirlineHelper.getTextColorForAirline(flightDetails['airline'] ?? '');
+    final Color airlineTextColor = AirlineHelper.getTextColorForAirline(
+        widget.flightDetails['airline'] ?? '');
 
     showDialog(
       context: context,
@@ -640,7 +867,7 @@ class FlightDetailsUI extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Additional Information',
+                          'Complete Flight Information',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -660,12 +887,41 @@ class FlightDetailsUI extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Content
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: _buildAdditionalInfo(),
+
+                // Tabs para navegar entre las diferentes secciones
+                DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      TabBar(
+                        tabs: const [
+                          Tab(text: 'Flight Data'),
+                          Tab(text: 'History Collection'),
+                        ],
+                        labelColor: airlineColor,
+                        indicatorColor: airlineColor,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: screenSize.height * 0.5,
+                        child: TabBarView(
+                          children: [
+                            // Primera pestaña: Información del vuelo
+                            SingleChildScrollView(
+                              child: _buildAdditionalInfo(),
+                            ),
+
+                            // Segunda pestaña: Historial completo
+                            SingleChildScrollView(
+                              child: _buildHistoryInfo(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+
                 // Footer
                 const SizedBox(height: 16),
                 Align(
@@ -688,6 +944,309 @@ class FlightDetailsUI extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Builds the history collection information
+  Widget _buildHistoryInfo() {
+    // Agregar log para depuración
+    print(
+        'LOG DEBUG: Building history info with ${widget.fullHistory.length} records');
+
+    if (widget.fullHistory.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'No history records found for this flight.',
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Text(
+            'History Collection: ${widget.fullHistory.length} records',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ),
+        ...widget.fullHistory.map((record) {
+          // Verificar que record es un Map no nulo
+          if (record == null) {
+            print('LOG ERROR: Found null record in history');
+            return const SizedBox
+                .shrink(); // No mostrar nada para registros nulos
+          }
+
+          // Añadir log para cada registro procesado
+          print(
+              'LOG DEBUG: Processing history record with ID: ${record['id']} and keys: ${record.keys.toList()}');
+
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: ExpansionTile(
+              title: Text(
+                'Record ID: ${record['id'] ?? 'Unknown'}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: _buildHistoryRecordSubtitle(record),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: record.entries
+                        .where((entry) =>
+                            entry.key !=
+                            'id') // Omitir el ID que ya se muestra en el título
+                        .map((entry) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                '${_formatFieldName(entry.key)}: ',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                _formatFieldValue(entry.value),
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  /// Construye el subtítulo para un registro de historial de forma segura
+  Widget _buildHistoryRecordSubtitle(Map<String, dynamic> record) {
+    try {
+      // Si tiene change_time, mostrar la marca de tiempo
+      if (record.containsKey('change_time') && record['change_time'] != null) {
+        final timestamp = record['change_time'];
+        String formattedTime;
+
+        if (timestamp is Timestamp) {
+          formattedTime = _formatDateTime(timestamp.toDate());
+        } else if (timestamp is String) {
+          try {
+            formattedTime = _formatDateTime(DateTime.parse(timestamp));
+          } catch (e) {
+            print('LOG ERROR: Could not parse timestamp string: $timestamp');
+            formattedTime = timestamp;
+          }
+        } else {
+          formattedTime = timestamp.toString();
+        }
+
+        return Text(
+          'Timestamp: $formattedTime',
+          style: const TextStyle(fontSize: 12),
+        );
+      }
+
+      // Si tiene old_gate y new_gate, mostrar el cambio
+      else if (record.containsKey('old_gate') &&
+          record.containsKey('new_gate')) {
+        return Text(
+          'Gate change: ${record['old_gate']} → ${record['new_gate']}',
+          style: const TextStyle(fontSize: 12),
+        );
+      }
+
+      // Si no tiene ninguno de los anteriores pero tiene campos, mostrar alguna info útil
+      else if (record.isNotEmpty) {
+        // Buscar algún campo relevante para mostrar
+        final keys = record.keys.where((k) => k != 'id').toList();
+        if (keys.isNotEmpty) {
+          final key = keys.first;
+          return Text(
+            '$key: ${_formatFieldValue(record[key])}',
+            style: const TextStyle(fontSize: 12),
+            overflow: TextOverflow.ellipsis,
+          );
+        }
+      }
+
+      // Si no se cumple ninguna condición anterior
+      return const Text(
+        'No details available',
+        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+      );
+    } catch (e) {
+      print('LOG ERROR: Error building history record subtitle: $e');
+      return Text(
+        'Error: $e',
+        style: const TextStyle(fontSize: 12, color: Colors.red),
+      );
+    }
+  }
+
+  /// Construye una versión simplificada del contenido del vuelo para mostrar como fondo
+  Widget _buildSimplifiedFlightContent(Map<String, dynamic> flightData) {
+    // Formateo de datos básicos
+    final String formattedScheduleTime =
+        _formatTime(flightData['schedule_time'] ?? '');
+    final String? formattedStatusTime = flightData['status_time'] != null &&
+            flightData['status_time'].toString().isNotEmpty
+        ? _formatTime(flightData['status_time'])
+        : null;
+
+    // Determinar estados del vuelo
+    final bool isDelayed = formattedStatusTime != null &&
+        formattedStatusTime != formattedScheduleTime &&
+        _isLaterTime(formattedStatusTime, formattedScheduleTime);
+    final bool isDeparted = flightData['status_code'] == 'D';
+    final bool isCancelled = flightData['status_code'] == 'C';
+
+    // Color basado en la aerolínea
+    final Color airlineColor =
+        AirlineHelper.getAirlineColor(flightData['airline'] ?? '');
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header con información principal del vuelo
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Fila con número de vuelo, aerolínea y estado
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: airlineColor,
+                      radius: 24,
+                      child: Text(
+                        flightData['airline'] ?? '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AirlineHelper.getTextColorForAirline(
+                              flightData['airline'] ?? ''),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          flightData['flight_id'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Destination: ${flightData['airport'] ?? ''}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (isDeparted)
+                      _buildStatusChip('DEPARTED', Colors.red.shade700),
+                    if (isCancelled)
+                      _buildStatusChip('CANCELLED', Colors.grey.shade800),
+                    if (isDelayed && !isDeparted && !isCancelled)
+                      _buildStatusChip('DELAYED', Colors.amber.shade700),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Información de tiempo y puerta
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _buildInfoRow(
+                        'Scheduled time:',
+                        formattedScheduleTime,
+                        Icons.schedule,
+                        textDecoration:
+                            isCancelled ? TextDecoration.lineThrough : null,
+                      ),
+                      if (isDelayed && !isCancelled)
+                        _buildInfoRow(
+                          'New time:',
+                          formattedStatusTime!,
+                          Icons.timer,
+                          textColor: Colors.red,
+                        ),
+                      _buildInfoRow(
+                        'Gate:',
+                        flightData['gate'] ?? '-',
+                        Icons.door_front_door,
+                        textDecoration:
+                            isCancelled ? TextDecoration.lineThrough : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Mostrar un espacio en blanco en lugar del historial de cambios
+          const SizedBox(height: 500),
+        ],
+      ),
     );
   }
 }

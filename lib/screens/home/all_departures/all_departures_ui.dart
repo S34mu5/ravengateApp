@@ -828,6 +828,22 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     }
   }
 
+  /// Navega a la pantalla de detalles del vuelo seleccionado
+  void _navigateToFlightDetails(
+      BuildContext context, Map<String, dynamic> flight) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightDetailsScreen(
+          flightId: flight['flight_id'],
+          documentId: flight['id'],
+          flightsList: widget.flights, // Pasar toda la lista de vuelos
+          flightsSource: 'all', // Indicar que viene de "todos los vuelos"
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -961,16 +977,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                   'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
 
                               // Navegar a la pantalla de detalles
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => FlightDetailsScreen(
-                                    flightId: flight['flight_id'],
-                                    documentId: flight['flight_ref'] ??
-                                        flight['id'] ??
-                                        '',
-                                  ),
-                                ),
-                              );
+                              _navigateToFlightDetails(context, flight);
                             }
                           },
                           onLongPress: _isSelectionMode
