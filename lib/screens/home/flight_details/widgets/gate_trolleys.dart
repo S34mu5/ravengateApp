@@ -219,6 +219,11 @@ class _GateTrolleysState extends State<GateTrolleys> {
           ),
         );
       }
+
+      // Notificar al padre para actualizar la pantalla
+      if (widget.onUpdateSuccess != null) {
+        widget.onUpdateSuccess!();
+      }
     } catch (e) {
       debugPrint('Error marking trolley delivery as deleted: $e');
       if (mounted) {
@@ -487,6 +492,11 @@ class _GateTrolleysState extends State<GateTrolleys> {
           ),
         );
       }
+
+      // Notificar al padre para actualizar la pantalla
+      if (widget.onUpdateSuccess != null) {
+        widget.onUpdateSuccess!();
+      }
     } catch (e) {
       debugPrint('Error deleting all trolley deliveries: $e');
       if (mounted) {
@@ -561,8 +571,8 @@ class _GateTrolleysState extends State<GateTrolleys> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.save, size: 16),
-                label: const Text('Save'),
+                    : const Icon(Icons.local_shipping, size: 16),
+                label: const Text('Deliver'),
                 style: ElevatedButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(vertical: 12, horizontal: 16),

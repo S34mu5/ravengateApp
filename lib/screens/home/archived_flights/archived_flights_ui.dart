@@ -206,7 +206,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Here you can see the flights you have archived. You can restore them to your active list.',
+                'Here you can see the flights you have archived for this date. You can restore them to your active list.',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade700,
@@ -338,83 +338,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
                           ? _formatArchivedDate(flight['archived_at'])
                           : 'Unknown date';
 
-                      return FlightCard(
-                        flight: flight,
-                        isSelectionMode: false,
-                        isSelected: false,
-                        isDismissible:
-                            true, // Permitir deslizar para eliminar permanentemente
-                        selectionColor: Colors.blue.shade300,
-                        onTap: () {
-                          print(
-                              'LOG: Usuario seleccionó el vuelo archivado ${flight['flight_id']} para ${flight['airport']}');
-
-                          // Navegar a la pantalla de detalles
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => FlightDetailsScreen(
-                                flightId: flight['flight_id'],
-                                documentId: flight['id'] ?? '',
-                              ),
-                            ),
-                          );
-                        },
-                        // Botón de restaurar
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.restore,
-                            color: Colors.blue,
-                          ),
-                          onPressed: () => _confirmRestoreFlight(
-                            flight['doc_id'] ??
-                                flight['id'] ??
-                                flight['flight_id'],
-                            flight['flight_id'],
-                          ),
-                          tooltip: 'Restore flight',
-                        ),
-                        // Confirmar antes de eliminar permanentemente
-                        confirmDismiss: (direction) async {
-                          // Mostrar diálogo de confirmación para eliminar permanentemente
-                          return await showDialog<bool>(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title:
-                                        const Text("Eliminar permanentemente"),
-                                    content: Text(
-                                        "¿Estás seguro que deseas eliminar permanentemente el vuelo ${flight['flight_id']}? Esta acción no se puede deshacer."),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(false),
-                                        child: const Text("Cancelar"),
-                                      ),
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(true),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                        ),
-                                        child: const Text(
-                                            "Eliminar permanentemente"),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ) ??
-                              false;
-                        },
-                        // Función para eliminar permanentemente
-                        onDismissed: (direction) {
-                          if (widget.onDeleteFlight != null) {
-                            final docId = flight['doc_id'] ??
-                                flight['id'] ??
-                                flight['flight_id'];
-                            widget.onDeleteFlight!(docId);
-                          }
-                        },
-                      );
+                      return _buildArchivedFlightItem(context, flight);
                     },
                   ),
                 ),
@@ -527,5 +451,217 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         ],
       ),
     );
+  }
+
+  /// Construye un solo item de vuelo archivado
+  Widget _buildArchivedFlightItem(
+      BuildContext context, Map<String, dynamic> flight) {
+    // Extracting info from the flight
+    final flightId = flight['flight_id'] ?? 'Unknown';
+    final airline = flight['airline'] ?? '';
+    final scheduleTime = flight['schedule_time'] ?? '';
+    final gate = flight['gate'] ?? '';
+    final airport = flight['airport'] ?? '';
+    final wasRemoved = flight['flight_removed'] == true;
+    final hasDataError = flight['data_error'] == true;
+    final docId = flight['doc_id'] ?? '';
+
+    // Extracción de tiempo de archivo
+    String archivedTime = '';
+    if (flight['archived_at'] != null) {
+      try {
+        final dateTime = DateTime.parse(flight['archived_at']);
+        archivedTime =
+            _timeFormatter.format(dateTime); // Solo mostramos la hora
+      } catch (e) {
+        print('LOG: Error formatting archived time: $e');
+      }
+    }
+
+    // Special styling for removed or error flights
+    final isDisabled = wasRemoved || hasDataError;
+    final cardColor = isDisabled ? Colors.grey.shade200 : Colors.white;
+    final textColor = isDisabled ? Colors.grey.shade700 : Colors.black87;
+
+    // Icono de aerolínea
+    final Widget airlineIcon = airline.isNotEmpty
+        ? Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AirlineHelper.getAirlineColor(airline),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                airline.substring(0, 1).toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      elevation: 2,
+      color: cardColor,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            // Flight info header
+            Row(
+              children: [
+                // Airline icon and flight number
+                Expanded(
+                  child: Row(
+                    children: [
+                      airlineIcon,
+                      const SizedBox(width: 8),
+                      Text(
+                        flightId,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Flight status pill
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Archived · $archivedTime',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Flight details
+            Row(
+              children: [
+                Icon(Icons.flight_takeoff,
+                    size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  airport,
+                  style: TextStyle(
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  _extractTimeFromSchedule(scheduleTime),
+                  style: TextStyle(
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.meeting_room, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  gate,
+                  style: TextStyle(
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Restore button
+                TextButton.icon(
+                  onPressed: isDisabled
+                      ? null
+                      : () {
+                          if (widget.onRestoreFlight != null &&
+                              docId.isNotEmpty) {
+                            widget.onRestoreFlight!(docId);
+                          }
+                        },
+                  icon: const Icon(Icons.restore, size: 16),
+                  label: const Text('Restore'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+
+                // Delete button
+                TextButton.icon(
+                  onPressed: () {
+                    if (widget.onDeleteFlight != null && docId.isNotEmpty) {
+                      _confirmDelete(context, docId);
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('Delete'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Mostrar diálogo de confirmación para eliminar permanentemente
+  Future<void> _confirmDelete(BuildContext context, String docId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Eliminar permanentemente"),
+        content: Text(
+            "¿Estás seguro que deseas eliminar permanentemente el vuelo $docId? Esta acción no se puede deshacer."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text("Eliminar permanentemente"),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true && widget.onDeleteFlight != null) {
+      widget.onDeleteFlight!(docId);
+    }
   }
 }
