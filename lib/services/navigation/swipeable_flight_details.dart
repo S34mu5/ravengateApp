@@ -12,10 +12,10 @@ mixin SwipeableFlightDetails<T extends StatefulWidget> on State<T> {
   /// Origen de la lista de vuelos (para saber a qué pantalla volver)
   String get flightsSource;
 
-  /// Detecta gestos de swipe y navega al vuelo correspondiente
-  Widget buildSwipeableContent(Widget child) {
-    // Ahora la detección de swipe se maneja internamente en FlightDetailsUI
-    // Simplemente devolvemos el widget hijo
-    return child;
+  /// Método de ayuda para depurar información sobre el swipe
+  void _debugSwipeInfo() {
+    print('SWIPE DEBUG: Lista de vuelos: ${flightsList.length} elementos');
+    print('SWIPE DEBUG: ID de documento actual: $currentFlightDocId');
+    print('SWIPE DEBUG: Origen de los datos: $flightsSource');
   }
 }

@@ -80,6 +80,32 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen>
       final Map<String, dynamic> flightData =
           flightDoc.data() as Map<String, dynamic>;
 
+      print('LOG: Flight data loaded: ${flightData.keys.toList()}');
+
+      // Log trolley information if available
+      if (flightData.containsKey('trolleys_at_gate')) {
+        print(
+            'LOG: Trolleys at gate info found: ${flightData['trolleys_at_gate']}');
+      } else {
+        print('LOG: No trolleys at gate information available');
+
+        // Verificar la subcolección 'trolleys'
+        try {
+          final trolleysSnapshot = await _firestore
+              .collection('flights')
+              .doc(widget.documentId)
+              .collection('trolleys')
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .get();
+
+          print(
+              'LOG: Trolleys subcollection check - ${trolleysSnapshot.docs.length} documents found');
+        } catch (e) {
+          print('LOG ERROR: Failed to check trolleys subcollection: $e');
+        }
+      }
+
       // Calculate the cutoff time (2 hours before scheduled flight time)
       DateTime? cutoffTime;
       try {
@@ -284,62 +310,91 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen>
     }
   }
 
-  /// Obtiene el índice del vuelo actual en la lista
-  int _getCurrentFlightIndex() {
-    if (flightsList.isEmpty) return -1;
+  /// Handles swipe actions based on the provided end details
+  void _handleSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final bool isNext = velocity < 0; // true if right to left swipe
 
-    // Buscar por id
-    int index =
-        flightsList.indexWhere((flight) => flight['id'] == widget.documentId);
+    // Only process swipe if velocity is sufficient
+    if (velocity.abs() > 500) {
+      print('LOG: Swipe detected with velocity: $velocity');
+      _navigateToAdjacentFlight(isNext);
+    }
+  }
 
-    // Si no se encuentra, buscar por flight_ref (para MyDepartures)
-    if (index == -1) {
-      index = flightsList.indexWhere((flight) =>
+  /// Updates the adjacent flight details based on swipe direction
+  void _handleSwipeDirectionChange(bool isNext) {
+    // Do not load if we're at the edge of the list
+    if (_checkIfAtEdgeOfList(isNext)) {
+      return;
+    }
+
+    // Load the adjacent flight details in background
+    _loadAdjacentFlightDetails(isNext);
+  }
+
+  /// Loads the details of the adjacent flight in the specified direction
+  Future<void> _loadAdjacentFlightDetails(bool isNext) async {
+    if (widget.flightsList == null ||
+        widget.flightsList!.isEmpty ||
+        _loadingAdjacentFlight) {
+      return;
+    }
+
+    // Find the current index
+    int currentIndex = widget.flightsList!
+        .indexWhere((flight) => flight['id'] == widget.documentId);
+
+    if (currentIndex == -1) {
+      currentIndex = widget.flightsList!.indexWhere((flight) =>
           (flight['flight_ref'] != null &&
               flight['flight_ref'] == widget.documentId) ||
           (flight['doc_id'] != null && flight['doc_id'] == widget.documentId));
     }
 
-    return index;
-  }
-
-  /// Obtiene el índice del vuelo adyacente en la dirección especificada
-  int _getAdjacentFlightIndex(bool isNext) {
-    final currentIndex = _getCurrentFlightIndex();
-    if (currentIndex == -1 || flightsList.isEmpty) return -1;
-
-    if (isNext) {
-      return (currentIndex + 1) % flightsList.length;
-    } else {
-      return (currentIndex - 1 + flightsList.length) % flightsList.length;
+    if (currentIndex == -1) {
+      return;
     }
-  }
 
-  /// Precargar detalles del vuelo adyacente
-  Future<void> _preloadAdjacentFlightDetails(bool isNext) async {
-    if (flightsList.isEmpty || _loadingAdjacentFlight) return;
+    // Calculate adjacent index based on the source and direction
+    int adjacentIndex;
+    if (widget.flightsSource == 'my') {
+      // For my_departures the logic is reversed
+      adjacentIndex = isNext ? currentIndex - 1 : currentIndex + 1;
+    } else {
+      // For all_departures
+      adjacentIndex = isNext ? currentIndex + 1 : currentIndex - 1;
+    }
 
-    final adjacentIndex = _getAdjacentFlightIndex(isNext);
-    if (adjacentIndex == -1) return;
+    // Check valid index
+    if (adjacentIndex < 0 || adjacentIndex >= widget.flightsList!.length) {
+      return;
+    }
 
-    final adjacentFlight = flightsList[adjacentIndex];
-    final String docId = flightsSource == 'my'
+    // Get adjacent flight data
+    final adjacentFlight = widget.flightsList![adjacentIndex];
+    final String docId = widget.flightsSource == 'my'
         ? (adjacentFlight['flight_ref'] ?? adjacentFlight['id'] ?? '')
         : adjacentFlight['id'];
 
-    print(
-        'LOG: Precargando detalles del vuelo ${adjacentFlight['flight_id']} (ID: $docId)');
+    print('LOG: Precargando detalles del vuelo (ID: $docId)');
 
-    _loadingAdjacentFlight = true;
+    setState(() {
+      _loadingAdjacentFlight = true;
+    });
 
     try {
-      // Obtener datos del vuelo adyacente
+      // Get flight document
       final DocumentSnapshot flightDoc =
           await _firestore.collection('flights').doc(docId).get();
 
       if (!flightDoc.exists) {
         print('LOG: Vuelo adyacente no encontrado');
-        _loadingAdjacentFlight = false;
+        if (mounted) {
+          setState(() {
+            _loadingAdjacentFlight = false;
+          });
+        }
         return;
       }
 
@@ -351,33 +406,86 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen>
       }
     } catch (e) {
       print('LOG: Error precargando vuelo adyacente: $e');
-      _loadingAdjacentFlight = false;
+      if (mounted) {
+        setState(() {
+          _loadingAdjacentFlight = false;
+        });
+      }
+    }
+  }
+
+  /// Checks if we're at the edge of the flight list
+  bool _checkIfAtEdgeOfList(bool isNext) {
+    if (widget.flightsList == null || widget.flightsList!.isEmpty) {
+      return true;
+    }
+
+    final currentIndex = widget.flightsList!
+        .indexWhere((flight) => flight['id'] == widget.documentId);
+
+    int index = currentIndex;
+    if (index == -1) {
+      index = widget.flightsList!.indexWhere((flight) =>
+          (flight['flight_ref'] != null &&
+              flight['flight_ref'] == widget.documentId) ||
+          (flight['doc_id'] != null && flight['doc_id'] == widget.documentId));
+    }
+
+    if (index == -1) {
+      return true;
+    }
+
+    if (widget.flightsSource == 'my') {
+      // For my_departures the logic is reversed
+      if (isNext && index <= 0) {
+        return true; // Already at first flight
+      }
+      if (!isNext && index >= widget.flightsList!.length - 1) {
+        return true; // Already at last flight
+      }
+    } else {
+      // For all_departures
+      if (isNext && index >= widget.flightsList!.length - 1) {
+        return true; // Already at last flight
+      }
+      if (!isNext && index <= 0) {
+        return true; // Already at first flight
+      }
+    }
+
+    return false;
+  }
+
+  /// Navigate to adjacent flight
+  void _navigateToAdjacentFlight(bool isNext) {
+    if (widget.flightsList != null && widget.flightsList!.isNotEmpty) {
+      SwipeableFlightsService.navigateToAdjacentFlight(
+        context: context,
+        currentFlightDocId: widget.documentId,
+        flightsList: widget.flightsList!,
+        isNext: isNext,
+        flightsSource: widget.flightsSource ?? 'all',
+      );
+    } else {
+      print('LOG: No se puede navegar - lista de vuelos vacía');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Determine if swipe is available
+    final bool canSwipe = widget.flightsList != null &&
+        widget.flightsList!.isNotEmpty &&
+        widget.flightsList!.length > 1;
+
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Flight ${widget.flightId}'),
-            Text(
-              'ID: ${widget.documentId}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
+        title: Text('Flight ${widget.flightId}'),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadFlightDetails,
-            tooltip: 'Refresh data',
           ),
         ],
       ),
@@ -385,64 +493,26 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen>
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red.shade700),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadFlightDetails,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
+                  child: Text(_errorMessage!),
                 )
-              : buildSwipeableContent(
-                  FlightDetailsUI(
-                    flightDetails: _flightDetails!,
-                    gateHistory: _gateHistory,
-                    fullHistory: _fullHistory,
-                    onRefresh: _loadFlightDetails,
-                    documentId: widget.documentId,
-                    canSwipe: widget.flightsList != null &&
-                        widget.flightsList!.isNotEmpty,
-                    onSwipe: _handleSwipe,
-                    onDragStart: _handleDragStart,
-                    adjacentFlightDetails: _adjacentFlightDetails,
-                  ),
-                ),
+              : _flightDetails != null
+                  ? RefreshIndicator(
+                      onRefresh: _loadFlightDetails,
+                      child: FlightDetailsUI(
+                        flightDetails: _flightDetails!,
+                        gateHistory: _gateHistory,
+                        fullHistory: _fullHistory,
+                        onRefresh: _loadFlightDetails,
+                        documentId: widget.documentId,
+                        canSwipe: canSwipe,
+                        onSwipe: _handleSwipe,
+                        onSwipeDirectionChanged: _handleSwipeDirectionChange,
+                        adjacentFlightDetails: _adjacentFlightDetails,
+                      ),
+                    )
+                  : const Center(
+                      child: Text('No data found for this flight'),
+                    ),
     );
-  }
-
-  /// Maneja el evento de swipe y navega al vuelo correspondiente
-  void _handleSwipe(DragEndDetails details) {
-    // La velocidad horizontal determina la dirección del swipe
-    final velocity = details.velocity.pixelsPerSecond.dx;
-
-    // Si es positivo, swipe hacia la derecha (vuelo anterior)
-    // Si es negativo, swipe hacia la izquierda (siguiente vuelo)
-    final isNext = velocity < 0;
-
-    // Usar el servicio de navegación para ir al vuelo adyacente
-    SwipeableFlightsService.navigateToAdjacentFlight(
-      context: context,
-      currentFlightDocId: currentFlightDocId,
-      flightsList: flightsList,
-      isNext: isNext,
-      flightsSource: flightsSource,
-    );
-  }
-
-  /// Maneja el inicio de arrastre y precarga el vuelo adyacente
-  void _handleDragStart(DragStartDetails details, bool isRightDirection) {
-    // Precargar el vuelo en la dirección del arrastre
-    _preloadAdjacentFlightDetails(
-        !isRightDirection); // isRightDirection es true cuando arrastramos hacia la derecha
   }
 }

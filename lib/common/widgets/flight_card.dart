@@ -116,7 +116,21 @@ class FlightCard extends StatelessWidget {
             ),
             subtitle: Row(
               children: [
-                Text('Gate: ${flight['gate']}'),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Gate: ${flight['gate']}'),
+                    if (flight['trolleys_at_gate'] != null &&
+                        flight['trolleys_at_gate']['count'] != null)
+                      Text(
+                        'Trolleys at gate: ${flight['trolleys_at_gate']['count']}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                  ],
+                ),
                 if (isDelayed && !isCancelled) ...[
                   const SizedBox(width: 8),
                   Container(

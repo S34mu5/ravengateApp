@@ -8,8 +8,9 @@ class SwipeableFlightsService {
   /// [context] - Contexto actual
   /// [currentFlightDocId] - ID del documento del vuelo actual
   /// [flightsList] - Lista completa de vuelos disponibles
-  /// [isNext] - true para ir al siguiente vuelo (abajo en la lista), false para ir al anterior (arriba en la lista)
-  /// [flightsSource] - Origen de los datos de los vuelos
+  /// [isNext] - true para navegar al siguiente vuelo (swipe derecha a izquierda),
+  ///            false para navegar al vuelo anterior (swipe izquierda a derecha)
+  /// [flightsSource] - Origen de los datos de los vuelos ('all' o 'my')
   static void navigateToAdjacentFlight({
     required BuildContext context,
     required String currentFlightDocId,
@@ -47,16 +48,66 @@ class SwipeableFlightsService {
 
     // Calcular el índice del vuelo al que se desea navegar
     int targetIndex;
-    if (isNext) {
-      // Moverse hacia el siguiente vuelo (abajo en la lista)
-      targetIndex = (index + 1) %
-          flightsList.length; // Vuelve al inicio si llega al final
-      print('LOG: Navegando al siguiente vuelo (índice $targetIndex)');
+
+    // La dirección de navegación depende de la fuente (all_departures o my_departures)
+    if (flightsSource == 'my') {
+      // Para my_departures invertimos la lógica
+      if (isNext) {
+        // isNext=true (swipe de derecha a izquierda) -> vuelo anterior
+        targetIndex = index - 1;
+
+        // Verificar si estamos en el primer elemento
+        if (targetIndex < 0) {
+          print(
+              'LOG: Ya estás en el primer vuelo, no se puede navegar más arriba');
+          return;
+        }
+
+        print(
+            'LOG: Navegando al vuelo anterior (índice $targetIndex) en my_departures');
+      } else {
+        // isNext=false (swipe de izquierda a derecha) -> siguiente vuelo
+        targetIndex = index + 1;
+
+        // Verificar si estamos en el último elemento
+        if (targetIndex >= flightsList.length) {
+          print(
+              'LOG: Ya estás en el último vuelo, no se puede navegar más abajo');
+          return;
+        }
+
+        print(
+            'LOG: Navegando al siguiente vuelo (índice $targetIndex) en my_departures');
+      }
     } else {
-      // Moverse hacia el vuelo anterior (arriba en la lista)
-      targetIndex = (index - 1 + flightsList.length) %
-          flightsList.length; // Vuelve al final si llega al inicio
-      print('LOG: Navegando al vuelo anterior (índice $targetIndex)');
+      // Para all_departures mantenemos la lógica original
+      if (isNext) {
+        // isNext=true (swipe de derecha a izquierda) -> siguiente vuelo
+        targetIndex = index + 1;
+
+        // Verificar si estamos en el último elemento
+        if (targetIndex >= flightsList.length) {
+          print(
+              'LOG: Ya estás en el último vuelo, no se puede navegar más abajo');
+          return;
+        }
+
+        print(
+            'LOG: Navegando al siguiente vuelo (índice $targetIndex) en all_departures');
+      } else {
+        // isNext=false (swipe de izquierda a derecha) -> vuelo anterior
+        targetIndex = index - 1;
+
+        // Verificar si estamos en el primer elemento
+        if (targetIndex < 0) {
+          print(
+              'LOG: Ya estás en el primer vuelo, no se puede navegar más arriba');
+          return;
+        }
+
+        print(
+            'LOG: Navegando al vuelo anterior (índice $targetIndex) en all_departures');
+      }
     }
 
     // Obtener el vuelo objetivo

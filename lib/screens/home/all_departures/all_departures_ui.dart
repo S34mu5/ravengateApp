@@ -831,6 +831,12 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
       BuildContext context, Map<String, dynamic> flight) {
+    // Añadir logs para depuración
+    print('LOG: Navegando a detalles de vuelo desde All Departures');
+    print(
+        'LOG: Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
+    print('LOG: Pasando lista de ${widget.flights.length} vuelos');
+
     Navigator.push(
       context,
       MaterialPageRoute(
