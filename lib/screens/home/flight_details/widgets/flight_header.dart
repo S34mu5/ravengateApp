@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../utils/airline_helper.dart';
 import 'common_widgets.dart';
+import '../utils/flight_formatters.dart';
 
 /// Widget que muestra el encabezado con información básica del vuelo
 class FlightHeader extends StatefulWidget {
@@ -119,9 +120,12 @@ class _FlightHeaderState extends State<FlightHeader> {
           continue;
         }
 
-        final int countValue = data['count'] as int? ?? 0;
-        debugPrint('Documento trolley: ID=${doc.id}, count=$countValue');
-        totalCount += countValue;
+        // Solo sumamos si no está eliminado
+        if (!(data['deleted'] ?? false)) {
+          final int countValue = data['count'] as int? ?? 0;
+          debugPrint('Documento trolley: ID=${doc.id}, count=$countValue');
+          totalCount += countValue;
+        }
       }
 
       debugPrint('Total de trolleys calculado: $totalCount');
@@ -178,7 +182,7 @@ class _FlightHeaderState extends State<FlightHeader> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.flightDetails['flight_id'] ?? '',
+                    '${widget.flightDetails['flight_id'] ?? ''} - ${FlightFormatters.formatShortDate(DateTime.parse(widget.flightDetails['schedule_time'] ?? DateTime.now().toIso8601String()))}',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -196,7 +200,7 @@ class _FlightHeaderState extends State<FlightHeader> {
               if (widget.isDeparted)
                 const StatusChip(text: 'DEPARTED', color: Colors.red),
               if (widget.isCancelled)
-                const StatusChip(text: 'CANCELLED', color: Colors.grey),
+                const StatusChip(text: 'CANCELLED', color: Colors.black),
               if (widget.isDelayed && !widget.isDeparted && !widget.isCancelled)
                 StatusChip(text: 'DELAYED', color: Colors.amber.shade700),
             ],

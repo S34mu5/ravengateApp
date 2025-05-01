@@ -33,6 +33,16 @@ class FlightFormatters {
     }
   }
 
+  /// Formatea solo la fecha en formato corto (ej: Apr 30)
+  static String formatShortDate(DateTime dateTime) {
+    try {
+      return DateFormat('MMM d').format(dateTime.toLocal());
+    } catch (e) {
+      debugPrint('Error formatting short date: $e');
+      return dateTime.toString();
+    }
+  }
+
   /// Comprueba si una hora es posterior a otra
   static bool isLaterTime(String time1, String time2) {
     try {

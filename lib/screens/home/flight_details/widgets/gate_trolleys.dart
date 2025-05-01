@@ -24,6 +24,7 @@ class GateTrolleys extends StatefulWidget {
 class _GateTrolleysState extends State<GateTrolleys> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _trolleyController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _isUpdating = false;
   String? _errorMessage;
   bool _showSuccess = false;
@@ -45,6 +46,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
   @override
   void dispose() {
     _trolleyController.dispose();
+    _scrollController.dispose();
     // Cancel any pending timers
     _cancelTimers();
     super.dispose();
@@ -71,18 +73,16 @@ class _GateTrolleysState extends State<GateTrolleys> {
       int totalCount = 0;
       for (final doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        totalCount += (data['count'] as int? ?? 0);
+        // Solo sumamos si no está eliminado
+        if (!(data['deleted'] ?? false)) {
+          totalCount += (data['count'] as int? ?? 0);
+        }
       }
 
       if (mounted) {
         setState(() {
           _currentTrolleyCount = totalCount;
           _isLoadingCurrentCount = false;
-
-          // Inicializamos el campo con el total actual
-          if (totalCount > 0) {
-            _trolleyController.text = totalCount.toString();
-          }
         });
       }
     } catch (e) {
@@ -104,6 +104,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
     });
 
     try {
+      // Obtenemos todos los documentos
       final QuerySnapshot snapshot = await _firestore
           .collection('flights')
           .doc(widget.documentId)
@@ -115,6 +116,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
       // Verify if widget is still mounted before updating state
       if (!mounted) return;
 
+      // Convertimos todos los documentos a la lista de historial
       final List<Map<String, dynamic>> history = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return {
@@ -126,7 +128,10 @@ class _GateTrolleysState extends State<GateTrolleys> {
       // Calculate running total for each entry
       int runningTotal = 0;
       for (int i = history.length - 1; i >= 0; i--) {
-        runningTotal += history[i]['count'] as int;
+        // Solo sumamos si no está eliminado
+        if (!(history[i]['deleted'] ?? false)) {
+          runningTotal += history[i]['count'] as int;
+        }
         history[i]['running_total'] = runningTotal;
       }
 
@@ -143,6 +148,140 @@ class _GateTrolleysState extends State<GateTrolleys> {
         });
       }
     }
+  }
+
+  /// Returns the correct form of trolley/trolleys based on count
+  String _getTrolleyText(int count) {
+    return count == 1 ? 'trolley' : 'trolleys';
+  }
+
+  /// Shows confirmation dialog before marking as deleted
+  Future<void> _showDeleteConfirmation(
+      String docId, int count, String gate) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: Text(
+              'Are you sure you want to mark as deleted the delivery of $count ${_getTrolleyText(count)} at gate $gate?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await _markAsDeleted(docId);
+    }
+  }
+
+  /// Marks a trolley delivery as deleted
+  Future<void> _markAsDeleted(String docId) async {
+    try {
+      await _firestore
+          .collection('flights')
+          .doc(widget.documentId)
+          .collection('trolleys')
+          .doc(docId)
+          .set(
+              {
+            'deleted': true,
+            'deleted_at': FieldValue.serverTimestamp(),
+          },
+              SetOptions(
+                  merge:
+                      true)); // Usamos merge para no sobrescribir otros campos
+
+      // Recargar el historial y el conteo actual
+      await _loadCurrentTrolleyCount();
+      if (_showHistory) {
+        await _loadTrolleyHistory();
+      }
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Delivery has been marked as deleted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error marking trolley delivery as deleted: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Restores a deleted trolley delivery
+  Future<void> _restoreDelivery(String docId) async {
+    try {
+      await _firestore
+          .collection('flights')
+          .doc(widget.documentId)
+          .collection('trolleys')
+          .doc(docId)
+          .update({
+        'deleted': false,
+        'deleted_at': null,
+      });
+
+      // Recargar el historial y el conteo actual
+      await _loadCurrentTrolleyCount();
+      if (_showHistory) {
+        await _loadTrolleyHistory();
+      }
+    } catch (e) {
+      debugPrint('Error restoring trolley delivery: $e');
+    }
+  }
+
+  /// Shows confirmation dialog before saving
+  Future<bool> _showSaveConfirmation(int count) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delivery'),
+          content: Text(
+              'Please confirm that you are leaving $count ${_getTrolleyText(count)} at gate ${widget.currentGate}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.green,
+              ),
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirm ?? false;
   }
 
   /// Saves trolley count to Firestore
@@ -168,6 +307,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
       setState(() {
         _showSuccess = true;
         _errorMessage = null;
+        _trolleyController.clear();
       });
 
       // Cancel any previous timer
@@ -185,6 +325,12 @@ class _GateTrolleysState extends State<GateTrolleys> {
       return;
     }
 
+    // Show confirmation dialog
+    final bool confirmed = await _showSaveConfirmation(count);
+    if (!confirmed) {
+      return;
+    }
+
     setState(() {
       _isUpdating = true;
       _errorMessage = null;
@@ -196,13 +342,14 @@ class _GateTrolleysState extends State<GateTrolleys> {
       await _firestore
           .collection('flights')
           .doc(widget.documentId)
-          .collection('trolleys') // Use 'trolleys' instead of 'history'
+          .collection('trolleys')
           .add({
         'timestamp': FieldValue.serverTimestamp(),
         'count': count,
         'gate': widget.currentGate,
         'flight_id': widget.flightId,
-        'action': 'update',
+        'document_id': widget.documentId,
+        'action': 'delivery',
       });
 
       // Verify if widget is still mounted before continuing
@@ -219,6 +366,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
       setState(() {
         _isUpdating = false;
         _showSuccess = true;
+        _trolleyController.clear();
       });
 
       // Notify parent if needed
@@ -245,6 +393,110 @@ class _GateTrolleysState extends State<GateTrolleys> {
         });
       }
       debugPrint('Error saving trolleys: $e');
+    }
+  }
+
+  /// Shows confirmation dialog before deleting all deliveries
+  Future<void> _showDeleteAllConfirmation() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete All Deliveries'),
+          content: const Text(
+            'This action should only be used in specific cases like gate changes.\n\n'
+            'Are you sure you want to mark all deliveries as deleted? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Delete All'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await _deleteAllDeliveries();
+    }
+  }
+
+  /// Marks all trolley deliveries as deleted
+  Future<void> _deleteAllDeliveries() async {
+    try {
+      // Obtenemos todos los documentos y filtramos en memoria
+      final QuerySnapshot snapshot = await _firestore
+          .collection('flights')
+          .doc(widget.documentId)
+          .collection('trolleys')
+          .get();
+
+      // Filtramos los documentos que no están eliminados
+      final docsToDelete = snapshot.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return data['deleted'] !=
+            true; // Consideramos eliminado solo si deleted es true
+      }).toList();
+
+      if (docsToDelete.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No deliveries to delete'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final batch = _firestore.batch();
+      for (var doc in docsToDelete) {
+        batch.set(
+            doc.reference,
+            {
+              'deleted': true,
+              'deleted_at': FieldValue.serverTimestamp(),
+            },
+            SetOptions(
+                merge: true)); // Usamos merge para no sobrescribir otros campos
+      }
+
+      await batch.commit();
+
+      // Recargar el historial y el conteo actual
+      await _loadCurrentTrolleyCount();
+      if (_showHistory) {
+        await _loadTrolleyHistory();
+      }
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All deliveries have been marked as deleted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting all trolley deliveries: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -286,7 +538,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
                   controller: _trolleyController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Quantity',
                     border: const OutlineInputBorder(),
                     errorText: _errorMessage,
                     hintText: _isLoadingCurrentCount
@@ -294,7 +545,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
                         : (_currentTrolleyCount != null &&
                                 _currentTrolleyCount! > 0
                             ? 'Current: $_currentTrolleyCount'
-                            : 'Ex: 3'),
+                            : 'Enter quantity'),
                     prefixIcon: const Icon(Icons.shopping_cart),
                   ),
                 ),
@@ -407,6 +658,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
                               final timestamp = item['timestamp'] is Timestamp
                                   ? (item['timestamp'] as Timestamp).toDate()
                                   : DateTime.now();
+                              final bool isDeleted = item['deleted'] ?? false;
                               return Card(
                                 margin:
                                     const EdgeInsets.symmetric(vertical: 4.0),
@@ -429,35 +681,46 @@ class _GateTrolleysState extends State<GateTrolleys> {
                                               fontSize: 12,
                                             ),
                                           ),
+                                          if (!isDeleted)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.red,
+                                                size: 20,
+                                              ),
+                                              onPressed: () =>
+                                                  _showDeleteConfirmation(
+                                                item['id'],
+                                                item['count'],
+                                                item['gate'],
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                            ),
                                         ],
                                       ),
                                       const SizedBox(height: 8.0),
                                       Row(
                                         children: [
-                                          const Icon(Icons.shopping_cart,
-                                              size: 18),
+                                          Icon(
+                                            Icons.shopping_cart,
+                                            size: 18,
+                                            color:
+                                                isDeleted ? Colors.grey : null,
+                                          ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            '${item['count']} trolleys at gate ${item['gate']}',
-                                            style: const TextStyle(
+                                            '${item['count']} ${_getTrolleyText(item['count'])} delivered at gate ${item['gate']}',
+                                            style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6.0),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.add_circle_outline,
-                                              size: 18, color: Colors.blue),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Total: ${item['running_total']} trolleys',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 14,
-                                              color: Colors.blue.shade800,
+                                              color: isDeleted
+                                                  ? Colors.grey
+                                                  : null,
+                                              decoration: isDeleted
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
                                             ),
                                           ),
                                         ],
@@ -467,6 +730,18 @@ class _GateTrolleysState extends State<GateTrolleys> {
                                 ),
                               );
                             }).toList()),
+                            const SizedBox(height: 16),
+                            Center(
+                              child: TextButton.icon(
+                                onPressed: _showDeleteAllConfirmation,
+                                icon: const Icon(Icons.delete_forever,
+                                    color: Colors.red),
+                                label: const Text(
+                                  'Delete All Deliveries (Use for gate changes)',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
             ),
