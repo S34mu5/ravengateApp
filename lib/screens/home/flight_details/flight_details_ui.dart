@@ -167,17 +167,9 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
 
     // Get current gate and trolley count
     final String currentGate = flightDetails['gate'] ?? '-';
-    int? currentTrolleyCount;
 
-    // Extract trolley count from flight details if available
-    if (flightDetails.containsKey('trolleys_at_gate') &&
-        flightDetails['trolleys_at_gate'] is Map<String, dynamic>) {
-      final trolleyInfo =
-          flightDetails['trolleys_at_gate'] as Map<String, dynamic>;
-      if (trolleyInfo.containsKey('count')) {
-        currentTrolleyCount = trolleyInfo['count'] as int?;
-      }
-    }
+    // Ya no necesitamos extraer trolley count de flightDetails
+    // Lo obtenemos directamente de la subcolección trolleys
 
     // Contenido principal
     final Widget mainContent = SingleChildScrollView(
@@ -224,7 +216,6 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
             documentId: documentId,
             flightId: flightDetails['flight_id'] ?? '',
             currentGate: currentGate,
-            currentTrolleyCount: currentTrolleyCount,
             onUpdateSuccess: onRefresh,
           ),
 

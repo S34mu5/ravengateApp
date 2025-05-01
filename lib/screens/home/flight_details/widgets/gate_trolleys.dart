@@ -7,14 +7,12 @@ class GateTrolleys extends StatefulWidget {
   final String documentId;
   final String flightId;
   final String currentGate;
-  final int? currentTrolleyCount;
   final Function? onUpdateSuccess;
 
   const GateTrolleys({
     required this.documentId,
     required this.flightId,
     required this.currentGate,
-    this.currentTrolleyCount,
     this.onUpdateSuccess,
     Key? key,
   }) : super(key: key);
@@ -32,16 +30,16 @@ class _GateTrolleysState extends State<GateTrolleys> {
   bool _isLoadingHistory = false;
   List<Map<String, dynamic>> _trolleyHistory = [];
   bool _showHistory = false;
+  int? _currentTrolleyCount;
+  bool _isLoadingCurrentCount = false;
   // Timer to hide success message
   Future<void>? _hideSuccessTimer;
 
   @override
   void initState() {
     super.initState();
-    // Initialize field with current value if it exists
-    if (widget.currentTrolleyCount != null) {
-      _trolleyController.text = widget.currentTrolleyCount.toString();
-    }
+    // Cargamos el conteo actual
+    _loadCurrentTrolleyCount();
   }
 
   @override
@@ -55,6 +53,46 @@ class _GateTrolleysState extends State<GateTrolleys> {
   /// Cancels any pending timers
   void _cancelTimers() {
     _hideSuccessTimer = null;
+  }
+
+  /// Carga el conteo actual de trolleys calculado de la subcolección
+  Future<void> _loadCurrentTrolleyCount() async {
+    setState(() {
+      _isLoadingCurrentCount = true;
+    });
+
+    try {
+      final QuerySnapshot snapshot = await _firestore
+          .collection('flights')
+          .doc(widget.documentId)
+          .collection('trolleys')
+          .get();
+
+      int totalCount = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        totalCount += (data['count'] as int? ?? 0);
+      }
+
+      if (mounted) {
+        setState(() {
+          _currentTrolleyCount = totalCount;
+          _isLoadingCurrentCount = false;
+
+          // Inicializamos el campo con el total actual
+          if (totalCount > 0) {
+            _trolleyController.text = totalCount.toString();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando conteo actual de trolleys: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingCurrentCount = false;
+        });
+      }
+    }
   }
 
   /// Loads trolley history
@@ -126,7 +164,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
     }
 
     // Check if value has changed
-    if (widget.currentTrolleyCount == count) {
+    if (_currentTrolleyCount == count) {
       setState(() {
         _showSuccess = true;
         _errorMessage = null;
@@ -154,16 +192,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
     });
 
     try {
-      // Update flight document with trolley information
-      await _firestore.collection('flights').doc(widget.documentId).update({
-        'trolleys_at_gate': {
-          'count': count,
-          'gate': widget.currentGate,
-          'updated_at': FieldValue.serverTimestamp(),
-          'flight_id': widget.flightId, // Add flight ID for cross-reference
-        }
-      });
-
       // Record in new 'trolleys' subcollection instead of 'history'
       await _firestore
           .collection('flights')
@@ -179,6 +207,9 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
       // Verify if widget is still mounted before continuing
       if (!mounted) return;
+
+      // Actualizamos el conteo actual
+      await _loadCurrentTrolleyCount();
 
       // After saving, load updated history if visible
       if (_showHistory) {
@@ -258,9 +289,12 @@ class _GateTrolleysState extends State<GateTrolleys> {
                     labelText: 'Quantity',
                     border: const OutlineInputBorder(),
                     errorText: _errorMessage,
-                    hintText: widget.currentTrolleyCount != null
-                        ? 'Current: ${widget.currentTrolleyCount}'
-                        : 'Ex: 3',
+                    hintText: _isLoadingCurrentCount
+                        ? 'Cargando...'
+                        : (_currentTrolleyCount != null &&
+                                _currentTrolleyCount! > 0
+                            ? 'Current: $_currentTrolleyCount'
+                            : 'Ex: 3'),
                     prefixIcon: const Icon(Icons.shopping_cart),
                   ),
                 ),
