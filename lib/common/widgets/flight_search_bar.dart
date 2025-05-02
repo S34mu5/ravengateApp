@@ -34,7 +34,7 @@ class FlightSearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding:
-          const EdgeInsets.only(left: 16.0, right: 16.0, top: 4.0, bottom: 8.0),
+          const EdgeInsets.only(left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
       child: TextField(
         controller: controller,
         decoration: InputDecoration(

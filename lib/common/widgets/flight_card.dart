@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../utils/airline_helper.dart';
 import '../../utils/flight_search_helper.dart';
+import '../../utils/flight_filter_util.dart';
 
 /// Widget reutilizable que representa una tarjeta de vuelo
 /// Se puede usar tanto en All Departures como en My Departures
@@ -39,6 +40,9 @@ class FlightCard extends StatelessWidget {
   /// Widget personalizado para mostrar en la parte derecha de la tarjeta
   final Widget? trailing;
 
+  /// Determina si se muestran los badges de estado
+  final bool showStatusBadges;
+
   const FlightCard({
     required this.flight,
     this.isSelectionMode = false,
@@ -51,6 +55,7 @@ class FlightCard extends StatelessWidget {
     this.confirmDismiss,
     this.onDismissed,
     this.trailing,
+    this.showStatusBadges = true,
     super.key,
   });
 
@@ -58,163 +63,116 @@ class FlightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Extraer información del vuelo
     final String formattedTime =
-        _extractTimeFromSchedule(flight['schedule_time']);
+        FlightFilterUtil.extractTimeFromSchedule(flight['schedule_time']);
     final String formattedDate =
-        _extractDateFromSchedule(flight['schedule_time']);
+        FlightFilterUtil.extractDateFromSchedule(flight['schedule_time']);
 
     // Extraer hora de estado si está disponible
     final String? statusTime = flight['status_time'] != null &&
             flight['status_time'].toString().isNotEmpty
-        ? _extractTimeFromSchedule(flight['status_time'])
+        ? FlightFilterUtil.extractTimeFromSchedule(flight['status_time'])
         : null;
 
     // Verificar si el vuelo está retrasado
     final bool isDelayed = statusTime != null &&
         statusTime != formattedTime &&
-        _isLaterTime(statusTime, formattedTime);
+        FlightFilterUtil.isLaterTime(statusTime, formattedTime);
 
     // Verificar estados especiales
     final bool isDeparted = flight['status_code'] == 'D';
     final bool isCancelled = flight['status_code'] == 'C';
 
+    // Color de fondo según estado
+    final Color cardColor = isCancelled ? Colors.grey.shade200 : Colors.white;
+    final Color textColor =
+        isCancelled || isDeparted ? Colors.grey.shade700 : Colors.black87;
+
     // Crear el contenido de la tarjeta
     Widget cardContent = Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      elevation: 1.5,
+      color: cardColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Stack(
-        children: [
-          ListTile(
-            leading: isSelectionMode
-                ? Checkbox(
-                    value: isSelected,
-                    onChanged: onSelectionToggle,
-                    activeColor: selectionColor,
-                  )
-                : CircleAvatar(
-                    backgroundColor: flight['color'],
-                    child: Text(
-                      flight['airline'],
-                      style: TextStyle(
-                        color: AirlineHelper.getTextColorForAirline(
-                            flight['airline']),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-            title: Text(
-              '${flight['flight_id']} - $formattedTime ${flight['airport']} - $formattedDate',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDeparted || isCancelled ? Colors.grey : Colors.black,
-                decoration: isDeparted || isCancelled
-                    ? TextDecoration.lineThrough
-                    : null,
-              ),
-            ),
-            subtitle: Row(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Primera línea: ID, hora, aeropuerto, fecha
+            Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Gate: ${flight['gate']}'),
-                    if (flight['trolleys_at_gate'] != null &&
-                        flight['trolleys_at_gate']['count'] != null)
-                      Text(
-                        'Trolleys at gate: ${flight['trolleys_at_gate']['count']}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                  ],
-                ),
-                if (isDelayed && !isCancelled) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade700,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'DELAYED',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          statusTime!,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                CircleAvatar(
+                  backgroundColor: flight['color'],
+                  radius: 18,
+                  child: Text(
+                    flight['airline'],
+                    style: TextStyle(
+                      color: AirlineHelper.getTextColorForAirline(
+                          flight['airline']),
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${flight['flight_id']} $formattedTime ${flight['airport']} $formattedDate',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: textColor,
+                      decoration: isDeparted || isCancelled
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                ),
+                if (trailing != null) trailing!,
+                if (showStatusBadges && trailing == null) ...[
+                  if (isDeparted)
+                    _buildStatusPill('DEPARTED', Colors.red.shade700),
+                  if (isCancelled)
+                    _buildStatusPill('CANCELLED', Colors.grey.shade800),
                 ],
               ],
             ),
-            trailing: isSelectionMode
-                ? null
-                : trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: onTap,
-            onLongPress: onLongPress,
-          ),
-          // Banner para vuelos salidos
-          if (isDeparted)
-            Positioned(
-              right: 0,
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                child: Banner(
-                  message: 'DEPARTED',
-                  location: BannerLocation.topEnd,
-                  color: Colors.red.shade700,
-                  textStyle: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+            const SizedBox(height: 10),
+            // Segunda línea: Gate y trolleys
+            Row(
+              children: [
+                Icon(Icons.meeting_room, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text('Gate: ${flight['gate']}',
+                    style: TextStyle(color: textColor)),
+                // Mostrar siempre trolleys at gate (0 si no hay dato)
+                Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    Icon(Icons.shopping_cart,
+                        size: 16, color: Colors.grey.shade600),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Trolleys at gate: '
+                      '${(flight['trolleys_at_gate'] != null && flight['trolleys_at_gate']['count'] != null) ? flight['trolleys_at_gate']['count'] : 0}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: textColor,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                // Empujar el badge DELAYED a la derecha
+                if (isDelayed && !isCancelled) ...[
+                  const Spacer(),
+                  _buildStatusPill(
+                      'DELAYED ${statusTime!}', Colors.amber.shade700),
+                ],
+              ],
             ),
-          // Banner para vuelos cancelados
-          if (isCancelled)
-            Positioned(
-              right: 0,
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                child: Banner(
-                  message: 'CANCELLED',
-                  location: BannerLocation.topEnd,
-                  color: Colors.grey.shade800,
-                  textStyle: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -231,6 +189,19 @@ class FlightCard extends StatelessWidget {
         ),
         confirmDismiss: confirmDismiss,
         onDismissed: onDismissed,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: cardContent,
+        ),
+      );
+    }
+
+    // Si no es dismissible pero tiene callbacks, envolver en InkWell
+    if (onTap != null || onLongPress != null) {
+      return InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
         child: cardContent,
       );
     }
@@ -238,94 +209,23 @@ class FlightCard extends StatelessWidget {
     return cardContent;
   }
 
-  /// Extrae la hora del formato ISO 8601 o del formato tradicional "HH:MM"
-  String _extractTimeFromSchedule(String scheduleTime) {
-    try {
-      // Verificar si está en formato ISO 8601 (contiene una 'T')
-      if (scheduleTime.contains('T')) {
-        // Intentar analizar como ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Crear formateador para mostrar solo hora
-        final formatter = DateFormat('HH:mm');
-
-        // Convertir a hora local y formatear
-        // Asegurar que la zona horaria UTC se maneje correctamente al convertir a local
-        if (scheduleTime.endsWith('Z')) {
-          // Conversión explícita de UTC a local
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // Si no hay Z, puede que ya sea local o tenga un desplazamiento explícito
-          return formatter.format(dateTime);
-        }
-      } else if (scheduleTime.contains(':')) {
-        // Si es solo un formato de hora "HH:MM", devolverlo directamente
-        return scheduleTime;
-      } else {
-        return scheduleTime; // Formato desconocido, devolver el original
-      }
-    } catch (e) {
-      print('LOG: Error formatando hora: $e');
-      return scheduleTime; // Devolver cadena original si hay error
-    }
-  }
-
-  /// Extrae la fecha del formato ISO 8601 y la formatea como dd/MM
-  String _extractDateFromSchedule(String scheduleTime) {
-    try {
-      // Verificar si está en formato ISO 8601 (contiene una 'T')
-      if (scheduleTime.contains('T')) {
-        // Intentar analizar como ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Crear formateador para mostrar solo fecha en formato dd/MM
-        final formatter = DateFormat('dd/MM');
-
-        // Convertir a hora local y formatear
-        if (scheduleTime.endsWith('Z')) {
-          // Conversión explícita de UTC a local
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // Si no hay Z, puede que ya sea local o tenga desplazamiento explícito
-          return formatter.format(dateTime);
-        }
-      } else {
-        // Si es solo un formato de hora, usar fecha actual
-        final now = DateTime.now();
-        return DateFormat('dd/MM').format(now);
-      }
-    } catch (e) {
-      print('LOG: Error extrayendo fecha: $e');
-      return ''; // Devolver cadena vacía en caso de error
-    }
-  }
-
-  /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
-  bool _isLaterTime(String time1, String time2) {
-    try {
-      // Convertir al formato actual de tiempo
-      final parts1 = time1.split(':');
-      final parts2 = time2.split(':');
-
-      if (parts1.length >= 2 && parts2.length >= 2) {
-        final hour1 = int.parse(parts1[0]);
-        final minute1 = int.parse(parts1[1]);
-        final hour2 = int.parse(parts2[0]);
-        final minute2 = int.parse(parts2[1]);
-
-        // Comparar horas y minutos
-        if (hour1 > hour2) {
-          return true;
-        } else if (hour1 == hour2) {
-          return minute1 > minute2;
-        }
-      }
-      return false;
-    } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
-      return false;
-    }
+  // Widget para los estados tipo pill
+  Widget _buildStatusPill(String text, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }

@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'notifications/notification_service.dart';
-import 'cache/cache_service.dart';
+import '../notifications/notification_service.dart';
+import '../cache/cache_service.dart';
 
 /// Clase para detectar retrasos en vuelos comparando datos actualizados
 class FlightDelayDetector {

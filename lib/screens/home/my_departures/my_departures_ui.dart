@@ -21,12 +21,14 @@ class MyDeparturesUI extends StatefulWidget {
   final Future<void> Function(String flightId)? onRemoveFlight;
   final Future<void> Function()? onRefresh;
   final DateTime? lastUpdated;
+  final bool usingCachedData;
 
   const MyDeparturesUI({
     required this.flights,
     this.onRemoveFlight,
     this.onRefresh,
     this.lastUpdated,
+    this.usingCachedData = false,
     super.key,
   });
 
@@ -78,8 +80,8 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
         // Si ambos tienen status_time, comparamos esos valores
         if (aStatusTime.isNotEmpty && bStatusTime.isNotEmpty) {
-          final aTime = _extractTimeFromSchedule(aStatusTime);
-          final bTime = _extractTimeFromSchedule(bStatusTime);
+          final aTime = FlightFilterUtil.extractTimeFromSchedule(aStatusTime);
+          final bTime = FlightFilterUtil.extractTimeFromSchedule(bStatusTime);
           return aTime.compareTo(bTime);
         }
 
@@ -87,8 +89,8 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
         final aScheduleTime = a['schedule_time'].toString();
         final bScheduleTime = b['schedule_time'].toString();
 
-        final aTime = _extractTimeFromSchedule(aScheduleTime);
-        final bTime = _extractTimeFromSchedule(bScheduleTime);
+        final aTime = FlightFilterUtil.extractTimeFromSchedule(aScheduleTime);
+        final bTime = FlightFilterUtil.extractTimeFromSchedule(bScheduleTime);
 
         return aTime.compareTo(bTime);
       } catch (e) {
@@ -262,118 +264,6 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     }
   }
 
-  /// Extract time from ISO 8601 format or traditional "HH:MM" format
-  String _extractTimeFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only time
-        final formatter = DateFormat('HH:mm');
-
-        // Convert to local time and format
-        // Ensure the UTC timezone is properly handled when converting to local
-        // The Z at the end of the ISO string means it's UTC
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          print(
-              'LOG: Converting UTC time $dateTime to local time $localDateTime for flight');
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else if (scheduleTime.contains(':')) {
-        // If it's just a time format "HH:MM", return it directly
-        return scheduleTime;
-      } else {
-        print('LOG: Unknown time format: $scheduleTime');
-        return scheduleTime;
-      }
-    } catch (e) {
-      print('LOG: Error formatting time: $e');
-      return scheduleTime; // Return original string if there's an error
-    }
-  }
-
-  /// Extract date from ISO 8601 format and format it as dd/MM
-  String _extractDateFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only date in format dd/MM
-        final formatter = DateFormat('dd/MM');
-
-        // Convert to local time and format
-        // Ensure the UTC timezone is properly handled when converting to local
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else {
-        // If it's just a time format, use current date
-        final now = DateTime.now();
-        return DateFormat('dd/MM').format(now);
-      }
-    } catch (e) {
-      print('LOG: Error extracting date: $e');
-      return ''; // Return empty string on error
-    }
-  }
-
-  /// Navega a la pantalla de detalles del vuelo seleccionado
-  void _navigateToFlightDetails(
-      BuildContext context, Map<String, dynamic> flight) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FlightDetailsScreen(
-          flightId: flight['flight_id'],
-          documentId: flight['flight_ref'] ?? flight['id'] ?? '',
-          flightsList: widget.flights, // Pasar toda la lista de vuelos
-          flightsSource: 'my', // Indicar que viene de "mis vuelos"
-        ),
-      ),
-    );
-  }
-
-  /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
-  bool _isLaterTime(String time1, String time2) {
-    try {
-      // Convertir al formato actual de tiempo
-      final parts1 = time1.split(':');
-      final parts2 = time2.split(':');
-
-      if (parts1.length >= 2 && parts2.length >= 2) {
-        final hour1 = int.parse(parts1[0]);
-        final minute1 = int.parse(parts1[1]);
-        final hour2 = int.parse(parts2[0]);
-        final minute2 = int.parse(parts2[1]);
-
-        // Comparar horas y minutos
-        if (hour1 > hour2) {
-          return true;
-        } else if (hour1 == hour2) {
-          return minute1 > minute2;
-        }
-      }
-      return false;
-    } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
-      return false;
-    }
-  }
-
   /// Muestra un diálogo de confirmación antes de eliminar un vuelo
   void _confirmRemoveFlight(String docId) {
     showDialog(
@@ -404,6 +294,22 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     );
   }
 
+  /// Obtener una representación legible del tiempo transcurrido
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) {
+      return 'hace unos segundos';
+    } else if (difference.inMinutes < 60) {
+      return 'hace ${difference.inMinutes} ${difference.inMinutes == 1 ? 'minuto' : 'minutos'}';
+    } else if (difference.inHours < 24) {
+      return 'hace ${difference.inHours} ${difference.inHours == 1 ? 'hora' : 'horas'}';
+    } else {
+      return 'hace ${difference.inDays} ${difference.inDays == 1 ? 'día' : 'días'}';
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -415,6 +321,7 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     print(
         'LOG: Construyendo UI para mis vuelos (${widget.flights.length} vuelos, ${_filteredFlights.length} filtrados)');
     return Scaffold(
+      appBar: null,
       floatingActionButton: _isSelectionMode
           ? FlightSelectionControls(
               selectedCount: _selectedFlightIndices.length,
@@ -428,97 +335,136 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
               actionIcon: Icons.archive,
             )
           : null,
-      body: Column(
-        children: [
-          // SizedBox pequeño para margen superior
-          const SizedBox(height: 8),
-          // Barra de búsqueda reutilizable
-          FlightSearchBar(
-            controller: _searchController,
-            onSearch: _filterFlights,
-            onClear: () {
-              _filterFlights('');
-            },
-          ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Pequeño espacio en la parte superior (como en all_departures_ui.dart)
+            const SizedBox(height: 8),
 
-          // Contador de vuelos reutilizable con botón de archivo
-          FlightsCounterDisplay(
-            flightCount: _filteredFlights.length,
-            searchQuery: _searchQuery,
-            norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-            onSelectMode:
-                null, // Ya no necesitamos este botón, usamos pulsación larga
-            showResetButton: _searchQuery.isNotEmpty,
-            onResetFilters: _searchQuery.isNotEmpty
-                ? () {
-                    _searchController.clear();
-                    _filterFlights('');
-                  }
-                : null,
-            leadingActions: [
-              // Botón para ver vuelos archivados
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const ArchivedFlightsScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.archive_outlined, size: 16),
-                label: const Text('Archived'),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-
-          // Lista de vuelos con Flexible para que ocupe el espacio restante
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 8),
-              itemCount: _filteredFlights.length,
-              itemBuilder: (context, index) {
-                final flight = _filteredFlights[index];
-
-                // Widget del vuelo individual
-                return FlightCard(
-                  flight: flight,
-                  isSelectionMode: _isSelectionMode,
-                  isSelected: _selectedFlightIndices.contains(index),
-                  isDismissible:
-                      !_isSelectionMode, // Solo permitir deslizar para eliminar fuera del modo selección
-                  onSelectionToggle: (isSelected) {
-                    _toggleFlightSelection(index);
-                  },
-                  onTap: () {
-                    if (_isSelectionMode) {
-                      _toggleFlightSelection(index);
-                    } else {
-                      // Navegar a detalles del vuelo
-                      _navigateToFlightDetails(context, flight);
-                    }
-                  },
-                  onLongPress: _isSelectionMode
-                      ? null
-                      : () async {
-                          // Si no estamos en modo selección, activarlo y seleccionar este vuelo
-                          if (!_isSelectionMode) {
-                            setState(() {
-                              _isSelectionMode = true;
-                              _selectedFlightIndices.add(index);
-                            });
-                          }
-                        },
-                );
+            // Barra de búsqueda reutilizable
+            FlightSearchBar(
+              controller: _searchController,
+              onSearch: _filterFlights,
+              onClear: () {
+                _filterFlights('');
               },
             ),
-          ),
-        ],
+            // Indicador de actualizado hace X tiempo
+            if (widget.lastUpdated != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 20, top: 2, bottom: 2),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Actualizado: ${_getTimeAgo(widget.lastUpdated!)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                  ),
+                ),
+              ),
+
+            // Contador de vuelos reutilizable con botón de archivo
+            FlightsCounterDisplay(
+              flightCount: _filteredFlights.length,
+              searchQuery: _searchQuery,
+              norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+              onSelectMode:
+                  null, // Ya no necesitamos este botón, usamos pulsación larga
+              showResetButton: _searchQuery.isNotEmpty,
+              onResetFilters: _searchQuery.isNotEmpty
+                  ? () {
+                      _searchController.clear();
+                      _filterFlights('');
+                    }
+                  : null,
+              leadingActions: [
+                // Botón para ver vuelos archivados
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ArchivedFlightsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.archive_outlined, size: 16),
+                  label: const Text('Archived'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+
+            // Lista de vuelos con Flexible para que ocupe el espacio restante
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 8),
+                itemCount: _filteredFlights.length,
+                itemBuilder: (context, index) {
+                  final flight = _filteredFlights[index];
+
+                  // Widget del vuelo individual
+                  return FlightCard(
+                    flight: flight,
+                    isSelectionMode: _isSelectionMode,
+                    isSelected: _selectedFlightIndices.contains(index),
+                    isDismissible:
+                        !_isSelectionMode, // Solo permitir deslizar para eliminar fuera del modo selección
+                    onSelectionToggle: (isSelected) {
+                      _toggleFlightSelection(index);
+                    },
+                    onTap: () {
+                      if (_isSelectionMode) {
+                        _toggleFlightSelection(index);
+                      } else {
+                        // Navegar a detalles del vuelo
+                        _navigateToFlightDetails(context, flight);
+                      }
+                    },
+                    onLongPress: _isSelectionMode
+                        ? null
+                        : () async {
+                            // Si no estamos en modo selección, activarlo y seleccionar este vuelo
+                            if (!_isSelectionMode) {
+                              setState(() {
+                                _isSelectionMode = true;
+                                _selectedFlightIndices.add(index);
+                              });
+                            }
+                          },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  /// Navega a la pantalla de detalles del vuelo seleccionado
+  void _navigateToFlightDetails(
+      BuildContext context, Map<String, dynamic> flight) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightDetailsScreen(
+          flightId: flight['flight_id'],
+          documentId: flight['flight_ref'] ?? flight['id'] ?? '',
+          flightsList: widget.flights, // Pasar toda la lista de vuelos
+          flightsSource: 'my', // Indicar que viene de "mis vuelos"
+        ),
+      ),
+    );
+  }
+
+  /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
+  bool _isLaterTime(String time1, String time2) {
+    return FlightFilterUtil.isLaterTime(time1, time2);
   }
 }

@@ -63,10 +63,8 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
       print(
           'LOG: Se cargaron ${_archivedDates.length} fechas de vuelos archivados');
 
-      // Si hay fechas disponibles, cargar automáticamente la más reciente
-      if (_archivedDates.isNotEmpty) {
-        _selectDate(_archivedDates.first.date);
-      }
+      // Ya no seleccionamos automáticamente la fecha más reciente
+      // Dejamos que el usuario seleccione una fecha de la lista
     } catch (e) {
       print('LOG: Error al cargar fechas de vuelos archivados: $e');
 
@@ -281,7 +279,6 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Archived Flights'),
-        backgroundColor: Colors.blue.shade100,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -339,30 +336,18 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
     return Column(
       children: [
-        // Header con información
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          color: Colors.blue.shade50,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Archived Flights',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+        // Contador de fechas
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${_archivedDates.length} dates with archived flights',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Select a date to view archived flights.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         Expanded(

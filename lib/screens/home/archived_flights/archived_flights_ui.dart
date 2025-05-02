@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../utils/flight_search_helper.dart';
+import '../../../utils/flight_filter_util.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../utils/progress_dialog.dart';
@@ -88,93 +89,17 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
 
   /// Extract time from ISO 8601 format or traditional "HH:MM" format
   String _extractTimeFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only time
-        final formatter = DateFormat('HH:mm');
-
-        // Convert to local time and format
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else if (scheduleTime.contains(':')) {
-        // If it's just a time format "HH:MM", return it directly
-        return scheduleTime;
-      } else {
-        print('LOG: Unknown time format: $scheduleTime');
-        return scheduleTime;
-      }
-    } catch (e) {
-      print('LOG: Error formatting time: $e');
-      return scheduleTime; // Return original string if there's an error
-    }
+    return FlightFilterUtil.extractTimeFromSchedule(scheduleTime);
   }
 
   /// Extract date from ISO 8601 format and format it as dd/MM
   String _extractDateFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only date in format dd/MM
-        final formatter = DateFormat('dd/MM');
-
-        // Convert to local time and format
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else {
-        // If it's just a time format, use current date
-        final now = DateTime.now();
-        return DateFormat('dd/MM').format(now);
-      }
-    } catch (e) {
-      print('LOG: Error extracting date: $e');
-      return ''; // Return empty string on error
-    }
+    return FlightFilterUtil.extractDateFromSchedule(scheduleTime);
   }
 
   /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
   bool _isLaterTime(String time1, String time2) {
-    try {
-      // Convertir al formato actual de tiempo
-      final parts1 = time1.split(':');
-      final parts2 = time2.split(':');
-
-      if (parts1.length >= 2 && parts2.length >= 2) {
-        final hour1 = int.parse(parts1[0]);
-        final minute1 = int.parse(parts1[1]);
-        final hour2 = int.parse(parts2[0]);
-        final minute2 = int.parse(parts2[1]);
-
-        // Comparar horas y minutos
-        if (hour1 > hour2) {
-          return true;
-        } else if (hour1 == hour2) {
-          return minute1 > minute2;
-        }
-      }
-      return false;
-    } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
-      return false;
-    }
+    return FlightFilterUtil.isLaterTime(time1, time2);
   }
 
   @override
@@ -505,132 +430,62 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
           )
         : const SizedBox.shrink();
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      elevation: 2,
-      color: cardColor,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            // Flight info header
-            Row(
-              children: [
-                // Airline icon and flight number
-                Expanded(
-                  child: Row(
-                    children: [
-                      airlineIcon,
-                      const SizedBox(width: 8),
-                      Text(
-                        flightId,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: textColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+    // Botones de acción
+    final Widget actionButtons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton.icon(
+          onPressed: isDisabled
+              ? null
+              : () {
+                  if (widget.onRestoreFlight != null && docId.isNotEmpty) {
+                    widget.onRestoreFlight!(docId);
+                  }
+                },
+          icon: const Icon(Icons.restore, size: 16),
+          label: const Text('Restore'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        TextButton.icon(
+          onPressed: () {
+            if (widget.onDeleteFlight != null && docId.isNotEmpty) {
+              _confirmDelete(context, docId);
+            }
+          },
+          icon: const Icon(Icons.delete_outline, size: 16),
+          label: const Text('Delete'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.red.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+    );
 
-                // Flight status pill
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Archived · $archivedTime',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return FlightCard(
+      flight: flight,
+      trailing: actionButtons,
+      showStatusBadges: false,
+      onTap: () => _navigateToFlightDetails(context, flight),
+    );
+  }
 
-            const SizedBox(height: 8),
-
-            // Flight details
-            Row(
-              children: [
-                Icon(Icons.flight_takeoff,
-                    size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  airport,
-                  style: TextStyle(
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  _extractTimeFromSchedule(scheduleTime),
-                  style: TextStyle(
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.meeting_room, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  gate,
-                  style: TextStyle(
-                    color: textColor,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Action buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Restore button
-                TextButton.icon(
-                  onPressed: isDisabled
-                      ? null
-                      : () {
-                          if (widget.onRestoreFlight != null &&
-                              docId.isNotEmpty) {
-                            widget.onRestoreFlight!(docId);
-                          }
-                        },
-                  icon: const Icon(Icons.restore, size: 16),
-                  label: const Text('Restore'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue.shade700,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-
-                // Delete button
-                TextButton.icon(
-                  onPressed: () {
-                    if (widget.onDeleteFlight != null && docId.isNotEmpty) {
-                      _confirmDelete(context, docId);
-                    }
-                  },
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Delete'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red.shade700,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
-          ],
+  /// Navega a la pantalla de detalles del vuelo seleccionado
+  void _navigateToFlightDetails(
+      BuildContext context, Map<String, dynamic> flight) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightDetailsScreen(
+          flightId: flight['flight_id'],
+          documentId: flight['doc_id'] ?? '',
+          flightsList: widget.flights, // Pasar toda la lista de vuelos
+          flightsSource: 'archived', // Indicar que viene de vuelos archivados
         ),
       ),
     );

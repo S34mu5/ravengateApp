@@ -30,7 +30,7 @@ class FlightSearchHelper {
       // Verificar si la búsqueda es para DY o D8 (equivalentes) y si la preferencia está activada
       bool isMatchingNorwegianAirline = false;
       if (norwegianEquivalenceEnabled &&
-          (lowerQuery.contains('dy') || lowerQuery.contains('d8'))) {
+          (lowerQuery == 'dy' || lowerQuery == 'd8')) {
         isMatchingNorwegianAirline = flightId.contains('dy') ||
             flightId.contains('d8') ||
             airline == 'dy' ||
