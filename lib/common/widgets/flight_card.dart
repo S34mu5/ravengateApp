@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/airline_helper.dart';
 import '../../utils/flight_search_helper.dart';
 import '../../utils/flight_filter_util.dart';
 
 /// Widget reutilizable que representa una tarjeta de vuelo
 /// Se puede usar tanto en All Departures como en My Departures
-class FlightCard extends StatelessWidget {
+class FlightCard extends StatefulWidget {
   /// Datos del vuelo a mostrar
   final Map<String, dynamic> flight;
 
@@ -60,17 +61,73 @@ class FlightCard extends StatelessWidget {
   });
 
   @override
+  State<FlightCard> createState() => _FlightCardState();
+}
+
+class _FlightCardState extends State<FlightCard> {
+  int _trolleyCount = 0;
+  bool _isLoadingTrolleys = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrolleyCount();
+  }
+
+  /// Carga el conteo actual de trolleys calculado de la subcolección
+  Future<void> _loadTrolleyCount() async {
+    // Verificamos que tengamos el ID del documento
+    if (widget.flight['id'] == null) return;
+
+    setState(() {
+      _isLoadingTrolleys = true;
+    });
+
+    try {
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      final QuerySnapshot snapshot = await firestore
+          .collection('flights')
+          .doc(widget.flight['id'])
+          .collection('trolleys')
+          .get();
+
+      int totalCount = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        // Solo sumamos si no está eliminado
+        if (!(data['deleted'] ?? false)) {
+          totalCount += (data['count'] as int? ?? 0);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _trolleyCount = totalCount;
+          _isLoadingTrolleys = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando conteo de trolleys en FlightCard: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingTrolleys = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Extraer información del vuelo
-    final String formattedTime =
-        FlightFilterUtil.extractTimeFromSchedule(flight['schedule_time']);
-    final String formattedDate =
-        FlightFilterUtil.extractDateFromSchedule(flight['schedule_time']);
+    final String formattedTime = FlightFilterUtil.extractTimeFromSchedule(
+        widget.flight['schedule_time']);
+    final String formattedDate = FlightFilterUtil.extractDateFromSchedule(
+        widget.flight['schedule_time']);
 
     // Extraer hora de estado si está disponible
-    final String? statusTime = flight['status_time'] != null &&
-            flight['status_time'].toString().isNotEmpty
-        ? FlightFilterUtil.extractTimeFromSchedule(flight['status_time'])
+    final String? statusTime = widget.flight['status_time'] != null &&
+            widget.flight['status_time'].toString().isNotEmpty
+        ? FlightFilterUtil.extractTimeFromSchedule(widget.flight['status_time'])
         : null;
 
     // Verificar si el vuelo está retrasado
@@ -79,8 +136,8 @@ class FlightCard extends StatelessWidget {
         FlightFilterUtil.isLaterTime(statusTime, formattedTime);
 
     // Verificar estados especiales
-    final bool isDeparted = flight['status_code'] == 'D';
-    final bool isCancelled = flight['status_code'] == 'C';
+    final bool isDeparted = widget.flight['status_code'] == 'D';
+    final bool isCancelled = widget.flight['status_code'] == 'C';
 
     // Color de fondo según estado
     final Color cardColor = isCancelled ? Colors.grey.shade200 : Colors.white;
@@ -104,13 +161,13 @@ class FlightCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: flight['color'],
+                  backgroundColor: widget.flight['color'],
                   radius: 18,
                   child: Text(
-                    flight['airline'],
+                    widget.flight['airline'],
                     style: TextStyle(
                       color: AirlineHelper.getTextColorForAirline(
-                          flight['airline']),
+                          widget.flight['airline']),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -118,7 +175,7 @@ class FlightCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '${flight['flight_id']} $formattedTime ${flight['airport']} $formattedDate',
+                    '${widget.flight['flight_id']} $formattedTime ${widget.flight['airport']} $formattedDate',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -129,8 +186,8 @@ class FlightCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (trailing != null) trailing!,
-                if (showStatusBadges && trailing == null) ...[
+                if (widget.trailing != null) widget.trailing!,
+                if (widget.showStatusBadges && widget.trailing == null) ...[
                   if (isDeparted)
                     _buildStatusPill('DEPARTED', Colors.red.shade700),
                   if (isCancelled)
@@ -144,23 +201,30 @@ class FlightCard extends StatelessWidget {
               children: [
                 Icon(Icons.meeting_room, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
-                Text('Gate: ${flight['gate']}',
+                Text('Gate: ${widget.flight['gate']}',
                     style: TextStyle(color: textColor)),
-                // Mostrar siempre trolleys at gate (0 si no hay dato)
+                // Mostrar siempre trolleys at gate con el contador actualizado
                 Row(
                   children: [
                     const SizedBox(width: 12),
                     Icon(Icons.shopping_cart,
                         size: 16, color: Colors.grey.shade600),
                     const SizedBox(width: 2),
-                    Text(
-                      'Trolleys at gate: '
-                      '${(flight['trolleys_at_gate'] != null && flight['trolleys_at_gate']['count'] != null) ? flight['trolleys_at_gate']['count'] : 0}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: textColor,
-                      ),
-                    ),
+                    _isLoadingTrolleys
+                        ? const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'Trolleys at gate: $_trolleyCount',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textColor,
+                            ),
+                          ),
                   ],
                 ),
                 // Empujar el badge DELAYED a la derecha
@@ -177,9 +241,9 @@ class FlightCard extends StatelessWidget {
     );
 
     // Si la tarjeta es deslizable, envolver en Dismissible
-    if (isDismissible) {
+    if (widget.isDismissible) {
       return Dismissible(
-        key: Key(flight['id'] ?? flight['flight_id'] ?? 'flight'),
+        key: Key(widget.flight['id'] ?? widget.flight['flight_id'] ?? 'flight'),
         direction: DismissDirection.endToStart,
         background: Container(
           color: Colors.red,
@@ -187,21 +251,21 @@ class FlightCard extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20.0),
           child: const Icon(Icons.delete, color: Colors.white),
         ),
-        confirmDismiss: confirmDismiss,
-        onDismissed: onDismissed,
+        confirmDismiss: widget.confirmDismiss,
+        onDismissed: widget.onDismissed,
         child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
           child: cardContent,
         ),
       );
     }
 
     // Si no es dismissible pero tiene callbacks, envolver en InkWell
-    if (onTap != null || onLongPress != null) {
+    if (widget.onTap != null || widget.onLongPress != null) {
       return InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
         child: cardContent,
       );
     }
