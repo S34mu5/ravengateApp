@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../utils/airline_helper.dart';
+import '../../../../utils/flight_filter_util.dart';
 import 'common_widgets.dart';
 import '../utils/flight_formatters.dart';
 
@@ -182,7 +183,7 @@ class _FlightHeaderState extends State<FlightHeader> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${widget.flightDetails['flight_id'] ?? ''} - ${FlightFormatters.formatShortDate(DateTime.parse(widget.flightDetails['schedule_time'] ?? DateTime.now().toIso8601String()))}',
+                    '${widget.flightDetails['flight_id'] ?? ''} ${FlightFilterUtil.extractDateFromSchedule(widget.flightDetails['schedule_time'] ?? DateTime.now().toIso8601String())}',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

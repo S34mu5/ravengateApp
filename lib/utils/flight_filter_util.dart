@@ -66,13 +66,13 @@ class FlightFilterUtil {
       // Solo para formato ISO completo
       if (scheduleTime.contains('T')) {
         final dateTime = DateTime.parse(scheduleTime);
-        // Formato día/mes sin cero a la izquierda en el mes (ej: 02/5)
-        return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month}';
+        // Formato día/mes con cero a la izquierda en el mes (ej: 02/05)
+        return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
       }
 
       // Para formato simple, devolver fecha actual con el mismo formato
       final now = DateTime.now();
-      return '${now.day.toString().padLeft(2, '0')}/${now.month}';
+      return '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}';
     } catch (e) {
       print('LOG: Error extracting date: $e');
       return '';

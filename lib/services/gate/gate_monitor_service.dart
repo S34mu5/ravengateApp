@@ -99,32 +99,61 @@ class GateMonitorService {
     _log(
         'Estado de notificaciones de cambio de puerta: ${notificationsEnabled ? 'ACTIVADAS' : 'DESACTIVADAS'}');
 
-    if (!notificationsEnabled) {
-      _log(
-          'Monitoreo desactivado: notificaciones de cambios de puerta deshabilitadas');
-      return;
-    }
-
     // Verificar si el modo desarrollador está activado para mostrar notificación de prueba
     final bool isDeveloperMode =
         await DeveloperModeService.isDeveloperModeEnabled();
 
+    _log(
+        'Estado de modo desarrollador: ${isDeveloperMode ? 'ACTIVADO' : 'DESACTIVADO'}');
+
     // Enviar notificación de prueba sólo si el modo desarrollador está activado
+    // (independientemente de la configuración de notificaciones)
     if (isDeveloperMode) {
       try {
         _log(
             'Modo desarrollador activado: enviando notificación de prueba para verificar configuración...');
+
+        // Forzar verificación de permisos de nuevo
+        final bool hasNotificationPermission =
+            await _notificationService.requestPermissions();
+
+        if (!hasNotificationPermission) {
+          _logError(
+              'No se pudo enviar notificación de prueba: permisos denegados');
+          return;
+        }
+
+        // Enviar notificación con alta prioridad para asegurar que se muestre
         await _notificationService.showNotification(
           id: 9999,
           title: 'Prueba de Notificaciones (Dev)',
           body: 'Monitoreo de cambios de puerta iniciado correctamente.',
         );
+
         _log('Notificación de prueba enviada correctamente');
+
+        // Enviar otra notificación 2 segundos después para confirmar que el servicio sigue funcionando
+        await Future.delayed(const Duration(seconds: 2));
+
+        await _notificationService.showNotification(
+          id: 10000,
+          title: 'Confirmación (Dev)',
+          body: 'El servicio de notificaciones está funcionando correctamente.',
+        );
+
+        _log('Segunda notificación de prueba enviada correctamente');
       } catch (e) {
         _logError('Error al enviar notificación de prueba', error: e);
       }
     } else {
       _log('Modo desarrollador desactivado: omitiendo notificación de prueba');
+    }
+
+    // Si las notificaciones están desactivadas y no estamos en modo desarrollador, no continuamos
+    if (!notificationsEnabled && !isDeveloperMode) {
+      _log(
+          'Monitoreo desactivado: notificaciones de cambios de puerta deshabilitadas');
+      return;
     }
 
     try {

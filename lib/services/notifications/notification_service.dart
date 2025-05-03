@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'dart:developer' as developer;
+import '../developer/developer_mode_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Servicio para manejar notificaciones locales en la aplicación
 class NotificationService {
@@ -134,11 +136,16 @@ class NotificationService {
 
   /// Inicializa el servicio en segundo plano
   Future<void> _initializeBackgroundService() async {
+    // Verificar si el modo desarrollador está activado
+    final bool isDeveloperMode =
+        await DeveloperModeService.isDeveloperModeEnabled();
+
     await _backgroundService.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: true,
-        isForegroundMode: true,
+        isForegroundMode:
+            isDeveloperMode, // Solo modo foreground si es developer
         notificationChannelId: _foregroundServiceChannelId,
         initialNotificationTitle: 'RavenGate Monitor',
         initialNotificationContent: 'Monitoreando cambios de puerta',
@@ -151,7 +158,8 @@ class NotificationService {
       ),
     );
 
-    _log('Servicio en segundo plano inicializado');
+    _log(
+        'Servicio en segundo plano inicializado ${isDeveloperMode ? 'en modo desarrollador' : 'en modo normal'}');
   }
 
   /// Función que se ejecuta cuando el servicio en segundo plano se inicia en iOS
@@ -163,6 +171,10 @@ class NotificationService {
   /// Función que se ejecuta cuando el servicio en segundo plano inicia
   @pragma('vm:entry-point')
   static Future<void> onStart(ServiceInstance service) async {
+    // Constantes que necesitamos acceder en el método estático
+    const String foregroundServiceChannelId = 'ravengate_foreground_service';
+    const int foregroundServiceNotificationId = 8888;
+
     // Si es Android, configurar el servicio en primer plano
     if (service is AndroidServiceInstance) {
       service.on('setAsForeground').listen((event) {
@@ -182,10 +194,21 @@ class NotificationService {
     // Inicializar timezone
     tz_init.initializeTimeZones();
 
-    // Crear notificación para el servicio en primer plano
+    // Verificar si el modo desarrollador está activado
+    bool isDeveloperMode = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      isDeveloperMode = prefs.getBool('developer_mode_enabled') ?? false;
+      print(
+          '🔔 NOTIFICATIONS: Estado de modo desarrollador: ${isDeveloperMode ? 'ACTIVADO' : 'DESACTIVADO'}');
+    } catch (e) {
+      print('🔔 NOTIFICATIONS: Error al verificar modo desarrollador: $e');
+    }
+
+    // Crear notificación para el servicio en primer plano (siempre, independientemente del modo)
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      _foregroundServiceChannelId,
+      foregroundServiceChannelId,
       'RavenGate Monitor',
       channelDescription: 'Monitoreo de cambios de puerta en tiempo real',
       importance: Importance.low,
@@ -198,28 +221,53 @@ class NotificationService {
     const NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
-    // Mostrar la notificación del servicio en primer plano
-    await FlutterLocalNotificationsPlugin().show(
-      _foregroundServiceNotificationId,
-      'RavenGate Monitor',
-      'Monitoreando cambios de puerta',
-      platformChannelSpecifics,
-    );
+    // Mostrar la notificación del servicio en primer plano solo si estamos en modo desarrollador
+    if (isDeveloperMode) {
+      await FlutterLocalNotificationsPlugin().show(
+        foregroundServiceNotificationId,
+        'RavenGate Monitor (Dev)',
+        'Monitoreando cambios de puerta (Modo desarrollador)',
+        platformChannelSpecifics,
+      );
 
-    // Mantener el servicio activo
-    Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (service is AndroidServiceInstance) {
-        if (await service.isForegroundService()) {
-          // Actualizar la notificación del servicio en primer plano
-          await FlutterLocalNotificationsPlugin().show(
-            _foregroundServiceNotificationId,
-            'RavenGate Monitor',
-            'Monitoreando cambios de puerta',
-            platformChannelSpecifics,
-          );
+      // Mantener el servicio activo
+      Timer.periodic(const Duration(seconds: 1), (timer) async {
+        if (service is AndroidServiceInstance) {
+          if (await service.isForegroundService()) {
+            // Actualizar la notificación del servicio en primer plano
+            await FlutterLocalNotificationsPlugin().show(
+              foregroundServiceNotificationId,
+              'RavenGate Monitor (Dev)',
+              'Monitoreando cambios de puerta (Modo desarrollador)',
+              platformChannelSpecifics,
+            );
+          }
         }
+      });
+
+      // Enviar una notificación adicional para confirmar que el modo desarrollador está activo
+      try {
+        await FlutterLocalNotificationsPlugin().show(
+          9998,
+          'Modo Desarrollador Activo',
+          'Las notificaciones de depuración están habilitadas',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'ravengate_gate_changes',
+              'Cambios de Puerta',
+              channelDescription: 'Notificaciones de cambios de puerta',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        );
+        print(
+            '🔔 NOTIFICATIONS: Notificación de modo desarrollador enviada correctamente');
+      } catch (e) {
+        print(
+            '🔔 NOTIFICATIONS: Error al enviar notificación de modo desarrollador: $e');
       }
-    });
+    }
   }
 
   /// Inicia el servicio en segundo plano
@@ -238,32 +286,40 @@ class NotificationService {
   Future<bool> requestPermissions() async {
     _log('Solicitando permisos de notificación...');
 
-    // Verificar versión de Android
-    if (Platform.isAndroid) {
-      final int sdkInt = (await _getAndroidSdkInt()) ?? 0;
-
-      if (sdkInt < 33) {
-        _log('Android SDK < 33, no se requieren permisos de notificación');
-        return true; // No es necesario pedir permiso en Android 12 o menor
-      }
-    }
-
     try {
       // Verificar si ya tenemos permisos
       final status = await Permission.notification.status;
+
       if (status.isGranted) {
         _log('Permisos de notificación ya concedidos');
         return true;
       }
 
-      // Solicitar permisos
+      // Verificar versión de Android
+      if (Platform.isAndroid) {
+        final int sdkInt = (await _getAndroidSdkInt()) ?? 0;
+
+        if (sdkInt < 33) {
+          _log('Android SDK < 33, no se requieren permisos de notificación');
+          return true; // No es necesario pedir permiso en Android 12 o menor
+        }
+      }
+
+      // Solicitar permisos explícitamente
+      _log('Solicitando permisos de notificación al usuario...');
       final result = await Permission.notification.request();
       final bool isGranted = result.isGranted;
 
-      if (isGranted) {
-        _log('Permisos de notificación concedidos');
-      } else {
-        _log('Permisos de notificación denegados', isError: true);
+      _log(
+          isGranted
+              ? 'Permisos de notificación concedidos'
+              : 'Permisos de notificación denegados',
+          isError: !isGranted);
+
+      // Si los permisos están denegados en iOS, abrimos la configuración
+      if (!isGranted && Platform.isIOS) {
+        _log('Intentando abrir la configuración de la app para iOS');
+        await openAppSettings();
       }
 
       return isGranted;

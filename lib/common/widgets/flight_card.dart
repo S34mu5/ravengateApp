@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/airline_helper.dart';
 import '../../utils/flight_search_helper.dart';
 import '../../utils/flight_filter_util.dart';
+import '../../screens/home/flight_details/utils/flight_formatters.dart';
 
 /// Widget reutilizable que representa una tarjeta de vuelo
 /// Se puede usar tanto en All Departures como en My Departures
@@ -119,15 +120,15 @@ class _FlightCardState extends State<FlightCard> {
   @override
   Widget build(BuildContext context) {
     // Extraer información del vuelo
-    final String formattedTime = FlightFilterUtil.extractTimeFromSchedule(
-        widget.flight['schedule_time']);
+    final String formattedTime =
+        FlightFormatters.formatTime(widget.flight['schedule_time']);
     final String formattedDate = FlightFilterUtil.extractDateFromSchedule(
         widget.flight['schedule_time']);
 
     // Extraer hora de estado si está disponible
     final String? statusTime = widget.flight['status_time'] != null &&
             widget.flight['status_time'].toString().isNotEmpty
-        ? FlightFilterUtil.extractTimeFromSchedule(widget.flight['status_time'])
+        ? FlightFormatters.formatTime(widget.flight['status_time'])
         : null;
 
     // Verificar si el vuelo está retrasado
