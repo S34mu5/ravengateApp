@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../utils/flight_search_helper.dart';
+import '../../../utils/flight_filter_util.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../utils/progress_dialog.dart';
@@ -88,93 +89,17 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
 
   /// Extract time from ISO 8601 format or traditional "HH:MM" format
   String _extractTimeFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only time
-        final formatter = DateFormat('HH:mm');
-
-        // Convert to local time and format
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else if (scheduleTime.contains(':')) {
-        // If it's just a time format "HH:MM", return it directly
-        return scheduleTime;
-      } else {
-        print('LOG: Unknown time format: $scheduleTime');
-        return scheduleTime;
-      }
-    } catch (e) {
-      print('LOG: Error formatting time: $e');
-      return scheduleTime; // Return original string if there's an error
-    }
+    return FlightFilterUtil.extractTimeFromSchedule(scheduleTime);
   }
 
   /// Extract date from ISO 8601 format and format it as dd/MM
   String _extractDateFromSchedule(String scheduleTime) {
-    try {
-      // Check if in ISO 8601 format (contains a 'T')
-      if (scheduleTime.contains('T')) {
-        // Try to parse as ISO 8601
-        final dateTime = DateTime.parse(scheduleTime);
-
-        // Create formatter to show only date in format dd/MM
-        final formatter = DateFormat('dd/MM');
-
-        // Convert to local time and format
-        if (scheduleTime.endsWith('Z')) {
-          // Explicit UTC to local conversion
-          final localDateTime = dateTime.toLocal();
-          return formatter.format(localDateTime);
-        } else {
-          // If no Z, it might already be local or have explicit offset
-          return formatter.format(dateTime);
-        }
-      } else {
-        // If it's just a time format, use current date
-        final now = DateTime.now();
-        return DateFormat('dd/MM').format(now);
-      }
-    } catch (e) {
-      print('LOG: Error extracting date: $e');
-      return ''; // Return empty string on error
-    }
+    return FlightFilterUtil.extractDateFromSchedule(scheduleTime);
   }
 
   /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
   bool _isLaterTime(String time1, String time2) {
-    try {
-      // Convertir al formato actual de tiempo
-      final parts1 = time1.split(':');
-      final parts2 = time2.split(':');
-
-      if (parts1.length >= 2 && parts2.length >= 2) {
-        final hour1 = int.parse(parts1[0]);
-        final minute1 = int.parse(parts1[1]);
-        final hour2 = int.parse(parts2[0]);
-        final minute2 = int.parse(parts2[1]);
-
-        // Comparar horas y minutos
-        if (hour1 > hour2) {
-          return true;
-        } else if (hour1 == hour2) {
-          return minute1 > minute2;
-        }
-      }
-      return false;
-    } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
-      return false;
-    }
+    return FlightFilterUtil.isLaterTime(time1, time2);
   }
 
   @override
@@ -206,7 +131,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Here you can see the flights you have archived. You can restore them to your active list.',
+                'Here you can see the flights you have archived for this date. You can restore them to your active list.',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade700,
@@ -338,83 +263,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
                           ? _formatArchivedDate(flight['archived_at'])
                           : 'Unknown date';
 
-                      return FlightCard(
-                        flight: flight,
-                        isSelectionMode: false,
-                        isSelected: false,
-                        isDismissible:
-                            true, // Permitir deslizar para eliminar permanentemente
-                        selectionColor: Colors.blue.shade300,
-                        onTap: () {
-                          print(
-                              'LOG: Usuario seleccionó el vuelo archivado ${flight['flight_id']} para ${flight['airport']}');
-
-                          // Navegar a la pantalla de detalles
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => FlightDetailsScreen(
-                                flightId: flight['flight_id'],
-                                documentId: flight['id'] ?? '',
-                              ),
-                            ),
-                          );
-                        },
-                        // Botón de restaurar
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.restore,
-                            color: Colors.blue,
-                          ),
-                          onPressed: () => _confirmRestoreFlight(
-                            flight['doc_id'] ??
-                                flight['id'] ??
-                                flight['flight_id'],
-                            flight['flight_id'],
-                          ),
-                          tooltip: 'Restore flight',
-                        ),
-                        // Confirmar antes de eliminar permanentemente
-                        confirmDismiss: (direction) async {
-                          // Mostrar diálogo de confirmación para eliminar permanentemente
-                          return await showDialog<bool>(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title:
-                                        const Text("Eliminar permanentemente"),
-                                    content: Text(
-                                        "¿Estás seguro que deseas eliminar permanentemente el vuelo ${flight['flight_id']}? Esta acción no se puede deshacer."),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(false),
-                                        child: const Text("Cancelar"),
-                                      ),
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(true),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                        ),
-                                        child: const Text(
-                                            "Eliminar permanentemente"),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ) ??
-                              false;
-                        },
-                        // Función para eliminar permanentemente
-                        onDismissed: (direction) {
-                          if (widget.onDeleteFlight != null) {
-                            final docId = flight['doc_id'] ??
-                                flight['id'] ??
-                                flight['flight_id'];
-                            widget.onDeleteFlight!(docId);
-                          }
-                        },
-                      );
+                      return _buildArchivedFlightItem(context, flight);
                     },
                   ),
                 ),
@@ -527,5 +376,147 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         ],
       ),
     );
+  }
+
+  /// Construye un solo item de vuelo archivado
+  Widget _buildArchivedFlightItem(
+      BuildContext context, Map<String, dynamic> flight) {
+    // Extracting info from the flight
+    final flightId = flight['flight_id'] ?? 'Unknown';
+    final airline = flight['airline'] ?? '';
+    final scheduleTime = flight['schedule_time'] ?? '';
+    final gate = flight['gate'] ?? '';
+    final airport = flight['airport'] ?? '';
+    final wasRemoved = flight['flight_removed'] == true;
+    final hasDataError = flight['data_error'] == true;
+    final docId = flight['doc_id'] ?? '';
+
+    // Extracción de tiempo de archivo
+    String archivedTime = '';
+    if (flight['archived_at'] != null) {
+      try {
+        final dateTime = DateTime.parse(flight['archived_at']);
+        archivedTime =
+            _timeFormatter.format(dateTime); // Solo mostramos la hora
+      } catch (e) {
+        print('LOG: Error formatting archived time: $e');
+      }
+    }
+
+    // Special styling for removed or error flights
+    final isDisabled = wasRemoved || hasDataError;
+    final cardColor = isDisabled ? Colors.grey.shade200 : Colors.white;
+    final textColor = isDisabled ? Colors.grey.shade700 : Colors.black87;
+
+    // Icono de aerolínea
+    final Widget airlineIcon = airline.isNotEmpty
+        ? Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AirlineHelper.getAirlineColor(airline),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                airline.substring(0, 1).toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    // Botones de acción
+    final Widget actionButtons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton.icon(
+          onPressed: isDisabled
+              ? null
+              : () {
+                  if (widget.onRestoreFlight != null && docId.isNotEmpty) {
+                    widget.onRestoreFlight!(docId);
+                  }
+                },
+          icon: const Icon(Icons.restore, size: 16),
+          label: const Text('Restore'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        TextButton.icon(
+          onPressed: () {
+            if (widget.onDeleteFlight != null && docId.isNotEmpty) {
+              _confirmDelete(context, docId);
+            }
+          },
+          icon: const Icon(Icons.delete_outline, size: 16),
+          label: const Text('Delete'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.red.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+    );
+
+    return FlightCard(
+      flight: flight,
+      trailing: actionButtons,
+      showStatusBadges: false,
+      onTap: () => _navigateToFlightDetails(context, flight),
+    );
+  }
+
+  /// Navega a la pantalla de detalles del vuelo seleccionado
+  void _navigateToFlightDetails(
+      BuildContext context, Map<String, dynamic> flight) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightDetailsScreen(
+          flightId: flight['flight_id'],
+          documentId: flight['doc_id'] ?? '',
+          flightsList: widget.flights, // Pasar toda la lista de vuelos
+          flightsSource: 'archived', // Indicar que viene de vuelos archivados
+        ),
+      ),
+    );
+  }
+
+  // Mostrar diálogo de confirmación para eliminar permanentemente
+  Future<void> _confirmDelete(BuildContext context, String docId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Eliminar permanentemente"),
+        content: Text(
+            "¿Estás seguro que deseas eliminar permanentemente el vuelo $docId? Esta acción no se puede deshacer."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text("Eliminar permanentemente"),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true && widget.onDeleteFlight != null) {
+      widget.onDeleteFlight!(docId);
+    }
   }
 }

@@ -261,6 +261,25 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Caso especial para error de Google Auth con PigeonUserDetails pero que en realidad funcionó
+    if (!result.success &&
+        result.method == AuthMethod.google &&
+        result.error != null &&
+        result.error!.contains('PigeonUserDetails')) {
+      // Verificar si hay usuario de Firebase a pesar del error
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        print('🔄 Detectado login exitoso a pesar del error PigeonUserDetails');
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(user: currentUser),
+          ),
+        );
+        return;
+      }
+    }
+
     // Para cualquier otro error
     print('❌ Login error: ${result.error ?? "Unknown"}');
     ScaffoldMessenger.of(context).showSnackBar(

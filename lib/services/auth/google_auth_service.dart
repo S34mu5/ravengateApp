@@ -1,62 +1,37 @@
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_service.dart';
 import 'auth_methods.dart';
 import 'auth_result.dart';
 
-/// Implementation of AuthService for Google authentication
+/// Servicio de autenticación con Google, siguiendo buenas prácticas:
+/// - Inyección de dependencias para facilitar pruebas.
+/// - Manejo unificado de errores y cancelaciones.
 class GoogleAuthService implements AuthService {
   final GoogleSignIn _googleSignIn;
-  final FirebaseAuth _auth;
+  final FirebaseAuth _firebaseAuth;
 
-  GoogleAuthService()
-      : _googleSignIn = GoogleSignIn(
-          // Configuración básica con solo los elementos esenciales
-          scopes: ['email'],
-          // El signInOption explícito puede ayudar con ciertos dispositivos
-          signInOption: SignInOption.standard,
-          // Agregamos hostedDomain: null para evitar restricciones de dominio
-          hostedDomain: null,
-        ),
-        _auth = FirebaseAuth.instance;
+  GoogleAuthService({
+    GoogleSignIn? googleSignIn,
+    FirebaseAuth? firebaseAuth,
+  })  : _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email']),
+        _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   @override
   AuthMethod get method => AuthMethod.google;
 
-  /// Cierra la sesión tanto en Firebase como en Google
-  Future<void> signOut() async {
-    try {
-      print('🔄 Cerrando sesión...');
-      await Future.wait([
-        _auth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
-      print('✅ Sesión cerrada correctamente');
-    } catch (e) {
-      print('❌ Error al cerrar sesión: $e');
-      throw Exception('Error al cerrar sesión: $e');
-    }
+  @override
+  Future<bool> isAvailable() async {
+    // Google Sign-In está siempre disponible si las librerías cargan correctamente.
+    return true;
   }
 
   @override
-  Future<bool> isAvailable() async {
+  Future<AuthResult> authenticate() async {
     try {
-      print('📱 Verificando disponibilidad de Google Sign In...');
-      return true;
-    } catch (e) {
-      print('❌ Error verificando Google Sign In: $e');
-      return false;
-    }
-  }
-
-  /// Verifica si hay una sesión activa
-  Future<AuthResult> checkCurrentUser() async {
-    try {
-      // Verificar si hay usuario en Firebase
-      final currentUser = _auth.currentUser;
+      // 1) Si ya hay usuario de Firebase, devolvemos sesión activa.
+      final currentUser = _firebaseAuth.currentUser;
       if (currentUser != null) {
-        print('✅ Usuario ya tiene sesión activa: ${currentUser.email}');
         return AuthResult(
           success: true,
           method: method,
@@ -64,31 +39,75 @@ class GoogleAuthService implements AuthService {
         );
       }
 
-      // Verificar si hay sesión de Google
-      final googleUser = await _googleSignIn.signInSilently();
-      if (googleUser != null) {
-        print('✅ Recuperando sesión de Google: ${googleUser.email}');
-        // Obtener credenciales y autenticar con Firebase
-        final googleAuth = await googleUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        final userCredential = await _auth.signInWithCredential(credential);
+      // 2) Intento de sesión silenciosa en Google
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await _googleSignIn.signInSilently();
+      } catch (e) {
+        print('⚠️ Error en signInSilently (ignorado): $e');
+        // Continuamos con el flujo aunque falle el silencioso
+      }
+
+      // 3) Si no había sesión, pedimos interactivo
+      if (googleUser == null) {
+        try {
+          googleUser = await _googleSignIn.signIn();
+        } catch (e) {
+          print('⚠️ Error en signIn interactivo: $e');
+          if (e.toString().contains('PigeonUserDetails')) {
+            // Ignoramos este error específico ya que no impide el funcionamiento
+            print('ℹ️ Ignorando error de PigeonUserDetails');
+          } else {
+            // Para otros errores, retornamos el resultado de error
+            return AuthResult(
+              success: false,
+              method: method,
+              error: 'Error durante la autenticación con Google: $e',
+            );
+          }
+        }
+      }
+
+      if (googleUser == null) {
+        // El usuario canceló el flujo
         return AuthResult(
-          success: true,
+          success: false,
           method: method,
-          user: userCredential.user,
+          error: 'Google Sign-In cancelado por el usuario',
         );
       }
 
+      // 4) Obtenemos credenciales de Google
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 5) Autenticamos en Firebase con las credenciales
+      final result = await _firebaseAuth.signInWithCredential(credential);
       return AuthResult(
-        success: false,
+        success: true,
         method: method,
-        error: 'No hay sesión activa',
+        user: result.user,
       );
     } catch (e) {
-      print('❌ Error verificando sesión: $e');
+      print('❌ Error en authenticate de GoogleAuthService: $e');
+      // Para el error específico de PigeonUserDetails, ignoramos
+      if (e.toString().contains('PigeonUserDetails')) {
+        // Si tenemos usuario en Firebase a pesar del error, consideramos exitoso
+        final currentUser = _firebaseAuth.currentUser;
+        if (currentUser != null) {
+          print('ℹ️ Usuario autenticado a pesar del error PigeonUserDetails');
+          return AuthResult(
+            success: true,
+            method: method,
+            user: currentUser,
+          );
+        }
+      }
+
+      // Devolvemos siempre string para simplificar manejo de errores
       return AuthResult(
         success: false,
         method: method,
@@ -98,106 +117,9 @@ class GoogleAuthService implements AuthService {
   }
 
   @override
-  Future<AuthResult> authenticate() async {
-    try {
-      print('🔄 Iniciando flujo de Google Sign In...');
-
-      // Verificamos si hay una sesión activa primero
-      final currentSession = await checkCurrentUser();
-      if (currentSession.success) {
-        return currentSession;
-      }
-
-      // Si no hay sesión, pedimos seleccionar cuenta
-      print('🔄 Solicitando selección de cuenta de Google...');
-
-      // Manejo detallado de errores
-      GoogleSignInAccount? googleUser;
-      try {
-        // Intento alternativo con desconexión previa
-        // Esto puede ayudar en casos donde hay un estado inconsistente
-        await _googleSignIn.signOut();
-        googleUser = await _googleSignIn.signIn();
-
-        if (googleUser == null) {
-          print('❌ Usuario canceló el login de Google');
-          return AuthResult(
-            success: false,
-            method: method,
-            error: 'Google Sign In cancelled by user',
-          );
-        }
-      } catch (signInError) {
-        print('🔍 Error detallado en signIn: $signInError');
-
-        // Análisis detallado del error
-        final errorString = signInError.toString();
-        if (errorString.contains('ApiException: 10')) {
-          print(
-              '⚠️ Error ApiException:10 - Problema con la configuración del proyecto');
-          return AuthResult(
-            success: false,
-            method: method,
-            error:
-                'ERROR 10: La aplicación no está correctamente registrada en Google. Verifica que todas las huellas SHA-1 y SHA-256 estén configuradas en Firebase.',
-          );
-        } else if (errorString.contains('ApiException: 7')) {
-          print('⚠️ Error ApiException:7 - Problema de red');
-          return AuthResult(
-            success: false,
-            method: method,
-            error:
-                'ERROR 7: Problema de conectividad. Verifica tu conexión a Internet.',
-          );
-        } else if (errorString.contains('ApiException: 12500')) {
-          print(
-              '⚠️ Error ApiException:12500 - Problema con Google Play Services');
-          return AuthResult(
-            success: false,
-            method: method,
-            error:
-                'ERROR 12500: Google Play Services no está disponible o actualizado.',
-          );
-        }
-
-        // Mensaje genérico para otros errores
-        return AuthResult(
-          success: false,
-          method: method,
-          error: 'Error de autenticación: $errorString',
-        );
-      }
-
-      print('✅ Usuario seleccionó cuenta: ${googleUser.email}');
-
-      // Obtain the auth details from the request
-      print('🔑 Obteniendo credenciales...');
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      print('🔐 Autenticando con Firebase...');
-      final UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
-
-      print('✅ Login completado para: ${userCredential.user?.displayName}');
-      return AuthResult(
-        success: true,
-        method: method,
-        user: userCredential.user,
-      );
-    } catch (e) {
-      print('❌ Error en autenticación de Google: $e');
-      return AuthResult(
-        success: false,
-        method: method,
-        error: e.toString(),
-      );
-    }
+  Future<void> signOut() async {
+    // Cerramos sesión en Firebase y Google secuencialmente
+    await _firebaseAuth.signOut();
+    await _googleSignIn.signOut();
   }
 }

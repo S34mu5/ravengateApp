@@ -9,6 +9,11 @@ class CacheService {
   static const String _lastUpdatedKey = 'last_updated';
   static const String _norwegianEquivalenceKey =
       'norwegian_equivalence_enabled';
+  static const String _delayNotificationsKey = 'delay_notifications_enabled';
+  static const String _departureNotificationsKey =
+      'departure_notifications_enabled';
+  static const String _gateChangeNotificationsKey =
+      'gate_change_notifications_enabled';
 
   /// Almacena los vuelos en la caché persistente
   static Future<bool> saveFlights(List<Map<String, dynamic>> flights) async {
@@ -172,6 +177,87 @@ class CacheService {
     }
   }
 
+  /// Guarda la preferencia para las notificaciones de retrasos de vuelos
+  static Future<bool> saveDelayNotificationsPreference(bool isEnabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_delayNotificationsKey, isEnabled);
+      print('LOG: Delay notifications preference saved: $isEnabled');
+      return true;
+    } catch (e) {
+      print('ERROR: Could not save delay notifications preference: $e');
+      return false;
+    }
+  }
+
+  /// Recupera la preferencia para las notificaciones de retrasos de vuelos
+  static Future<bool> getDelayNotificationsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Por defecto esta característica está activada (true)
+      final isEnabled = prefs.getBool(_delayNotificationsKey) ?? true;
+      return isEnabled;
+    } catch (e) {
+      print('ERROR: Could not retrieve delay notifications preference: $e');
+      return true; // Por defecto activado
+    }
+  }
+
+  /// Guarda la preferencia para las notificaciones de despegue de vuelos
+  static Future<bool> saveDepartureNotificationsPreference(
+      bool isEnabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_departureNotificationsKey, isEnabled);
+      print('LOG: Departure notifications preference saved: $isEnabled');
+      return true;
+    } catch (e) {
+      print('ERROR: Could not save departure notifications preference: $e');
+      return false;
+    }
+  }
+
+  /// Recupera la preferencia para las notificaciones de despegue de vuelos
+  static Future<bool> getDepartureNotificationsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Por defecto esta característica está activada (true)
+      final isEnabled = prefs.getBool(_departureNotificationsKey) ?? true;
+      return isEnabled;
+    } catch (e) {
+      print('ERROR: Could not retrieve departure notifications preference: $e');
+      return true; // Por defecto activado
+    }
+  }
+
+  /// Guarda la preferencia para las notificaciones de cambio de puerta
+  static Future<bool> saveGateChangeNotificationsPreference(
+      bool isEnabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_gateChangeNotificationsKey, isEnabled);
+      print('LOG: Gate change notifications preference saved: $isEnabled');
+      return true;
+    } catch (e) {
+      print('ERROR: Could not save gate change notifications preference: $e');
+      return false;
+    }
+  }
+
+  /// Recupera la preferencia para las notificaciones de cambio de puerta
+  static Future<bool> getGateChangeNotificationsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Por defecto esta característica está activada (true)
+      final isEnabled = prefs.getBool(_gateChangeNotificationsKey) ?? true;
+      return isEnabled;
+    } catch (e) {
+      print(
+          'ERROR: Could not retrieve gate change notifications preference: $e');
+      return true; // Por defecto activado
+    }
+  }
+
   /// Limpia toda la caché (usar al cerrar sesión)
   static Future<bool> clearCache() async {
     try {
@@ -179,7 +265,7 @@ class CacheService {
       await prefs.remove(_flightsKey);
       await prefs.remove(_filtersKey);
       await prefs.remove(_lastUpdatedKey);
-      // No eliminamos _norwegianEquivalenceKey ya que es una preferencia de usuario
+      // No eliminamos _norwegianEquivalenceKey ni _delayNotificationsKey ni _departureNotificationsKey ni _gateChangeNotificationsKey ya que son preferencias de usuario
       print('LOG: Cache cleared successfully');
       return true;
     } catch (e) {

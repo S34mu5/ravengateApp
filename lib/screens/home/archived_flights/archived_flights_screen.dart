@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'archived_flights_ui.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/user/user_flights_service.dart';
@@ -13,19 +14,30 @@ class ArchivedFlightsScreen extends StatefulWidget {
 }
 
 class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
+  // Lista de fechas de archivado disponibles
+  List<ArchivedFlightDate> _archivedDates = [];
+
+  // Vuelos archivados para la fecha seleccionada
   List<Map<String, dynamic>> _archivedFlights = [];
+
   bool _isLoading = true;
   String? _errorMessage;
+
+  // Fecha seleccionada actualmente
+  String? _selectedDate;
+
+  // Formateador para mostrar fechas de forma amigable
+  final DateFormat _dateFormatter = DateFormat('dd MMM yyyy');
 
   @override
   void initState() {
     super.initState();
-    _loadArchivedFlights();
+    _loadArchivedDates();
   }
 
-  /// Cargar los vuelos archivados por el usuario
-  Future<void> _loadArchivedFlights() async {
-    print('LOG: Cargando datos de vuelos archivados en ArchivedFlightsScreen');
+  /// Cargar las fechas de vuelos archivados
+  Future<void> _loadArchivedDates() async {
+    print('LOG: Cargando fechas de vuelos archivados');
 
     try {
       // Verificar si el widget está montado antes de actualizar estado
@@ -36,26 +48,66 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         _errorMessage = null;
       });
 
-      // Obtener vuelos archivados desde el servicio
-      final archivedFlights = await UserFlightsService.getUserArchivedFlights();
+      // Obtener fechas de archivado desde el servicio
+      final archivedDates =
+          await UserFlightsService.getUserArchivedFlightDates();
 
       // Verificar nuevamente si el widget sigue montado
       if (!mounted) return;
 
       setState(() {
-        _archivedFlights = archivedFlights;
+        _archivedDates = archivedDates;
         _isLoading = false;
       });
 
-      print('LOG: Se cargaron ${_archivedFlights.length} vuelos archivados');
+      print(
+          'LOG: Se cargaron ${_archivedDates.length} fechas de vuelos archivados');
+
+      // Ya no seleccionamos automáticamente la fecha más reciente
+      // Dejamos que el usuario seleccione una fecha de la lista
     } catch (e) {
-      print('LOG: Error al cargar vuelos archivados: $e');
+      print('LOG: Error al cargar fechas de vuelos archivados: $e');
 
       // Verificar si el widget sigue montado antes de actualizar estado de error
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = 'Error loading archived flights: $e';
+        _errorMessage = 'Error loading archived flight dates: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Seleccionar una fecha y cargar sus vuelos
+  Future<void> _selectDate(String date) async {
+    print('LOG: Seleccionando fecha $date');
+
+    setState(() {
+      _selectedDate = date;
+      _isLoading = true;
+    });
+
+    try {
+      // Cargar vuelos para la fecha seleccionada
+      final flights =
+          await UserFlightsService.getUserArchivedFlightsByDate(date);
+
+      if (!mounted) return;
+
+      setState(() {
+        _archivedFlights = flights;
+        _isLoading = false;
+      });
+
+      print(
+          'LOG: Se cargaron ${_archivedFlights.length} vuelos para la fecha $date');
+    } catch (e) {
+      print('LOG: Error al cargar vuelos para la fecha $date: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Error loading flights for selected date: $e';
         _isLoading = false;
       });
     }
@@ -112,8 +164,13 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         ),
       );
 
-      // Recargar la lista de vuelos archivados
-      await _loadArchivedFlights();
+      // Si hay una fecha seleccionada, recargar los vuelos para esa fecha
+      if (_selectedDate != null) {
+        await _selectDate(_selectedDate!);
+
+        // También actualizamos la lista de fechas en caso de que esta fecha ya no tenga vuelos
+        await _loadArchivedDates();
+      }
     } catch (e) {
       print('LOG: Error restoring flight with document ID $docId: $e');
 
@@ -128,9 +185,6 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
-
-      // Recargar la lista de todos modos
-      _loadArchivedFlights();
     }
   }
 
@@ -186,8 +240,13 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         ),
       );
 
-      // Recargar la lista de vuelos archivados
-      await _loadArchivedFlights();
+      // Si hay una fecha seleccionada, recargar los vuelos para esa fecha
+      if (_selectedDate != null) {
+        await _selectDate(_selectedDate!);
+
+        // También actualizamos la lista de fechas en caso de que esta fecha ya no tenga vuelos
+        await _loadArchivedDates();
+      }
     } catch (e) {
       print('LOG: Error deleting flight with document ID $docId: $e');
 
@@ -202,9 +261,16 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
 
-      // Recargar la lista de todos modos
-      _loadArchivedFlights();
+  // Formatear fecha para mostrar en la UI
+  String _formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      return _dateFormatter.format(date);
+    } catch (e) {
+      return isoDate;
     }
   }
 
@@ -213,7 +279,6 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Archived Flights'),
-        backgroundColor: Colors.blue.shade100,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -236,21 +301,164 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: _loadArchivedFlights,
+                        onPressed: _loadArchivedDates,
                         child: const Text('Retry'),
                       ),
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: _loadArchivedFlights,
-                  child: ArchivedFlightsUI(
-                    flights: _archivedFlights,
-                    onRefresh: _loadArchivedFlights,
-                    onRestoreFlight: _restoreFlight,
-                    onDeleteFlight: _permanentlyDeleteFlight,
+              : _selectedDate == null
+                  ? _buildDatesList()
+                  : _buildFlightsList(),
+    );
+  }
+
+  // Construir lista de fechas disponibles
+  Widget _buildDatesList() {
+    if (_archivedDates.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.archive_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'No archived flights found',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Contador de fechas
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${_archivedDates.length} dates with archived flights',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadArchivedDates,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              itemCount: _archivedDates.length,
+              itemBuilder: (context, index) {
+                final date = _archivedDates[index];
+                return ListTile(
+                  title: Text(_formatDate(date.date)),
+                  subtitle: Text('${date.count} flights'),
+                  leading: const Icon(Icons.calendar_month, color: Colors.blue),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () => _selectDate(date.date),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Construir lista de vuelos para la fecha seleccionada
+  Widget _buildFlightsList() {
+    return Column(
+      children: [
+        // Header con información de la fecha seleccionada
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          color: Colors.blue.shade50,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      setState(() {
+                        _selectedDate = null;
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    iconSize: 20,
                   ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Archived on ${_formatDate(_selectedDate!)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_archivedFlights.length} flights found',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
                 ),
+              ),
+            ],
+          ),
+        ),
+
+        // Lista de vuelos
+        Expanded(
+          child: _archivedFlights.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.flight_outlined,
+                          size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No flights found for this date',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate = null;
+                          });
+                        },
+                        child: const Text('Back to dates'),
+                      ),
+                    ],
+                  ),
+                )
+              : ArchivedFlightsUI(
+                  flights: _archivedFlights,
+                  onRefresh: () => _selectDate(_selectedDate!),
+                  onRestoreFlight: _restoreFlight,
+                  onDeleteFlight: _permanentlyDeleteFlight,
+                ),
+        ),
+      ],
     );
   }
 

@@ -9,9 +9,13 @@ import 'services/auth/google_auth_service.dart';
 import 'services/auth/email_password_auth_service.dart';
 import 'controllers/auth_controller.dart';
 import 'screens/auth/email_verification/email_verification_screen.dart';
+import 'services/notifications/notification_service.dart';
+import 'services/gate/gate_monitor_service.dart';
 
 // Referencia global al controlador de autenticación para acceder desde cualquier lugar
 late AuthController authController;
+// Referencia global al servicio de monitoreo de cambios de puerta
+late GateMonitorService gateMonitorService;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +25,12 @@ void main() async {
 
   // Initialize authentication services
   initializeAuthServices();
+
+  // Initialize notification service
+  await initializeNotificationService();
+
+  // Initialize gate monitoring service
+  await initializeGateMonitorService();
 
   runApp(MyApp(authController: authController));
 }
@@ -36,6 +46,53 @@ void initializeAuthServices() {
 
   // Create the controller with the services
   authController = AuthController(authServices);
+}
+
+/// Inicializa el servicio de notificaciones
+Future<void> initializeNotificationService() async {
+  try {
+    print('🔔 Inicializando servicio de notificaciones...');
+    final notificationService = NotificationService();
+    await notificationService.init();
+
+    // Solicitar permisos para notificaciones
+    final hasPermission = await notificationService.requestPermissions();
+    print('✅ Servicio de notificaciones inicializado correctamente');
+    print(
+        '📱 Permisos de notificaciones: ${hasPermission ? 'concedidos' : 'denegados'}');
+  } catch (e) {
+    print('❌ Error al inicializar el servicio de notificaciones: $e');
+  }
+}
+
+/// Inicializa el servicio de monitoreo de cambios de puerta
+Future<void> initializeGateMonitorService() async {
+  try {
+    print('🚪 Inicializando servicio de monitoreo de cambios de puerta...');
+    gateMonitorService = GateMonitorService();
+    await gateMonitorService.initialize();
+
+    // Escuchar cambios en el estado de autenticación para iniciar/detener monitoreo
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null) {
+        // Usuario autenticado, iniciar monitoreo
+        print(
+            '👤 Usuario autenticado, iniciando monitoreo de cambios de puerta');
+        gateMonitorService.startMonitoring();
+      } else {
+        // Usuario desconectado, detener monitoreo
+        print(
+            '👤 Usuario desconectado, deteniendo monitoreo de cambios de puerta');
+        gateMonitorService.stopMonitoring();
+      }
+    });
+
+    print(
+        '✅ Servicio de monitoreo de cambios de puerta inicializado correctamente');
+  } catch (e) {
+    print(
+        '❌ Error al inicializar el servicio de monitoreo de cambios de puerta: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {

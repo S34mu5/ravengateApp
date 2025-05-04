@@ -5,9 +5,34 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../utils/airline_helper.dart';
 
+/// Estructura para organizar vuelos por fecha
+class ArchivedFlightDate {
+  final String date; // Formato "yyyy-MM-dd"
+  final int count; // Número de vuelos en esa fecha
+
+  ArchivedFlightDate({required this.date, required this.count});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'date': date,
+      'count': count,
+    };
+  }
+
+  factory ArchivedFlightDate.fromMap(Map<String, dynamic> map) {
+    return ArchivedFlightDate(
+      date: map['date'] ?? '',
+      count: map['count'] ?? 0,
+    );
+  }
+}
+
 /// Service to manage user's saved flights
 class UserFlightsService {
   static const String _userFlightsKey = 'user_flights';
+  // Nuevas claves para el sistema de caché
+  static const String _cachedUserFlightsKey = 'cached_user_flights';
+  static const String _userFlightsLastUpdatedKey = 'user_flights_last_updated';
 
   /// Save a flight to user's saved flights list
   /// Returns true if the flight was added, false if it was already in the list
@@ -16,10 +41,13 @@ class UserFlightsService {
       // Get current user
       final user = FirebaseAuth.instance.currentUser;
 
-      // Prepare basic saved flight data (only reference)
+      // IMPORTANTE: flight_ref es la referencia única al documento original en la colección 'flights'
+      // Nunca debe usarse flight_id como identificador único, ya que pueden existir múltiples vuelos
+      // con el mismo código de vuelo (flight_id) pero en diferentes fechas
       final Map<String, dynamic> savedFlightData = {
         'flight_ref': flight['id'], // Reference to original flight document
-        'flight_id': flight['flight_id'], // Keep flight ID for easier queries
+        'flight_id': flight[
+            'flight_id'], // Solo para mostrar el código del vuelo, no para identificación
         'saved_at': DateTime.now().toIso8601String(),
       };
 
@@ -39,12 +67,19 @@ class UserFlightsService {
           flight['was_archived'] = true;
         }
 
+        // Invalidar la caché cuando se añade un nuevo vuelo
+        await _invalidateCache();
+
         return result;
       } else {
         // For local storage, we still need all flight details
         // but we'll ensure we have the reference for future compatibility
         final processedFlight = _processFlightForStorage(flight);
         processedFlight['flight_ref'] = flight['id']; // Add reference
+
+        // Invalidar la caché cuando se añade un nuevo vuelo
+        await _invalidateCache();
+
         return await _saveFlightToLocalStorage(processedFlight);
       }
     } catch (e) {
@@ -56,6 +91,17 @@ class UserFlightsService {
   /// Get user's saved flights
   static Future<List<Map<String, dynamic>>> getUserFlights() async {
     try {
+      // Intentar cargar desde la caché primero
+      final cachedFlights = await _loadFromCache();
+      if (cachedFlights.isNotEmpty) {
+        print(
+            'LOG: Vuelos cargados desde caché (${cachedFlights.length} vuelos)');
+        return cachedFlights;
+      }
+
+      print(
+          'LOG: No hay datos en caché o están obsoletos, cargando desde Firestore');
+
       // Get current user
       final user = FirebaseAuth.instance.currentUser;
 
@@ -72,19 +118,130 @@ class UserFlightsService {
       userFlightRefs =
           userFlightRefs.where((flight) => flight['archived'] != true).toList();
 
-      // Get full flight data from references
+      // Get full flight data using optimized batch loading
       final List<Map<String, dynamic>> completeFlights =
-          await _getCompleteFlightData(userFlightRefs);
+          await _getCompleteFlightDataBatch(userFlightRefs);
 
       // Process flights for use in UI (convert integers back to Color objects, etc.)
-      return completeFlights.map(_processFlightForUI).toList();
+      final List<Map<String, dynamic>> processedFlights =
+          completeFlights.map(_processFlightForUI).toList();
+
+      // Guardar los resultados en caché
+      await _saveToCache(processedFlights);
+
+      return processedFlights;
     } catch (e) {
       print('LOG: Error getting user flights: $e');
       return [];
     }
   }
 
-  /// Get complete and updated flight data from references
+  /// Nuevo método para obtener datos completos de vuelos en una sola consulta por lotes
+  static Future<List<Map<String, dynamic>>> _getCompleteFlightDataBatch(
+      List<Map<String, dynamic>> flightRefs) async {
+    final List<Map<String, dynamic>> completeFlights = [];
+
+    try {
+      print(
+          'LOG: Obteniendo datos completos para ${flightRefs.length} vuelos en lote');
+
+      // Si no hay referencias, devolver una lista vacía
+      if (flightRefs.isEmpty) {
+        return [];
+      }
+
+      // Recolectar todos los IDs de vuelos que necesitamos consultar
+      final List<String> flightIds =
+          flightRefs.map((ref) => ref['flight_ref'] as String).toList();
+
+      // Limitar a lotes de 30 para evitar consultas demasiado grandes (límite de Firestore)
+      const int batchSize = 30;
+      List<String> currentBatch = [];
+      List<Future<QuerySnapshot>> queries = [];
+
+      for (int i = 0; i < flightIds.length; i++) {
+        currentBatch.add(flightIds[i]);
+
+        if (currentBatch.length == batchSize || i == flightIds.length - 1) {
+          // Crear una consulta para el lote actual
+          final query = FirebaseFirestore.instance
+              .collection('flights')
+              .where(FieldPath.documentId, whereIn: currentBatch)
+              .get();
+
+          queries.add(query);
+
+          // Reiniciar el lote actual
+          currentBatch = [];
+        }
+      }
+
+      // Ejecutar todas las consultas en paralelo
+      final results = await Future.wait(queries);
+
+      // Crear un mapa para buscar rápidamente los documentos por ID
+      final Map<String, Map<String, dynamic>> flightDataMap = {};
+
+      // Procesar todos los resultados
+      for (final result in results) {
+        for (final doc in result.docs) {
+          flightDataMap[doc.id] = doc.data() as Map<String, dynamic>;
+        }
+      }
+
+      // Construir la lista de vuelos completa usando los datos obtenidos
+      for (final ref in flightRefs) {
+        final String flightId = ref['flight_ref'] as String;
+        final String docId = ref['doc_id'] as String;
+
+        if (flightDataMap.containsKey(flightId)) {
+          // Vuelo encontrado en el lote de resultados
+          final flightData = flightDataMap[flightId]!;
+
+          final completeData = {
+            ...flightData,
+            'id': flightId,
+            'original_id': flightId,
+            'saved_at': ref['saved_at'],
+            'doc_id': docId,
+          };
+
+          // Añadir color si no está presente
+          if (!completeData.containsKey('color')) {
+            final airline = completeData['airline'] ?? '';
+            completeData['color'] =
+                AirlineHelper.getAirlineColor(airline).value;
+          }
+
+          completeFlights.add(completeData);
+        } else {
+          // Vuelo no encontrado, usar datos básicos
+          print('LOG: Flight with ID $flightId not found in batch results');
+
+          final basicData = {
+            ...ref,
+            'id': flightId,
+            'original_id': flightId,
+            'flight_removed': true,
+            'airport': 'Unknown',
+            'gate': 'N/A',
+            'airline': ref['flight_id']?.substring(0, 2) ?? 'XX',
+            'schedule_time': 'N/A',
+          };
+
+          completeFlights.add(basicData);
+        }
+      }
+
+      print('LOG: Procesados ${completeFlights.length} vuelos en lote');
+    } catch (e) {
+      print('LOG: Error getting complete flight data in batch: $e');
+    }
+
+    return completeFlights;
+  }
+
+  /// Método original para referencia - reemplazado por la versión por lotes
   static Future<List<Map<String, dynamic>>> _getCompleteFlightData(
       List<Map<String, dynamic>> flightRefs) async {
     final List<Map<String, dynamic>> completeFlights = [];
@@ -95,6 +252,9 @@ class UserFlightsService {
         // Get the flight document from main collection using the reference
         final flightId = ref['flight_ref'];
 
+        print(
+            'LOG: Obteniendo datos completos para vuelo con flight_ref: $flightId');
+
         // Get the flight document from main collection
         final flightDoc = await FirebaseFirestore.instance
             .collection('flights')
@@ -104,12 +264,19 @@ class UserFlightsService {
         if (flightDoc.exists) {
           // Create combined data with user metadata and updated flight info
           final flightData = flightDoc.data() as Map<String, dynamic>;
+
+          // IMPORTANTE: Mantener el ID original del vuelo guardado
+          // en lugar de usar un ID potencialmente actualizado
           final completeData = {
             ...flightData,
-            'id': flightDoc.id,
+            'id':
+                flightId, // Asegurar que siempre usamos el flight_ref original
+            'original_id': flightId, // Mantener una referencia al ID original
             'saved_at': ref['saved_at'],
             'doc_id': ref['doc_id'], // Keep reference to user's saved document
           };
+
+          print('LOG: Usando flight_ref original: $flightId como ID del vuelo');
 
           // Add airline color if not present
           if (!completeData.containsKey('color')) {
@@ -122,9 +289,11 @@ class UserFlightsService {
         } else {
           // Flight no longer exists, add a flag and use basic reference data
           print(
-              'LOG: Flight ${ref['flight_id']} no longer exists, using reference data');
+              'LOG: Flight ${ref['flight_id']} no longer exists, using reference data for flight_ref: $flightId');
           final basicData = {
             ...ref,
+            'id': flightId, // Mantener el flight_ref original como ID
+            'original_id': flightId,
             'flight_removed': true,
             'airport': 'Unknown',
             'gate': 'N/A',
@@ -143,8 +312,11 @@ class UserFlightsService {
         print(
             'LOG: Error getting complete flight data for ${ref['flight_id']}: $e');
         // Add a minimal reference as fallback with error flag
+        final flightId = ref['flight_ref'];
         completeFlights.add({
           ...ref,
+          'id': flightId, // Mantener el flight_ref original como ID
+          'original_id': flightId,
           'data_error': true,
           'airport': 'Error',
           'gate': 'Error',
@@ -166,10 +338,24 @@ class UserFlightsService {
 
       if (user != null) {
         // If user is logged in, remove from Firestore directamente por el ID del documento
-        return await _removeFlightFromFirestore(user.uid, docId);
+        final result = await _removeFlightFromFirestore(user.uid, docId);
+
+        // Invalidar la caché cuando se elimina un vuelo
+        if (result) {
+          await _invalidateCache();
+        }
+
+        return result;
       } else {
         // If user is not logged in, remove from SharedPreferences
-        return await _removeFlightFromLocalStorage(docId);
+        final result = await _removeFlightFromLocalStorage(docId);
+
+        // Invalidar la caché cuando se elimina un vuelo
+        if (result) {
+          await _invalidateCache();
+        }
+
+        return result;
       }
     } catch (e) {
       print('LOG: Error removing flight: $e');
@@ -181,10 +367,11 @@ class UserFlightsService {
   static Future<bool> isFlightSaved(String flightId) async {
     try {
       final flights = await getUserFlights();
-      // Check both 'id' and 'flight_id' fields to ensure proper matching
+      // Verificar únicamente por 'id' (flight_ref) y no por flight_id
+      // para evitar confusiones con vuelos diferentes pero mismo código
       return flights.any((flight) =>
           (flight['id'] != null && flight['id'] == flightId) ||
-          (flight['flight_id'] != null && flight['flight_id'] == flightId));
+          (flight['flight_ref'] != null && flight['flight_ref'] == flightId));
     } catch (e) {
       print('LOG: Error checking if flight is saved: $e');
       return false;
@@ -259,14 +446,25 @@ class UserFlightsService {
                 'LOG: Documento encontrado. Datos actuales: ${docSnapshot.data()}');
             print('LOG: Actualizando documento para archivarlo...');
 
+            // Obtener la fecha actual en formato "yyyy-MM-dd"
+            final archivedDate = DateTime.now().toIso8601String().split('T')[0];
+
             await docSnapshot.reference.update({
               'archived': true,
               'archived_at': DateTime.now().toIso8601String(),
+              'archived_date':
+                  archivedDate, // Nueva propiedad para agrupar por fecha
             });
+
+            // Actualizar o crear el documento en la colección de resumen por fecha
+            await _updateArchivedDateSummary(user.uid, archivedDate);
 
             // Verificar que el documento se actualizó correctamente
             final updatedDoc = await userFlightsRef.doc(docId).get();
             print('LOG: Documento después de actualizar: ${updatedDoc.data()}');
+
+            // IMPORTANTE: Invalidar la caché para que se actualicen los datos
+            await _invalidateCache();
 
             print(
                 'LOG: Vuelo con ID de documento $docId archivado correctamente');
@@ -296,10 +494,13 @@ class UserFlightsService {
 
         // Buscar y actualizar el vuelo usando doc_id
         bool found = false;
+        final archivedDate = DateTime.now().toIso8601String().split('T')[0];
+
         for (int i = 0; i < flights.length; i++) {
           if (flights[i]['doc_id'] == docId) {
             flights[i]['archived'] = true;
             flights[i]['archived_at'] = DateTime.now().toIso8601String();
+            flights[i]['archived_date'] = archivedDate;
             found = true;
             break;
           }
@@ -309,6 +510,10 @@ class UserFlightsService {
           // Guardar la lista actualizada
           final String updatedJsonFlights = jsonEncode(flights);
           await prefs.setString(_userFlightsKey, updatedJsonFlights);
+
+          // IMPORTANTE: Invalidar la caché también en modo local
+          await _invalidateCache();
+
           print('LOG: Vuelo archivado localmente');
           return true;
         }
@@ -317,8 +522,223 @@ class UserFlightsService {
         return false;
       }
     } catch (e) {
-      print('LOG: Error archivando vuelo: $e');
+      print('LOG: Error archiving flight: $e');
       return false;
+    }
+  }
+
+  /// Actualiza o crea el documento de resumen de la fecha de archivo
+  static Future<void> _updateArchivedDateSummary(
+      String userId, String date) async {
+    try {
+      final archiveDateRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('archived_dates')
+          .doc(date);
+
+      // Obtener el documento actual o crear uno nuevo
+      final docSnapshot = await archiveDateRef.get();
+
+      if (docSnapshot.exists) {
+        // Incrementar el contador
+        await archiveDateRef.update({
+          'count': FieldValue.increment(1),
+          'last_updated': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Crear nuevo documento
+        await archiveDateRef.set({
+          'date': date,
+          'count': 1,
+          'created_at': FieldValue.serverTimestamp(),
+          'last_updated': FieldValue.serverTimestamp(),
+        });
+      }
+
+      print('LOG: Actualizado resumen de fecha de archivo para $date');
+    } catch (e) {
+      print('LOG: Error al actualizar resumen de fecha de archivo: $e');
+    }
+  }
+
+  /// Get user's archived flights dates (for grouping)
+  static Future<List<ArchivedFlightDate>> getUserArchivedFlightDates() async {
+    try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      print('LOG: Obteniendo fechas de vuelos archivados');
+
+      if (user == null) {
+        print('LOG: Usuario no logueado, usando almacenamiento local');
+        return _getArchivedDatesFromLocalStorage();
+      }
+
+      // Obtener datos de la colección de fechas archivadas
+      final datesRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('archived_dates');
+
+      final snapshot = await datesRef.orderBy('date', descending: true).get();
+
+      final List<ArchivedFlightDate> dates = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return ArchivedFlightDate(
+          date: doc.id,
+          count: data['count'] ?? 0,
+        );
+      }).toList();
+
+      print('LOG: Se encontraron ${dates.length} fechas con vuelos archivados');
+      return dates;
+    } catch (e) {
+      print('LOG: Error obteniendo fechas de vuelos archivados: $e');
+      return [];
+    }
+  }
+
+  /// Obtener fechas de vuelos archivados desde almacenamiento local
+  static Future<List<ArchivedFlightDate>>
+      _getArchivedDatesFromLocalStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? jsonFlights = prefs.getString(_userFlightsKey);
+
+      if (jsonFlights == null) return [];
+
+      // Convertir string JSON a lista de vuelos
+      List<Map<String, dynamic>> flights = (jsonDecode(jsonFlights) as List)
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
+      // Filtrar solo vuelos archivados
+      final archivedFlights =
+          flights.where((f) => f['archived'] == true).toList();
+
+      // Agrupar por fecha de archivo
+      final Map<String, int> dateCountMap = {};
+
+      for (final flight in archivedFlights) {
+        final date = flight['archived_date'] ??
+            (flight['archived_at'] != null
+                ? flight['archived_at'].split('T')[0]
+                : DateTime.now().toIso8601String().split('T')[0]);
+
+        dateCountMap[date] = (dateCountMap[date] ?? 0) + 1;
+      }
+
+      // Convertir mapa a lista de objetos ArchivedFlightDate
+      final List<ArchivedFlightDate> result = dateCountMap.entries
+          .map((entry) =>
+              ArchivedFlightDate(date: entry.key, count: entry.value))
+          .toList();
+
+      // Ordenar por fecha (descendente)
+      result.sort((a, b) => b.date.compareTo(a.date));
+
+      return result;
+    } catch (e) {
+      print(
+          'LOG: Error obteniendo fechas archivadas del almacenamiento local: $e');
+      return [];
+    }
+  }
+
+  /// Get user's archived flights for a specific date
+  static Future<List<Map<String, dynamic>>> getUserArchivedFlightsByDate(
+      String date) async {
+    try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      print('LOG: Obteniendo vuelos archivados para la fecha: $date');
+
+      if (user == null) {
+        print('LOG: Usuario no logueado, usando almacenamiento local');
+        return _getArchivedFlightsByDateFromLocalStorage(date);
+      }
+
+      // Obtener vuelos archivados por fecha
+      final userFlightsRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('saved_flights');
+
+      final flightsSnapshot = await userFlightsRef
+          .where('archived', isEqualTo: true)
+          .where('archived_date', isEqualTo: date)
+          .get();
+
+      print(
+          'LOG: Se encontraron ${flightsSnapshot.docs.length} vuelos para la fecha $date');
+
+      if (flightsSnapshot.docs.isEmpty) {
+        return [];
+      }
+
+      // Convertir a List<Map<String, dynamic>>
+      final userFlightRefs = flightsSnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          ...data,
+          'doc_id': doc.id,
+        };
+      }).toList();
+
+      // Ordenar por hora de archivo (más recientes primero)
+      userFlightRefs.sort((a, b) {
+        String dateA = a['archived_at'] ?? '';
+        String dateB = b['archived_at'] ?? '';
+        return dateB.compareTo(dateA);
+      });
+
+      // Get full flight data from references
+      final completeFlights = await _getCompleteFlightData(userFlightRefs);
+
+      // Process flights for use in UI
+      return completeFlights.map(_processFlightForUI).toList();
+    } catch (e) {
+      print('LOG: Error obteniendo vuelos archivados por fecha: $e');
+      return [];
+    }
+  }
+
+  /// Obtener vuelos archivados para una fecha específica desde almacenamiento local
+  static Future<List<Map<String, dynamic>>>
+      _getArchivedFlightsByDateFromLocalStorage(String date) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? jsonFlights = prefs.getString(_userFlightsKey);
+
+      if (jsonFlights == null) return [];
+
+      // Convertir string JSON a lista de vuelos
+      List<Map<String, dynamic>> flights = (jsonDecode(jsonFlights) as List)
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
+      // Filtrar solo vuelos archivados de la fecha especificada
+      final filteredFlights = flights.where((flight) {
+        final flightDate = flight['archived_date'] ??
+            (flight['archived_at'] != null
+                ? flight['archived_at'].split('T')[0]
+                : '');
+
+        return flight['archived'] == true && flightDate == date;
+      }).toList();
+
+      // Ordenar por fecha de archivo (más recientes primero)
+      filteredFlights.sort((a, b) {
+        String dateA = a['archived_at'] ?? '';
+        String dateB = b['archived_at'] ?? '';
+        return dateB.compareTo(dateA);
+      });
+
+      return filteredFlights;
+    } catch (e) {
+      print(
+          'LOG: Error obteniendo vuelos archivados por fecha del almacenamiento local: $e');
+      return [];
     }
   }
 
@@ -341,14 +761,43 @@ class UserFlightsService {
         print(
             'LOG: Ruta de Firestore para eliminación: users/${user.uid}/saved_flights/$docId');
 
-        // Buscar el documento específico para eliminarlo
+        // Obtener el documento para verificar su fecha de archivo antes de eliminarlo
+        final docSnapshot = await userFlightsRef.doc(docId).get();
+
+        if (!docSnapshot.exists) {
+          print('LOG: No se encontró el documento con ID $docId para eliminar');
+          return false;
+        }
+
+        // Obtener la fecha de archivo para actualizar el contador
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final archivedDate = data['archived_date'] as String?;
+        final isArchived = data['archived'] == true;
+
+        // Eliminar el documento
         await userFlightsRef.doc(docId).delete();
         print('LOG: Vuelo eliminado permanentemente: $docId');
+
+        // Actualizar el contador en la colección de fechas si el vuelo estaba archivado
+        if (isArchived && archivedDate != null) {
+          await _decrementArchivedDateCounter(user.uid, archivedDate);
+        }
+
+        // IMPORTANTE: Invalidar la caché para que se actualicen los datos
+        await _invalidateCache();
+
         return true;
       } else {
         // Si usuario no está autenticado, eliminar del almacenamiento local
         // En este caso podemos usar el mismo método de eliminación estándar
-        return await _removeFlightFromLocalStorage(docId);
+        final result = await _removeFlightFromLocalStorage(docId);
+
+        // IMPORTANTE: Invalidar la caché también en modo local
+        if (result) {
+          await _invalidateCache();
+        }
+
+        return result;
       }
     } catch (e) {
       print('LOG: Error al eliminar permanentemente el vuelo: $e');
@@ -356,7 +805,43 @@ class UserFlightsService {
     }
   }
 
-  /// Get user's archived flights
+  /// Decrementar el contador de vuelos archivados para una fecha
+  static Future<void> _decrementArchivedDateCounter(
+      String userId, String date) async {
+    try {
+      final archiveDateRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('archived_dates')
+          .doc(date);
+
+      // Obtener el documento actual
+      final docSnapshot = await archiveDateRef.get();
+
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final currentCount = data['count'] as int? ?? 1;
+
+        if (currentCount <= 1) {
+          // Si es el último vuelo para esta fecha, eliminar el documento
+          await archiveDateRef.delete();
+          print('LOG: Documento de fecha $date eliminado (no quedan vuelos)');
+        } else {
+          // Decrementar el contador
+          await archiveDateRef.update({
+            'count': FieldValue.increment(-1),
+            'last_updated': FieldValue.serverTimestamp(),
+          });
+          print(
+              'LOG: Contador de fecha $date decrementado a ${currentCount - 1}');
+        }
+      }
+    } catch (e) {
+      print('LOG: Error al actualizar contador de fecha archivada: $e');
+    }
+  }
+
+  /// Get user's archived flights - DEPRECATED: Use getUserArchivedFlightDates and getUserArchivedFlightsByDate instead
   static Future<List<Map<String, dynamic>>> getUserArchivedFlights() async {
     try {
       // Get current user
@@ -595,85 +1080,81 @@ class UserFlightsService {
 
         print('LOG: Ruta de Firestore: users/${user.uid}/saved_flights/$docId');
 
-        // IMPORTANTE: Buscar DIRECTAMENTE por ID del documento
-        try {
-          // Intentar obtener el documento directamente por su ID
-          print('LOG: Intentando obtener el documento con ID: $docId');
-          final docSnapshot = await userFlightsRef.doc(docId).get();
+        // Obtener el documento para verificar su fecha de archivo
+        final docSnapshot = await userFlightsRef.doc(docId).get();
 
-          if (docSnapshot.exists) {
-            print(
-                'LOG: Documento encontrado. Datos actuales: ${docSnapshot.data()}');
-
-            // Verificar si el documento está realmente archivado
-            final data = docSnapshot.data() as Map<String, dynamic>;
-            if (data['archived'] != true) {
-              print(
-                  'LOG: El documento no estaba archivado, no es necesario restaurarlo');
-              return true; // Consideramos éxito si ya estaba restaurado
-            }
-
-            // Si el documento existe, actualizarlo para restaurarlo
-            print('LOG: Actualizando documento para restaurarlo...');
-            await docSnapshot.reference.update({
-              'archived': false,
-              'was_archived':
-                  true, // Flag to indicate it was previously archived
-              'restored_at': DateTime.now().toIso8601String(),
-            });
-
-            // Verificar que el documento se actualizó correctamente
-            final updatedDoc = await userFlightsRef.doc(docId).get();
-            print('LOG: Documento después de restaurar: ${updatedDoc.data()}');
-
-            print(
-                'LOG: Vuelo con ID de documento $docId restaurado correctamente');
-            return true;
-          } else {
-            print(
-                'LOG: No se encontró el documento con ID $docId para restaurar');
-            return false;
-          }
-        } catch (e) {
-          print('LOG: Error al acceder al documento con ID $docId: $e');
+        if (!docSnapshot.exists) {
+          print(
+              'LOG: No se encontró el documento con ID $docId para restaurar');
           return false;
         }
+
+        // Obtener la fecha de archivo para actualizar el contador
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final archivedDate = data['archived_date'] as String?;
+
+        // Actualizar el documento para restaurarlo
+        await userFlightsRef.doc(docId).update({
+          'archived': false,
+          'was_archived': true,
+          'restored_at': DateTime.now().toIso8601String(),
+        });
+
+        // Actualizar el contador en la colección de fechas si es necesario
+        if (archivedDate != null) {
+          await _decrementArchivedDateCounter(user.uid, archivedDate);
+        }
+
+        // IMPORTANTE: Invalidar la caché para que se actualicen los datos
+        await _invalidateCache();
+
+        print('LOG: Vuelo con ID de documento $docId restaurado correctamente');
+        return true;
       } else {
-        // Handle local storage restoration for offline mode
-        final prefs = await SharedPreferences.getInstance();
+        // Si usuario no está autenticado, usar almacenamiento local
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        final String? jsonFlights = prefs.getString(_userFlightsKey);
 
-        // Get saved flights from local storage
-        final savedFlightsJson = prefs.getString(_userFlightsKey);
-        if (savedFlightsJson != null) {
-          List<dynamic> flights = jsonDecode(savedFlightsJson);
+        if (jsonFlights == null) {
+          return false;
+        }
 
-          // Find and restore the flight by doc_id
-          bool flightRestored = false;
-          for (int i = 0; i < flights.length; i++) {
-            if (flights[i]['doc_id'] == docId &&
-                flights[i]['archived'] == true) {
-              flights[i]['archived'] = false;
-              flights[i]['was_archived'] =
-                  true; // Flag to indicate it was previously archived
-              flights[i]['restored_at'] = DateTime.now().toIso8601String();
-              flightRestored = true;
-              break;
-            }
-          }
+        // Convertir string JSON a lista de vuelos
+        List<Map<String, dynamic>> flights = (jsonDecode(jsonFlights) as List)
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
 
-          if (flightRestored) {
-            // Save the updated list back to shared preferences
-            await prefs.setString(_userFlightsKey, jsonEncode(flights));
-            print('LOG: Vuelo restaurado localmente');
-            return true;
-          } else {
-            print(
-                'LOG: No se encontró el documento con ID $docId en modo offline');
-            return false;
+        // Buscar y actualizar el vuelo usando doc_id
+        bool found = false;
+        String? archivedDate;
+
+        for (int i = 0; i < flights.length; i++) {
+          if (flights[i]['doc_id'] == docId) {
+            // Guardar fecha de archivo antes de actualizar
+            archivedDate = flights[i]['archived_date'] as String?;
+
+            flights[i]['archived'] = false;
+            flights[i]['was_archived'] = true;
+            flights[i]['restored_at'] = DateTime.now().toIso8601String();
+            found = true;
+            break;
           }
         }
 
-        return false;
+        if (!found) {
+          print(
+              'LOG: No se encontró el documento con ID $docId en almacenamiento local');
+          return false;
+        }
+
+        // Guardar la lista actualizada
+        await prefs.setString(_userFlightsKey, jsonEncode(flights));
+
+        // IMPORTANTE: Invalidar la caché también en modo local
+        await _invalidateCache();
+
+        print('LOG: Vuelo restaurado correctamente en almacenamiento local');
+        return true;
       }
     } catch (e) {
       print('LOG: Error restaurando vuelo: $e');
@@ -934,7 +1415,8 @@ class UserFlightsService {
       bool flightWasArchived = false;
       String? existingDocId;
 
-      // First try to check by 'flight_ref' if available
+      // IMPORTANTE: Usar ÚNICAMENTE flight_ref para identificar vuelos
+      // No usar flight_id como criterio de búsqueda para evitar confusiones
       if (flightData['flight_ref'] != null) {
         print(
             'LOG: Verificando si el vuelo ya existe por flight_ref: ${flightData['flight_ref']}');
@@ -953,31 +1435,13 @@ class UserFlightsService {
           flightWasArchived = docData['archived'] == true;
 
           print(
-              'LOG: Vuelo ya existe por flight_ref, archived: $flightWasArchived');
+              'LOG: Vuelo ya existe por flight_ref, archived: $flightWasArchived, ID: $existingDocId');
         }
-      }
-
-      // Then check by 'flight_id' as backup (only if not found by ref)
-      if (!flightAlreadyExists && flightData['flight_id'] != null) {
+      } else {
         print(
-            'LOG: Verificando si el vuelo ya existe por flight_id: ${flightData['flight_id']}');
-        existingFlights = await userFlightsRef
-            .where('flight_id', isEqualTo: flightData['flight_id'])
-            .get();
-
-        if (existingFlights.docs.isNotEmpty) {
-          // Flight already exists by flight_id
-          flightAlreadyExists = true;
-          existingDocId = existingFlights.docs.first.id;
-
-          // Check if it was archived
-          final docData =
-              existingFlights.docs.first.data() as Map<String, dynamic>;
-          flightWasArchived = docData['archived'] == true;
-
-          print(
-              'LOG: Vuelo ya existe por flight_id, archived: $flightWasArchived');
-        }
+            'LOG: ERROR - El vuelo no tiene flight_ref, no se puede guardar correctamente');
+        // No se puede guardar correctamente sin flight_ref
+        return false;
       }
 
       // If flight exists and was archived, restore it
@@ -1183,15 +1647,17 @@ class UserFlightsService {
       // Get current flights list
       List<Map<String, dynamic>> flights = await _getFlightsFromLocalStorage();
 
-      // Check if flight already exists by 'id' or 'flight_id'
+      // Verificar solo por 'id' (flight_ref) para evitar confusiones con vuelos diferentes pero mismo código
       if (flights.any((f) =>
           (f['id'] != null &&
               flight['id'] != null &&
               f['id'] == flight['id']) ||
-          (f['flight_id'] != null &&
-              flight['flight_id'] != null &&
-              f['flight_id'] == flight['flight_id']))) {
+          (f['flight_ref'] != null &&
+              flight['flight_ref'] != null &&
+              f['flight_ref'] == flight['flight_ref']))) {
         // Flight already saved
+        print(
+            'LOG: Vuelo ya guardado en almacenamiento local: ${flight['id'] ?? flight['flight_ref']}');
         return false;
       }
 
@@ -1204,6 +1670,8 @@ class UserFlightsService {
       final flightsJson = flights.map((f) => jsonEncode(f)).toList();
       await prefs.setStringList(_userFlightsKey, flightsJson);
 
+      print(
+          'LOG: Vuelo guardado en almacenamiento local: ${flight['id'] ?? flight['flight_ref']}');
       return true;
     } catch (e) {
       print('LOG: Error saving flight to local storage: $e');
@@ -1284,6 +1752,97 @@ class UserFlightsService {
     } catch (e) {
       print('LOG: Error updating user info: $e');
       // Non-critical error, don't throw
+    }
+  }
+
+  /// Método para guardar los vuelos del usuario en caché
+  static Future<bool> _saveToCache(List<Map<String, dynamic>> flights) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Convertir los vuelos a un formato serializable
+      final List<Map<String, dynamic>> serializableFlights =
+          flights.map((flight) {
+        final Map<String, dynamic> copy = Map.from(flight);
+        if (copy['color'] is Color) {
+          copy['color'] = (copy['color'] as Color).value;
+        }
+        return copy;
+      }).toList();
+
+      // Guardar en SharedPreferences
+      final String jsonData = jsonEncode(serializableFlights);
+      await prefs.setString(_cachedUserFlightsKey, jsonData);
+
+      // Guardar también la fecha de última actualización
+      await prefs.setString(
+          _userFlightsLastUpdatedKey, DateTime.now().toIso8601String());
+
+      print('LOG: ${flights.length} vuelos del usuario guardados en caché');
+      return true;
+    } catch (e) {
+      print('LOG: Error al guardar vuelos del usuario en caché: $e');
+      return false;
+    }
+  }
+
+  /// Método para cargar los vuelos del usuario desde la caché
+  static Future<List<Map<String, dynamic>>> _loadFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Verificar si tenemos datos en caché
+      final jsonData = prefs.getString(_cachedUserFlightsKey);
+      if (jsonData == null) {
+        print('LOG: No hay vuelos del usuario en caché');
+        return [];
+      }
+
+      // Verificar si los datos de caché son recientes (menos de 5 minutos)
+      final lastUpdatedStr = prefs.getString(_userFlightsLastUpdatedKey);
+      if (lastUpdatedStr != null) {
+        final lastUpdated = DateTime.parse(lastUpdatedStr);
+        final now = DateTime.now();
+        final difference = now.difference(lastUpdated);
+
+        // Si los datos tienen más de 5 minutos, considerarlos obsoletos
+        if (difference.inMinutes > 5) {
+          print(
+              'LOG: Datos de caché obsoletos (${difference.inMinutes} minutos)');
+          return [];
+        }
+      } else {
+        // Si no hay timestamp, los datos se consideran obsoletos
+        return [];
+      }
+
+      // Deserializar los datos
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      final flights = decoded.map((item) {
+        final Map<String, dynamic> flight = Map<String, dynamic>.from(item);
+        if (flight['color'] is int) {
+          flight['color'] = Color(flight['color']);
+        }
+        return flight;
+      }).toList();
+
+      print('LOG: ${flights.length} vuelos del usuario cargados desde caché');
+      return flights.cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('LOG: Error al cargar vuelos del usuario desde caché: $e');
+      return [];
+    }
+  }
+
+  /// Método para invalidar la caché (llamado cuando los datos cambian)
+  static Future<void> _invalidateCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cachedUserFlightsKey);
+      await prefs.remove(_userFlightsLastUpdatedKey);
+      print('LOG: Caché de vuelos del usuario invalidada');
+    } catch (e) {
+      print('LOG: Error al invalidar caché de vuelos del usuario: $e');
     }
   }
 }

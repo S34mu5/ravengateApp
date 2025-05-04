@@ -23,6 +23,8 @@ class AirlineHelper {
       case 'AF': // Air France - Fondo blanco
       case 'LO': // LOT Polish Airlines - Fondo blanco
       case 'W': // Wideroe - Fondo blanco
+      case 'WF': // Wideroe - Fondo blanco
+      case 'OS': // Austrian Airlines - Fondo blanco
       case 'KL': // KLM Royal Dutch Airlines - Fondo blanco
         return Colors.white; // Blanco/White
       case 'TK': // Turkish Airlines
@@ -33,6 +35,8 @@ class AirlineHelper {
         return Colors.white; // Blanco/White
       case 'BT': // Air Baltic
         return const Color.fromARGB(255, 255, 204, 0); // Amarillo/Yellow
+      case 'QR': // Qatar Airways
+        return const Color(0xFFB0B6BE); // Slate Gray intermedio
       case 'FR': // Ryanair
       case 'RK':
         return const Color.fromARGB(255, 0, 51, 102); // Azul oscuro/Dark blue
@@ -52,8 +56,12 @@ class AirlineHelper {
         return const Color.fromARGB(255, 0, 47, 135); // Azul/Blue
       case 'IB': // Iberia
         return const Color.fromARGB(255, 210, 0, 0); // Rojo/Red
+      case 'OS': // Austrian Airlines
+        return const Color.fromARGB(255, 210, 0, 0); // Rojo/Red
       case 'BT': // Air Baltic
         return const Color.fromARGB(255, 0, 47, 135); // Azul/Blue
+      case 'QR': // Qatar Airways
+        return const Color(0xFF5C0632); // Spanish Purple
       case 'LX': // Swiss
         return const Color.fromARGB(255, 220, 0, 0); // Rojo/Red
       case 'HU': // Hainan Airlines
@@ -75,6 +83,7 @@ class AirlineHelper {
       case 'LO': // LOT Polish Airlines
         return const Color.fromARGB(255, 0, 92, 169); // Azul/Blue
       case 'W': // Wideroe
+      case 'WF': // Wideroe
         return const Color.fromARGB(255, 0, 132, 61); // Verde/Green
       case 'KL': // KLM Royal Dutch Airlines
         return const Color.fromARGB(255, 0, 106, 170); // Azul/Blue (KLM blue)

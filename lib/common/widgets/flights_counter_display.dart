@@ -9,7 +9,7 @@ class FlightsCounterDisplay extends StatelessWidget {
   /// Texto de búsqueda actual
   final String searchQuery;
 
-  /// Función para activar el modo de selección
+  /// Función para activar el modo de selección (ahora obsoleta ya que se usa pulsación larga)
   final VoidCallback? onSelectMode;
 
   /// Función para resetear los filtros
@@ -48,7 +48,7 @@ class FlightsCounterDisplay extends StatelessWidget {
 
     return Padding(
       padding:
-          const EdgeInsets.only(left: 16.0, right: 16.0, top: 4.0, bottom: 4.0),
+          const EdgeInsets.only(left: 16.0, right: 16.0, top: 2.0, bottom: 2.0),
       child: Row(
         children: [
           // 1. Contador de vuelos
@@ -71,18 +71,6 @@ class FlightsCounterDisplay extends StatelessWidget {
 
           // 3. Acciones principales (si hay)
           ...leadingActions,
-
-          // 4. Botón Select
-          if (onSelectMode != null)
-            TextButton.icon(
-              onPressed: onSelectMode,
-              icon: const Icon(Icons.checklist, size: 16),
-              label: const Text('Select'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
 
           // 5. Botón Reset Filters
           if (showResetButton && onResetFilters != null)

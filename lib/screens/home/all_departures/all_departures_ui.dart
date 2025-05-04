@@ -828,6 +828,28 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
     }
   }
 
+  /// Navega a la pantalla de detalles del vuelo seleccionado
+  void _navigateToFlightDetails(
+      BuildContext context, Map<String, dynamic> flight) {
+    // Añadir logs para depuración
+    print('LOG: Navegando a detalles de vuelo desde All Departures');
+    print(
+        'LOG: Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
+    print('LOG: Pasando lista de ${widget.flights.length} vuelos');
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightDetailsScreen(
+          flightId: flight['flight_id'],
+          documentId: flight['id'],
+          flightsList: widget.flights, // Pasar toda la lista de vuelos
+          flightsSource: 'all', // Indicar que viene de "todos los vuelos"
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -892,7 +914,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
             flightCount: _filteredFlights.length,
             searchQuery: _searchQuery,
             norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-            onSelectMode: !_isSelectionMode ? _toggleSelectionMode : null,
+            onSelectMode: null,
             onResetFilters: (_searchQuery.isNotEmpty ||
                     widget.flights.length != _filteredFlights.length)
                 ? _resetToDefaultFilters
@@ -961,14 +983,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                                   'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
 
                               // Navegar a la pantalla de detalles
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => FlightDetailsScreen(
-                                    flightId: flight['flight_id'],
-                                    documentId: flight['id'] ?? '',
-                                  ),
-                                ),
-                              );
+                              _navigateToFlightDetails(context, flight);
                             }
                           },
                           onLongPress: _isSelectionMode
