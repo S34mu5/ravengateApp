@@ -89,18 +89,24 @@ class UserFlightsService {
   }
 
   /// Get user's saved flights
-  static Future<List<Map<String, dynamic>>> getUserFlights() async {
+  /// [forceRefresh] - Si es true, fuerza la carga desde Firestore ignorando la caché
+  static Future<List<Map<String, dynamic>>> getUserFlights(
+      {bool forceRefresh = false}) async {
     try {
-      // Intentar cargar desde la caché primero
-      final cachedFlights = await _loadFromCache();
-      if (cachedFlights.isNotEmpty) {
-        print(
-            'LOG: Vuelos cargados desde caché (${cachedFlights.length} vuelos)');
-        return cachedFlights;
+      // Intentar cargar desde la caché primero (solo si no se fuerza actualización)
+      if (!forceRefresh) {
+        final cachedFlights = await _loadFromCache();
+        if (cachedFlights.isNotEmpty) {
+          print(
+              'LOG: Vuelos cargados desde caché (${cachedFlights.length} vuelos)');
+          return cachedFlights;
+        }
+      } else {
+        print('LOG: Forzando actualización, ignorando caché');
       }
 
       print(
-          'LOG: No hay datos en caché o están obsoletos, cargando desde Firestore');
+          'LOG: ${forceRefresh ? "Actualización forzada" : "No hay datos en caché o están obsoletos"}, cargando desde Firestore');
 
       // Get current user
       final user = FirebaseAuth.instance.currentUser;

@@ -11,6 +11,7 @@ import '../../../common/widgets/flight_card.dart';
 import '../../../common/widgets/flight_search_bar.dart';
 import '../../../common/widgets/flights_counter_display.dart';
 import '../../../common/widgets/flight_selection_controls.dart';
+import '../../../common/widgets/time_ago_widget.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -853,6 +854,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       // Reemplazar el FloatingActionButton con FlightSelectionControls
       floatingActionButton: _isSelectionMode
           ? FlightSelectionControls(
@@ -862,8 +864,9 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
               onDeselectAll: _deselectAllFlights,
               onExit: _toggleSelectionMode,
               onAction: _saveSelectedFlights,
-              actionLabel: 'Add to My Flights',
-              actionColor: Colors.green.shade300,
+              actionLabel: 'Add to My Departures',
+              actionColor: Colors.white, // Fondo blanco
+              actionTextColor: Colors.black87, // Texto negro
               actionIcon: Icons.save,
             )
           : null,
@@ -909,6 +912,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
               _filterFlights('');
             },
           ),
+          // Indicador de actualizado hace X tiempo (widget separado)
+          TimeAgoWidget(lastUpdated: widget.lastUpdated),
           // Contador de vuelos reutilizable
           FlightsCounterDisplay(
             flightCount: _filteredFlights.length,
@@ -969,7 +974,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
                           isSelected: _selectedFlightIndices.contains(index),
                           isDismissible:
                               false, // No se puede deslizar en All Departures
-                          selectionColor: Colors.green.shade300,
+                          selectionColor:
+                              const Color(0xFF4285F4), // Google Blue
                           onSelectionToggle: (bool? value) {
                             _toggleFlightSelection(index);
                           },

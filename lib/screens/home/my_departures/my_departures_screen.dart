@@ -40,7 +40,9 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
           'LOG: Actualizando datos de vuelos del usuario automáticamente cada 3 minutos');
       // Guardar los vuelos actuales como "anteriores" antes de cargar los nuevos
       _previousUserFlights = List.from(_userFlights);
-      _loadUserFlights();
+      // Cada 3 actualizaciones (9 minutos), forzar actualización completa desde Firestore
+      final bool shouldForceRefresh = timer.tick % 3 == 0;
+      _loadUserFlights(forceRefresh: shouldForceRefresh);
     });
   }
 
@@ -66,8 +68,9 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
   }
 
   /// Cargar los vuelos guardados por el usuario
-  Future<void> _loadUserFlights() async {
-    print('LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen');
+  Future<void> _loadUserFlights({bool forceRefresh = false}) async {
+    print(
+        'LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen ${forceRefresh ? "(FORZANDO ACTUALIZACIÓN)" : ""}');
 
     try {
       // Verificar si el widget está montado antes de actualizar estado
@@ -76,27 +79,14 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
+        _lastUpdated = DateTime
+            .now(); // Actualizar timestamp inmediatamente al iniciar carga
       });
 
-      // Obtener la fecha de última actualización antes de la carga
-      final prefs = await SharedPreferences.getInstance();
-      final lastUpdatedStr = prefs.getString(_userFlightsLastUpdatedKey);
-      final lastUpdatedBefore =
-          lastUpdatedStr != null ? DateTime.parse(lastUpdatedStr) : null;
-
       // Obtener vuelos del usuario desde el servicio
-      // (El servicio intentará cargar desde caché primero)
-      final userFlights = await UserFlightsService.getUserFlights();
-
-      // Verificar si los datos provienen de la caché comparando timestamps
-      final lastUpdatedStr2 = prefs.getString(_userFlightsLastUpdatedKey);
-      final lastUpdatedAfter =
-          lastUpdatedStr2 != null ? DateTime.parse(lastUpdatedStr2) : null;
-
-      // Si el timestamp es igual antes y después de la carga, se usó la caché
-      final usedCache = lastUpdatedBefore != null &&
-          lastUpdatedAfter != null &&
-          lastUpdatedBefore.isAtSameMomentAs(lastUpdatedAfter);
+      // (El servicio intentará cargar desde caché primero, a menos que forzemos actualización)
+      final userFlights =
+          await UserFlightsService.getUserFlights(forceRefresh: forceRefresh);
 
       // Verificar nuevamente si el widget sigue montado
       if (!mounted) return;
@@ -112,15 +102,17 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       setState(() {
         _userFlights = newFlights;
         _isLoading = false;
-        _lastUpdated = lastUpdatedAfter ?? DateTime.now();
-        _usingCachedData = usedCache;
+        // Actualizar timestamp al momento actual cuando hacemos refresh
+        _lastUpdated = DateTime.now();
+        _usingCachedData =
+            false; // Si estamos forzando la actualización, no estamos usando caché
       });
 
       // Actualizar la lista de vuelos anteriores para futuras comparaciones
       _previousUserFlights = List.from(newFlights);
 
       print(
-          'LOG: Se cargaron ${_userFlights.length} vuelos del usuario (Desde caché: $_usingCachedData)');
+          'LOG: Se cargaron ${_userFlights.length} vuelos del usuario (Actualización forzada: $forceRefresh)');
     } catch (e) {
       print('LOG: Error al cargar vuelos del usuario: $e');
 
@@ -130,6 +122,8 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       setState(() {
         _errorMessage = 'Error loading flights: $e';
         _isLoading = false;
+        _lastUpdated =
+            DateTime.now(); // Actualizar timestamp incluso en caso de error
       });
     }
   }
@@ -160,11 +154,11 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: _loadUserFlights,
+                  onRefresh: () => _loadUserFlights(forceRefresh: true),
                   child: MyDeparturesUI(
                     flights: _userFlights,
                     onRemoveFlight: _removeFlight,
-                    onRefresh: _loadUserFlights,
+                    onRefresh: () => _loadUserFlights(forceRefresh: true),
                     lastUpdated: _lastUpdated,
                     usingCachedData:
                         _usingCachedData, // Pasar la información de caché a la UI
@@ -191,7 +185,7 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       if (!mounted) return;
 
       // Recargar la lista
-      await _loadUserFlights();
+      await _loadUserFlights(forceRefresh: true);
 
       // Esta verificación ya existe, se mantiene
       if (!mounted) return;

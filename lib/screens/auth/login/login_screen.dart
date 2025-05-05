@@ -8,6 +8,7 @@ import '../../home/home_screen.dart';
 import 'login_screen_ui.dart';
 import '../email_verification/email_verification_screen.dart';
 import '../../../main.dart' as app;
+import '../../location/select_location_screen.dart';
 
 /// Container widget that handles authentication state and logic
 class LoginScreen extends StatefulWidget {
@@ -255,7 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => HomeScreen(user: result.user!),
+          builder: (context) => SelectLocationScreen(user: result.user!),
         ),
       );
       return;
@@ -273,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => HomeScreen(user: currentUser),
+            builder: (context) => SelectLocationScreen(user: currentUser),
           ),
         );
         return;

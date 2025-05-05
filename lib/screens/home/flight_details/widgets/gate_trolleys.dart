@@ -27,14 +27,11 @@ class _GateTrolleysState extends State<GateTrolleys> {
   final ScrollController _scrollController = ScrollController();
   bool _isUpdating = false;
   String? _errorMessage;
-  bool _showSuccess = false;
   bool _isLoadingHistory = false;
   List<Map<String, dynamic>> _trolleyHistory = [];
   bool _showHistory = false;
   int? _currentTrolleyCount;
   bool _isLoadingCurrentCount = false;
-  // Timer to hide success message
-  Future<void>? _hideSuccessTimer;
 
   @override
   void initState() {
@@ -47,14 +44,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
   void dispose() {
     _trolleyController.dispose();
     _scrollController.dispose();
-    // Cancel any pending timers
-    _cancelTimers();
     super.dispose();
-  }
-
-  /// Cancels any pending timers
-  void _cancelTimers() {
-    _hideSuccessTimer = null;
   }
 
   /// Carga el conteo actual de trolleys calculado de la subcolección
@@ -307,29 +297,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
       return;
     }
 
-    // Check if value has changed
-    if (_currentTrolleyCount == count) {
-      setState(() {
-        _showSuccess = true;
-        _errorMessage = null;
-        _trolleyController.clear();
-      });
-
-      // Cancel any previous timer
-      _cancelTimers();
-
-      // Hide message after 3 seconds
-      _hideSuccessTimer = Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _showSuccess = false;
-          });
-        }
-      });
-
-      return;
-    }
-
     // Show confirmation dialog
     final bool confirmed = await _showSaveConfirmation(count);
     if (!confirmed) {
@@ -339,7 +306,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
     setState(() {
       _isUpdating = true;
       _errorMessage = null;
-      _showSuccess = false;
     });
 
     try {
@@ -370,7 +336,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
       setState(() {
         _isUpdating = false;
-        _showSuccess = true;
         _trolleyController.clear();
       });
 
@@ -378,18 +343,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
       if (widget.onUpdateSuccess != null) {
         widget.onUpdateSuccess!();
       }
-
-      // Cancel any previous timer
-      _cancelTimers();
-
-      // Hide success message after 3 seconds
-      _hideSuccessTimer = Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _showSuccess = false;
-          });
-        }
-      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -514,248 +467,243 @@ class _GateTrolleysState extends State<GateTrolleys> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section title
-          const Text(
-            'Trolleys at Gate',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Description
-          Text(
-            'Register the number of trolleys left at gate ${widget.currentGate}',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section title
+            const Text(
+              'Trolleys at Gate',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
-          // Input field and button
-          Row(
-            children: [
-              // Text field for quantity
-              Expanded(
-                child: TextField(
-                  controller: _trolleyController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    errorText: _errorMessage,
-                    hintText: _isLoadingCurrentCount
-                        ? 'Cargando...'
-                        : (_currentTrolleyCount != null &&
-                                _currentTrolleyCount! > 0
-                            ? 'Current: $_currentTrolleyCount'
-                            : 'Enter quantity'),
-                    prefixIcon: const Icon(Icons.shopping_cart),
-                  ),
-                ),
+            // Description
+            Text(
+              'Register the number of trolleys left at gate ${widget.currentGate}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
               ),
+            ),
 
-              const SizedBox(width: 16),
+            const SizedBox(height: 16),
 
-              // Save button (smaller)
-              ElevatedButton.icon(
-                onPressed: _isUpdating ? null : _saveTrolleyCount,
-                icon: _isUpdating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.local_shipping, size: 16),
-                label: const Text('Deliver'),
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                ),
-              ),
-            ],
-          ),
-
-          // Success message
-          if (_showSuccess)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle,
-                      color: Colors.green.shade600, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Trolleys successfully registered',
-                    style: TextStyle(
-                      color: Colors.green.shade600,
-                      fontWeight: FontWeight.bold,
+            // Input field and button
+            Row(
+              children: [
+                // Text field for quantity
+                Expanded(
+                  child: TextField(
+                    controller: _trolleyController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      errorText: _errorMessage,
+                      hintText: _isLoadingCurrentCount
+                          ? 'Cargando...'
+                          : (_currentTrolleyCount != null &&
+                                  _currentTrolleyCount! > 0
+                              ? 'Current: $_currentTrolleyCount'
+                              : 'Enter quantity'),
+                      prefixIcon: const Icon(Icons.shopping_cart),
                     ),
                   ),
-                ],
-              ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // Save button (smaller)
+                ElevatedButton.icon(
+                  onPressed: _isUpdating ? null : _saveTrolleyCount,
+                  icon: _isUpdating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.local_shipping, size: 16),
+                  label: const Text('Deliver'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                  ),
+                ),
+              ],
             ),
 
-          // Button to show/hide history
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _showHistory = !_showHistory;
-                });
-                if (_showHistory && _trolleyHistory.isEmpty) {
-                  _loadTrolleyHistory();
-                }
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _showHistory
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    size: 16,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _showHistory ? 'Hide history' : 'Show history',
-                    style: const TextStyle(
+            // Button to show/hide history
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _showHistory = !_showHistory;
+                  });
+                  if (_showHistory && _trolleyHistory.isEmpty) {
+                    _loadTrolleyHistory();
+                  }
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _showHistory
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 16,
                       color: Colors.blue,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      _showHistory ? 'Hide history' : 'Show history',
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Trolley history
-          if (_showHistory)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: _isLoadingHistory
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  : _trolleyHistory.isEmpty
-                      ? const Padding(
+            // Trolley history
+            if (_showHistory)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: _isLoadingHistory
+                    ? const Center(
+                        child: Padding(
                           padding: EdgeInsets.all(8.0),
-                          child: Text('No history available'),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text(
-                                'Gate Trolleys History',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    : _trolleyHistory.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('No history available'),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Text(
+                                  'Gate Trolleys History',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                            ...(_trolleyHistory.map((item) {
-                              final timestamp = item['timestamp'] is Timestamp
-                                  ? (item['timestamp'] as Timestamp).toDate()
-                                  : DateTime.now();
-                              final bool isDeleted = item['deleted'] ?? false;
-                              return Card(
-                                margin:
-                                    const EdgeInsets.symmetric(vertical: 4.0),
-                                elevation: 1,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            FlightFormatters.formatDateTime(
-                                                timestamp),
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          if (!isDeleted)
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.delete_outline,
-                                                color: Colors.red,
-                                                size: 20,
+                              ...(_trolleyHistory.map((item) {
+                                final timestamp = item['timestamp'] is Timestamp
+                                    ? (item['timestamp'] as Timestamp).toDate()
+                                    : DateTime.now();
+                                final bool isDeleted = item['deleted'] ?? false;
+                                return Card(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 4.0),
+                                  elevation: 1,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              FlightFormatters.formatDateTime(
+                                                  timestamp),
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 12,
                                               ),
-                                              onPressed: () =>
-                                                  _showDeleteConfirmation(
-                                                item['id'],
-                                                item['count'],
-                                                item['gate'],
-                                              ),
-                                              padding: EdgeInsets.zero,
-                                              constraints:
-                                                  const BoxConstraints(),
                                             ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8.0),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.shopping_cart,
-                                            size: 18,
-                                            color:
-                                                isDeleted ? Colors.grey : null,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${item['count']} ${_getTrolleyText(item['count'])} delivered at gate ${item['gate']}',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
+                                            if (!isDeleted)
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Colors.red,
+                                                  size: 20,
+                                                ),
+                                                onPressed: () =>
+                                                    _showDeleteConfirmation(
+                                                  item['id'],
+                                                  item['count'],
+                                                  item['gate'],
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8.0),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.shopping_cart,
+                                              size: 18,
                                               color: isDeleted
                                                   ? Colors.grey
                                                   : null,
-                                              decoration: isDeleted
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${item['count']} ${_getTrolleyText(item['count'])} delivered at gate ${item['gate']}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                                color: isDeleted
+                                                    ? Colors.grey
+                                                    : null,
+                                                decoration: isDeleted
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList()),
+                              const SizedBox(height: 16),
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: _showDeleteAllConfirmation,
+                                  icon: const Icon(Icons.delete_forever,
+                                      color: Colors.red),
+                                  label: const Text(
+                                    'Delete All Deliveries (Use for gate changes)',
+                                    style: TextStyle(color: Colors.red),
                                   ),
                                 ),
-                              );
-                            }).toList()),
-                            const SizedBox(height: 16),
-                            Center(
-                              child: TextButton.icon(
-                                onPressed: _showDeleteAllConfirmation,
-                                icon: const Icon(Icons.delete_forever,
-                                    color: Colors.red),
-                                label: const Text(
-                                  'Delete All Deliveries (Use for gate changes)',
-                                  style: TextStyle(color: Colors.red),
-                                ),
                               ),
-                            ),
-                          ],
-                        ),
-            ),
-        ],
+                            ],
+                          ),
+              ),
+          ],
+        ),
       ),
     );
   }

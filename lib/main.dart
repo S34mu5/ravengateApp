@@ -11,6 +11,7 @@ import 'controllers/auth_controller.dart';
 import 'screens/auth/email_verification/email_verification_screen.dart';
 import 'services/notifications/notification_service.dart';
 import 'services/gate/gate_monitor_service.dart';
+import 'screens/location/select_location_screen.dart';
 
 // Referencia global al controlador de autenticación para acceder desde cualquier lugar
 late AuthController authController;
@@ -324,8 +325,8 @@ class MyApp extends StatelessWidget {
               );
             }
 
-            // Si está verificado o usó otro método, mostrar HomeScreen
-            return HomeScreen(user: user);
+            // Si está verificado o usó otro método, mostrar la pantalla de selección de ubicación
+            return SelectLocationScreen(user: user);
           }
 
           return LoginScreen(authController: authController);

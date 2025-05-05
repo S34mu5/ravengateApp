@@ -50,7 +50,7 @@ class FlightCard extends StatefulWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.isDismissible = false,
-    this.selectionColor = Colors.green,
+    this.selectionColor = const Color(0xFF4285F4), // Google Blue por defecto
     this.onTap,
     this.onLongPress,
     this.onSelectionToggle,
@@ -141,17 +141,26 @@ class _FlightCardState extends State<FlightCard> {
     final bool isCancelled = widget.flight['status_code'] == 'C';
 
     // Color de fondo según estado
-    final Color cardColor = isCancelled ? Colors.grey.shade200 : Colors.white;
+    final Color cardColor = isCancelled
+        ? Colors.grey.shade200
+        : widget.isSelectionMode && widget.isSelected
+            ? const Color(0xFF4285F4)
+                .withOpacity(0.05) // Google Blue con muy baja opacidad
+            : Colors.white;
     final Color textColor =
         isCancelled || isDeparted ? Colors.grey.shade700 : Colors.black87;
 
     // Crear el contenido de la tarjeta
     Widget cardContent = Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 1.5,
+      elevation: widget.isSelectionMode && widget.isSelected ? 2.5 : 1.5,
       color: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
+        side: widget.isSelectionMode && widget.isSelected
+            ? const BorderSide(
+                color: Color(0xFF4285F4), width: 2) // Google Blue
+            : BorderSide.none,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -161,6 +170,20 @@ class _FlightCardState extends State<FlightCard> {
             // Primera línea: ID, hora, aeropuerto, fecha
             Row(
               children: [
+                if (widget.isSelectionMode)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(
+                      widget.isSelected
+                          ? Icons.check_circle
+                          : Icons.circle_outlined,
+                      color: widget.isSelected
+                          ? const Color(0xFF4285F4)
+                          : Colors
+                              .grey.shade400, // Google Blue cuando seleccionado
+                      size: 24,
+                    ),
+                  ),
                 CircleAvatar(
                   backgroundColor: widget.flight['color'],
                   radius: 18,

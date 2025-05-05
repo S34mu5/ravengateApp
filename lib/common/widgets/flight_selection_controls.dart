@@ -26,6 +26,9 @@ class FlightSelectionControls extends StatelessWidget {
   /// Color para el botón de acción
   final Color actionColor;
 
+  /// Color del texto del botón de acción
+  final Color actionTextColor;
+
   /// Icono para el botón de acción
   final IconData actionIcon;
 
@@ -38,6 +41,7 @@ class FlightSelectionControls extends StatelessWidget {
     required this.onAction,
     required this.actionLabel,
     required this.actionColor,
+    this.actionTextColor = Colors.black87,
     this.actionIcon = Icons.save,
     Key? key,
   }) : super(key: key);
@@ -53,6 +57,7 @@ class FlightSelectionControls extends StatelessWidget {
           heroTag: 'actionButton',
           onPressed: selectedCount > 0 ? onAction : null,
           backgroundColor: selectedCount > 0 ? actionColor : Colors.grey,
+          foregroundColor: actionTextColor,
           elevation: 4,
           label: Row(
             children: [

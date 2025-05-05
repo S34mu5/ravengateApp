@@ -10,10 +10,12 @@ import '../../../common/widgets/flight_card.dart';
 import '../../../common/widgets/flight_search_bar.dart';
 import '../../../common/widgets/flights_counter_display.dart';
 import '../../../common/widgets/flight_selection_controls.dart';
+import '../../../common/widgets/time_ago_widget.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../utils/progress_dialog.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../archived_flights/archived_flights_screen.dart';
+import 'dart:async';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
 class MyDeparturesUI extends StatefulWidget {
@@ -294,22 +296,6 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     );
   }
 
-  /// Obtener una representación legible del tiempo transcurrido
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inSeconds < 60) {
-      return 'hace unos segundos';
-    } else if (difference.inMinutes < 60) {
-      return 'hace ${difference.inMinutes} ${difference.inMinutes == 1 ? 'minuto' : 'minutos'}';
-    } else if (difference.inHours < 24) {
-      return 'hace ${difference.inHours} ${difference.inHours == 1 ? 'hora' : 'horas'}';
-    } else {
-      return 'hace ${difference.inDays} ${difference.inDays == 1 ? 'día' : 'días'}';
-    }
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -318,9 +304,8 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-        'LOG: Construyendo UI para mis vuelos (${widget.flights.length} vuelos, ${_filteredFlights.length} filtrados)');
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: null,
       floatingActionButton: _isSelectionMode
           ? FlightSelectionControls(
@@ -330,8 +315,9 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
               onDeselectAll: _deselectAllFlights,
               onExit: _toggleSelectionMode,
               onAction: _archiveSelectedFlights,
-              actionLabel: 'Archivar vuelos',
-              actionColor: Colors.blue.shade300,
+              actionLabel: 'Archive Departures',
+              actionColor: Colors.white, // Fondo blanco
+              actionTextColor: Colors.black87, // Texto negro
               actionIcon: Icons.archive,
             )
           : null,
@@ -349,21 +335,9 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
                 _filterFlights('');
               },
             ),
-            // Indicador de actualizado hace X tiempo
-            if (widget.lastUpdated != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 20, top: 2, bottom: 2),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Actualizado: ${_getTimeAgo(widget.lastUpdated!)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                  ),
-                ),
-              ),
+
+            // Indicador de actualizado hace X tiempo (ahora como widget separado)
+            TimeAgoWidget(lastUpdated: widget.lastUpdated),
 
             // Contador de vuelos reutilizable con botón de archivo
             FlightsCounterDisplay(
@@ -449,8 +423,9 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
-      BuildContext context, Map<String, dynamic> flight) {
-    Navigator.push(
+      BuildContext context, Map<String, dynamic> flight) async {
+    // Navegar a la pantalla de detalles y esperar un resultado
+    final shouldRefresh = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => FlightDetailsScreen(
@@ -458,9 +433,16 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
           documentId: flight['flight_ref'] ?? flight['id'] ?? '',
           flightsList: widget.flights, // Pasar toda la lista de vuelos
           flightsSource: 'my', // Indicar que viene de "mis vuelos"
+          forceRefreshOnReturn: true, // Siempre forzar actualización al volver
         ),
       ),
     );
+
+    // Si se recibió true como resultado, actualizar la lista de vuelos
+    if (shouldRefresh == true && widget.onRefresh != null) {
+      print('LOG: Forzando actualización tras regresar de detalles de vuelo');
+      await widget.onRefresh!();
+    }
   }
 
   /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo

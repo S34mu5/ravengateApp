@@ -11,13 +11,17 @@ class FlightDetailsScreen extends StatefulWidget {
   final String documentId;
   final List<Map<String, dynamic>>? flightsList;
   final String? flightsSource; // 'all' o 'my' para saber de dónde viene
+  final bool
+      forceRefreshOnReturn; // Indica si debe forzarse una actualización al volver
 
-  const FlightDetailsScreen(
-      {required this.flightId,
-      required this.documentId,
-      this.flightsList,
-      this.flightsSource,
-      super.key});
+  const FlightDetailsScreen({
+    required this.flightId,
+    required this.documentId,
+    this.flightsList,
+    this.flightsSource,
+    this.forceRefreshOnReturn = false,
+    super.key,
+  });
 
   @override
   State<FlightDetailsScreen> createState() => _FlightDetailsScreenState();
@@ -459,12 +463,17 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen>
   /// Navigate to adjacent flight
   void _navigateToAdjacentFlight(bool isNext) {
     if (widget.flightsList != null && widget.flightsList!.isNotEmpty) {
+      // Indicar a SwipeableFlightsService que debe forzar actualización al volver
+      // solo si la fuente es my_departures
+      final bool shouldForceRefresh = widget.flightsSource == 'my';
+
       SwipeableFlightsService.navigateToAdjacentFlight(
         context: context,
         currentFlightDocId: widget.documentId,
         flightsList: widget.flightsList!,
         isNext: isNext,
         flightsSource: widget.flightsSource ?? 'all',
+        forceRefreshOnReturn: shouldForceRefresh,
       );
     } else {
       print('LOG: No se puede navegar - lista de vuelos vacía');
@@ -478,41 +487,70 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen>
         widget.flightsList!.isNotEmpty &&
         widget.flightsList!.length > 1;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Flight ${widget.flightId}'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadFlightDetails,
+    // Determinar si necesitamos forzar actualización al volver
+    final bool shouldForceRefresh =
+        widget.forceRefreshOnReturn || widget.flightsSource == 'my';
+
+    return WillPopScope(
+      // Devolver true al salir para indicar que es necesario actualizar datos
+      onWillPop: () async {
+        // Forzar actualización solo si es necesario
+        if (shouldForceRefresh) {
+          print(
+              'LOG: Forzando actualización de datos al volver a MyDepartures');
+          Navigator.of(context).pop(
+              true); // Retornar true como resultado para forzar actualización
+          return false; // No ejecutar el pop nativo ya que lo hicimos manualmente
+        }
+        return true; // Ejecutar pop normal
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Flight ${widget.flightId}'),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Personalizar el comportamiento del botón de retroceso
+              if (shouldForceRefresh) {
+                Navigator.of(context).pop(true); // Forzar actualización
+              } else {
+                Navigator.of(context).pop(); // Comportamiento normal
+              }
+            },
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Text(_errorMessage!),
-                )
-              : _flightDetails != null
-                  ? RefreshIndicator(
-                      onRefresh: _loadFlightDetails,
-                      child: FlightDetailsUI(
-                        flightDetails: _flightDetails!,
-                        gateHistory: _gateHistory,
-                        fullHistory: _fullHistory,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadFlightDetails,
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? Center(
+                    child: Text(_errorMessage!),
+                  )
+                : _flightDetails != null
+                    ? RefreshIndicator(
                         onRefresh: _loadFlightDetails,
-                        documentId: widget.documentId,
-                        canSwipe: canSwipe,
-                        onSwipe: _handleSwipe,
-                        onSwipeDirectionChanged: _handleSwipeDirectionChange,
-                        adjacentFlightDetails: _adjacentFlightDetails,
+                        child: FlightDetailsUI(
+                          flightDetails: _flightDetails!,
+                          gateHistory: _gateHistory,
+                          fullHistory: _fullHistory,
+                          onRefresh: _loadFlightDetails,
+                          documentId: widget.documentId,
+                          canSwipe: canSwipe,
+                          onSwipe: _handleSwipe,
+                          onSwipeDirectionChanged: _handleSwipeDirectionChange,
+                          adjacentFlightDetails: _adjacentFlightDetails,
+                        ),
+                      )
+                    : const Center(
+                        child: Text('No data found for this flight'),
                       ),
-                    )
-                  : const Center(
-                      child: Text('No data found for this flight'),
-                    ),
+      ),
     );
   }
 }

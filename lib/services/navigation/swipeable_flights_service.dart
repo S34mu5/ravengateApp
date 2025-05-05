@@ -11,12 +11,14 @@ class SwipeableFlightsService {
   /// [isNext] - true para navegar al siguiente vuelo (swipe derecha a izquierda),
   ///            false para navegar al vuelo anterior (swipe izquierda a derecha)
   /// [flightsSource] - Origen de los datos de los vuelos ('all' o 'my')
+  /// [forceRefreshOnReturn] - Indica si debe forzarse una actualización al volver a la pantalla anterior
   static void navigateToAdjacentFlight({
     required BuildContext context,
     required String currentFlightDocId,
     required List<Map<String, dynamic>> flightsList,
     required bool isNext,
     String flightsSource = 'all',
+    bool forceRefreshOnReturn = false,
   }) {
     // Validar que la lista no esté vacía
     if (flightsList.isEmpty) {
@@ -129,6 +131,8 @@ class SwipeableFlightsService {
           documentId: docId,
           flightsList: flightsList, // Mantener la lista de vuelos
           flightsSource: flightsSource, // Preservar el origen
+          forceRefreshOnReturn:
+              forceRefreshOnReturn, // Pasar parámetro para forzar actualización
         ),
       ),
     );

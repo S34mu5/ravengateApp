@@ -24,6 +24,7 @@ dependencies:
   permission_handler: ^11.3.0
   flutter_background_service: ^5.0.0+2
   flutter_background_service_android: ^6.3.0
+  device_info_plus: ^11.4.0
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +61,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
-dependency_overrides:
-  shared_preferences_windows:
-    path: shared_preferences_windows

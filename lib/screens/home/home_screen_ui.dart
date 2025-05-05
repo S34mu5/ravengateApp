@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../location/select_location_screen.dart';
 import 'all_departures/all_departures_screen.dart';
 import 'my_departures/my_departures_screen.dart';
 import 'profile/profile_screen.dart';
@@ -21,9 +23,28 @@ class HomeScreenUI extends StatefulWidget {
 
 class _HomeScreenUIState extends State<HomeScreenUI> {
   int _selectedIndex = 0;
+  String _selectedLocation = 'Bins'; // Valor por defecto
 
   // Lista de títulos para el AppBar
   final List<String> _titles = ['All Departures', 'My Departures', 'Profile'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSelectedLocation();
+  }
+
+  Future<void> _loadSelectedLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final location = prefs.getString('selected_location') ?? 'Bins';
+      setState(() {
+        _selectedLocation = location;
+      });
+    } catch (e) {
+      print('Error al cargar la ubicación: $e');
+    }
+  }
 
   void _onItemTapped(int index) {
     print('LOG: Usuario navegó a ${_titles[index]}');
@@ -38,18 +59,52 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
         'LOG: Construyendo UI de HomeScreen, sección actual: ${_titles[_selectedIndex]}');
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_selectedIndex]),
+        title: Row(
+          children: [
+            Text(_titles[_selectedIndex]),
+            const SizedBox(width: 8),
+            Text(
+              '• $_selectedLocation',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black54
+                    : Colors.white70,
+              ),
+            ),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundImage: widget.user.photoURL != null
-                  ? NetworkImage(widget.user.photoURL!)
-                  : null,
-              child: widget.user.photoURL == null
-                  ? const Icon(Icons.person, size: 24)
-                  : null,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context)
+                    .push(
+                  MaterialPageRoute(
+                    builder: (context) => SelectLocationScreen(
+                      user: widget.user,
+                    ),
+                  ),
+                )
+                    .then((_) {
+                  // Recargar la ubicación cuando regrese
+                  _loadSelectedLocation();
+                });
+              },
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: _selectedLocation == 'Bins'
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.amber,
+                child: Text(
+                  _selectedLocation == 'Bins' ? 'B' : 'OZ',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
           ),
         ],

@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/developer/developer_mode_service.dart';
 import 'widgets/flight_header.dart';
-import 'widgets/flight_status.dart';
 import 'widgets/gate_history.dart';
 import 'widgets/gate_trolleys.dart';
+import 'widgets/oversize_baggage.dart';
 import 'utils/flight_formatters.dart';
 
 /// Widget that displays the user interface for a specific flight details
@@ -190,28 +190,13 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
             documentId: documentId,
           ),
 
-          // Información de estado
-          FlightStatus(
-            flightDetails: flightDetails,
-            formattedScheduleTime: formattedScheduleTime,
-            formattedStatusTime: formattedStatusTime,
-            isDelayed: isDelayed,
-            isCancelled: isCancelled,
-          ),
-
-          // Divider
-          Divider(color: Colors.grey.shade300, thickness: 1),
-
-          // Historial de cambios de puerta
+          // Historial de cambios de puerta/gate
           GateHistory(
             gateHistory: gateHistory,
             formattedScheduleTime: formattedScheduleTime,
           ),
 
-          // Divider
-          Divider(color: Colors.grey.shade300, thickness: 1),
-
-          // Trolleys en puerta
+          // Gestión de trolleys en la puerta
           GateTrolleys(
             documentId: documentId,
             flightId: flightDetails['flight_id'] ?? '',
@@ -219,30 +204,12 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
             onUpdateSuccess: onRefresh,
           ),
 
-          // Additional flight information - solo visible en modo desarrollador
-          if (_developerModeEnabled)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton.icon(
-                onPressed: () => _showAdditionalInfoModal(context),
-                icon: const Icon(Icons.info_outline),
-                label: const Text('Show Additional Information'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: airlineColor.withOpacity(0.3),
-                  foregroundColor: AirlineHelper.getTextColorForAirline(
-                      flightDetails['airline'] ?? ''),
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(
-                      color: airlineColor,
-                      width: 1.5,
-                    ),
-                  ),
-                  elevation: 2,
-                ),
-              ),
-            ),
+          // Gestión de equipaje de gran tamaño
+          OversizeBaggage(
+            documentId: documentId,
+            flightId: flightDetails['flight_id'] ?? '',
+            currentGate: currentGate,
+          ),
 
           const SizedBox(height: 16),
 
@@ -250,78 +217,107 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
           if (_developerModeEnabled)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.bug_report,
-                          size: 16, color: Colors.grey.shade700),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Debug Information',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Document ID:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.copy, size: 16),
-                              tooltip: 'Copy to clipboard',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                Clipboard.setData(
-                                    ClipboardData(text: documentId));
-                                // Show a snackbar to indicate the copy was successful
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('Document ID copied to clipboard'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          documentId,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
+                        Icon(Icons.bug_report,
+                            size: 16, color: Colors.grey.shade700),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Debug Information',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Document ID:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 16),
+                                tooltip: 'Copy to clipboard',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  Clipboard.setData(
+                                      ClipboardData(text: documentId));
+                                  // Show a snackbar to indicate the copy was successful
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Document ID copied to clipboard'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          SelectableText(
+                            documentId,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAdditionalInfoModal(context),
+                      icon: const Icon(Icons.info_outline),
+                      label: const Text('Show Additional Information'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -365,7 +361,7 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Center(
-                  child: Text(
+                  child: SelectableText(
                     'Additional Flight Information',
                     style: TextStyle(
                       fontSize: 18,
@@ -374,7 +370,7 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                const SelectableText(
                   'Raw Flight Data:',
                   style: TextStyle(
                     fontSize: 16,
@@ -399,8 +395,8 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Full History Data:',
+                const SelectableText(
+                  'Gate History Data:',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -408,8 +404,8 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
                 ),
                 const SizedBox(height: 8),
                 if (widget.fullHistory.isEmpty)
-                  const Text(
-                    'No history data available',
+                  const SelectableText(
+                    'No gate history data available',
                     style: TextStyle(
                       fontStyle: FontStyle.italic,
                       color: Colors.grey,
@@ -432,6 +428,66 @@ class _FlightDetailsUIState extends State<FlightDetailsUI>
                       ),
                     ),
                   ),
+                const SizedBox(height: 16),
+                const SelectableText(
+                  'Trolleys Data:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FutureBuilder<QuerySnapshot>(
+                  future: FirebaseFirestore.instance
+                      .collection('flights')
+                      .doc(widget.documentId)
+                      .collection('trolleys')
+                      .get(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return SelectableText(
+                        'Error loading trolleys data: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
+                      );
+                    }
+
+                    final trolleysData = snapshot.data?.docs
+                            .map((doc) => doc.data() as Map<String, dynamic>)
+                            .toList() ??
+                        [];
+
+                    if (trolleysData.isEmpty) {
+                      return const SelectableText(
+                        'No trolleys data available',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
+                        ),
+                      );
+                    }
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: SelectableText(
+                        FlightFormatters.formatJsonList(trolleysData),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
