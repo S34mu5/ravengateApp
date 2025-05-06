@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../flight_details/flight_details_screen.dart';
+import '../flight_details/oz_flight_details_screen.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../utils/progress_dialog.dart';
 import '../../../utils/flight_search_helper.dart';
@@ -12,6 +13,7 @@ import '../../../common/widgets/flight_search_bar.dart';
 import '../../../common/widgets/flights_counter_display.dart';
 import '../../../common/widgets/flight_selection_controls.dart';
 import '../../../common/widgets/time_ago_widget.dart';
+import '../../../services/location/location_service.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -831,24 +833,44 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
-      BuildContext context, Map<String, dynamic> flight) {
+      BuildContext context, Map<String, dynamic> flight) async {
     // Añadir logs para depuración
     print('LOG: Navegando a detalles de vuelo desde All Departures');
     print(
         'LOG: Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
     print('LOG: Pasando lista de ${widget.flights.length} vuelos');
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FlightDetailsScreen(
-          flightId: flight['flight_id'],
-          documentId: flight['id'],
-          flightsList: widget.flights, // Pasar toda la lista de vuelos
-          flightsSource: 'all', // Indicar que viene de "todos los vuelos"
+    // Verificar la ubicación actual
+    final bool isOversize = await LocationService.isOversizeLocation();
+    print('LOG: Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
+
+    if (isOversize) {
+      // Si la ubicación es Oversize, mostrar la pantalla de detalles de Oversize
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OzFlightDetailsScreen(
+            flightId: flight['flight_id'],
+            documentId: flight['id'],
+            flightsList: widget.flights, // Pasar toda la lista de vuelos
+            flightsSource: 'all', // Indicar que viene de "todos los vuelos"
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // Si la ubicación es Bins, mostrar la pantalla de detalles normal
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FlightDetailsScreen(
+            flightId: flight['flight_id'],
+            documentId: flight['id'],
+            flightsList: widget.flights, // Pasar toda la lista de vuelos
+            flightsSource: 'all', // Indicar que viene de "todos los vuelos"
+          ),
+        ),
+      );
+    }
   }
 
   @override

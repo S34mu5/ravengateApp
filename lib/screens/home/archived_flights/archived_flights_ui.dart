@@ -4,9 +4,11 @@ import '../../../utils/airline_helper.dart';
 import '../../../utils/flight_search_helper.dart';
 import '../../../utils/flight_filter_util.dart';
 import '../flight_details/flight_details_screen.dart';
+import '../flight_details/oz_flight_details_screen.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../utils/progress_dialog.dart';
 import '../../../common/widgets/flight_card.dart';
+import '../../../services/location/location_service.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos archivados
 class ArchivedFlightsUI extends StatefulWidget {
@@ -477,18 +479,38 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
 
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
-      BuildContext context, Map<String, dynamic> flight) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FlightDetailsScreen(
-          flightId: flight['flight_id'],
-          documentId: flight['doc_id'] ?? '',
-          flightsList: widget.flights, // Pasar toda la lista de vuelos
-          flightsSource: 'archived', // Indicar que viene de vuelos archivados
+      BuildContext context, Map<String, dynamic> flight) async {
+    // Verificar la ubicación actual
+    final bool isOversize = await LocationService.isOversizeLocation();
+    print('LOG: Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
+
+    if (isOversize) {
+      // Si la ubicación es Oversize, mostrar la pantalla de detalles de Oversize
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OzFlightDetailsScreen(
+            flightId: flight['flight_id'],
+            documentId: flight['doc_id'] ?? '',
+            flightsList: widget.flights, // Pasar toda la lista de vuelos
+            flightsSource: 'archived', // Indicar que viene de vuelos archivados
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // Si la ubicación es Bins, mostrar la pantalla de detalles normal
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FlightDetailsScreen(
+            flightId: flight['flight_id'],
+            documentId: flight['doc_id'] ?? '',
+            flightsList: widget.flights, // Pasar toda la lista de vuelos
+            flightsSource: 'archived', // Indicar que viene de vuelos archivados
+          ),
+        ),
+      );
+    }
   }
 
   // Mostrar diálogo de confirmación para eliminar permanentemente

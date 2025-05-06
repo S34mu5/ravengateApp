@@ -8,32 +8,22 @@ import 'widgets/flight_header.dart';
 import 'widgets/gate_history.dart';
 import 'widgets/gate_trolleys.dart';
 import 'widgets/oversize_baggage.dart';
+import 'widgets/debug_information.dart';
 import 'utils/flight_formatters.dart';
+import 'base_flight_details_ui.dart';
 
 /// Widget that displays the user interface for a specific flight details
-class FlightDetailsUI extends StatefulWidget {
-  final Map<String, dynamic> flightDetails;
-  final List<Map<String, dynamic>> gateHistory;
-  final List<Map<String, dynamic>> fullHistory;
-  final Future<void> Function() onRefresh;
-  final String documentId;
-  final bool canSwipe; // Flag para saber si se puede hacer swipe
-  final Function(DragEndDetails)? onSwipe; // Callback para el swipe
-  final Function(bool)?
-      onSwipeDirectionChanged; // Callback para indicar dirección del swipe
-  final Map<String, dynamic>?
-      adjacentFlightDetails; // Detalles del vuelo adyacente
-
+class FlightDetailsUI extends BaseFlightDetailsUI {
   const FlightDetailsUI({
-    required this.flightDetails,
-    required this.gateHistory,
-    required this.fullHistory,
-    required this.onRefresh,
-    required this.documentId,
-    this.canSwipe = false,
-    this.onSwipe,
-    this.onSwipeDirectionChanged,
-    this.adjacentFlightDetails,
+    required super.flightDetails,
+    required super.gateHistory,
+    required super.fullHistory,
+    required super.onRefresh,
+    required super.documentId,
+    super.canSwipe = false,
+    super.onSwipe,
+    super.onSwipeDirectionChanged,
+    super.adjacentFlightDetails,
     super.key,
   });
 
@@ -41,458 +31,142 @@ class FlightDetailsUI extends StatefulWidget {
   _FlightDetailsUIState createState() => _FlightDetailsUIState();
 }
 
-class _FlightDetailsUIState extends State<FlightDetailsUI>
-    with SingleTickerProviderStateMixin {
-  // Añadir una variable para controlar la visibilidad de la sección de depuración
-  bool _developerModeEnabled = false;
-
-  // Controlador para la animación de swipe
-  late AnimationController _swipeController;
-  bool _isSwipingHorizontally = false;
-  ScrollController? _scrollController;
-
+class _FlightDetailsUIState extends BaseFlightDetailsUIState<FlightDetailsUI> {
   @override
-  void initState() {
-    super.initState();
-    _checkDeveloperMode();
+  Widget buildMainContent(
+    Map<String, dynamic> flightDetails,
+    List<Map<String, dynamic>> gateHistory,
+    String formattedScheduleTime,
+    String? formattedStatusTime,
+    bool isDelayed,
+    bool isDeparted,
+    bool isCancelled,
+    Color airlineColor,
+    String currentGate,
+    String documentId,
+    bool developerModeEnabled,
+    Future<void> Function() onRefresh,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header con información principal
+        FlightHeader(
+          flightDetails: flightDetails,
+          formattedScheduleTime: formattedScheduleTime,
+          formattedStatusTime: formattedStatusTime,
+          isDelayed: isDelayed,
+          isDeparted: isDeparted,
+          isCancelled: isCancelled,
+          airlineColor: airlineColor,
+          documentId: documentId,
+        ),
 
-    // Inicializar el controlador de animación
-    _swipeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
+        // Historial de cambios de puerta/gate
+        GateHistory(
+          gateHistory: gateHistory,
+          formattedScheduleTime: formattedScheduleTime,
+        ),
 
-    _swipeController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        // Reiniciar la animación cuando termine
-        setState(() {
-          _isSwipingHorizontally = false;
-        });
-        _swipeController.reset();
-      }
-    });
-  }
+        // Gestión de trolleys en la puerta
+        GateTrolleys(
+          documentId: documentId,
+          flightId: flightDetails['flight_id'] ?? '',
+          currentGate: currentGate,
+          onUpdateSuccess: onRefresh,
+        ),
 
-  @override
-  void dispose() {
-    _swipeController.dispose();
-    _scrollController?.dispose();
-    super.dispose();
-  }
+        // Gestión de equipaje de gran tamaño
+        OversizeBaggage(
+          documentId: documentId,
+          flightId: flightDetails['flight_id'] ?? '',
+          currentGate: currentGate,
+        ),
 
-  /// Verifica si el modo desarrollador está activado
-  Future<void> _checkDeveloperMode() async {
-    final isEnabled = await DeveloperModeService.isDeveloperModeEnabled();
-    if (mounted) {
-      setState(() {
-        _developerModeEnabled = isEnabled;
-      });
-    }
-  }
+        const SizedBox(height: 16),
 
-  // Construye un detector de gestos para detectar swipes horizontales
-  Widget _buildSwipeDetector(Widget child) {
-    if (!widget.canSwipe) {
-      return child;
-    }
-
-    return GestureDetector(
-      onHorizontalDragEnd: (details) {
-        if (_isSwipingHorizontally && widget.onSwipe != null) {
-          widget.onSwipe!(details);
-        }
-        setState(() {
-          _isSwipingHorizontally = false;
-        });
-      },
-      onHorizontalDragUpdate: (details) {
-        // Si el gesto es lo suficientemente horizontal
-        if (details.delta.dx.abs() > details.delta.dy.abs() * 2) {
-          if (!_isSwipingHorizontally) {
-            setState(() {
-              _isSwipingHorizontally = true;
-            });
-
-            // Notificar la dirección del swipe
-            if (widget.onSwipeDirectionChanged != null) {
-              final bool isNext = details.delta.dx < 0;
-              widget.onSwipeDirectionChanged!(isNext);
-            }
-          }
-        }
-      },
-      child: child,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final Map<String, dynamic> flightDetails = widget.flightDetails;
-    final List<Map<String, dynamic>> gateHistory = widget.gateHistory;
-    final List<Map<String, dynamic>> fullHistory = widget.fullHistory;
-    final Future<void> Function() onRefresh = widget.onRefresh;
-    final String documentId = widget.documentId;
-
-    // Imprimir logs de diagnóstico
-    print('LOG: FlightDetailsUI.build - canSwipe: ${widget.canSwipe}');
-    print('LOG: FlightDetailsUI.build - developerMode: $_developerModeEnabled');
-    print(
-        'LOG: FlightDetailsUI.build - adjacentFlightDetails: ${widget.adjacentFlightDetails != null}');
-
-    // Format scheduled time
-    final String formattedScheduleTime =
-        FlightFormatters.formatTime(flightDetails['schedule_time'] ?? '');
-
-    // Format status time (if exists)
-    final String? formattedStatusTime = flightDetails['status_time'] != null &&
-            flightDetails['status_time'].toString().isNotEmpty
-        ? FlightFormatters.formatTime(flightDetails['status_time'])
-        : null;
-
-    // Check if flight is delayed
-    final bool isDelayed = formattedStatusTime != null &&
-        formattedStatusTime != formattedScheduleTime &&
-        FlightFormatters.isLaterTime(
-            formattedStatusTime, formattedScheduleTime);
-
-    // Check if flight has departed
-    final bool isDeparted = flightDetails['status_code'] == 'D';
-
-    // Check if flight is cancelled
-    final bool isCancelled = flightDetails['status_code'] == 'C';
-
-    // Color based on airline
-    final Color airlineColor =
-        AirlineHelper.getAirlineColor(flightDetails['airline'] ?? '');
-
-    // Get current gate and trolley count
-    final String currentGate = flightDetails['gate'] ?? '-';
-
-    // Ya no necesitamos extraer trolley count de flightDetails
-    // Lo obtenemos directamente de la subcolección trolleys
-
-    // Contenido principal
-    final Widget mainContent = SingleChildScrollView(
-      controller: _scrollController ??= ScrollController(),
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header con información principal
-          FlightHeader(
-            flightDetails: flightDetails,
-            formattedScheduleTime: formattedScheduleTime,
-            formattedStatusTime: formattedStatusTime,
-            isDelayed: isDelayed,
-            isDeparted: isDeparted,
-            isCancelled: isCancelled,
-            airlineColor: airlineColor,
+        // Debug Information - solo visible en modo desarrollador
+        if (developerModeEnabled)
+          DebugInformation(
             documentId: documentId,
+            onShowAdditionalInfo: () => _showAdditionalInfoModal(context),
           ),
 
-          // Historial de cambios de puerta/gate
-          GateHistory(
-            gateHistory: gateHistory,
-            formattedScheduleTime: formattedScheduleTime,
-          ),
-
-          // Gestión de trolleys en la puerta
-          GateTrolleys(
-            documentId: documentId,
-            flightId: flightDetails['flight_id'] ?? '',
-            currentGate: currentGate,
-            onUpdateSuccess: onRefresh,
-          ),
-
-          // Gestión de equipaje de gran tamaño
-          OversizeBaggage(
-            documentId: documentId,
-            flightId: flightDetails['flight_id'] ?? '',
-            currentGate: currentGate,
-          ),
-
-          const SizedBox(height: 16),
-
-          // Debug Information - solo visible en modo desarrollador
-          if (_developerModeEnabled)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.bug_report,
-                            size: 16, color: Colors.grey.shade700),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Debug Information',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'Document ID:',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 16),
-                                tooltip: 'Copy to clipboard',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () {
-                                  Clipboard.setData(
-                                      ClipboardData(text: documentId));
-                                  // Show a snackbar to indicate the copy was successful
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Document ID copied to clipboard'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          SelectableText(
-                            documentId,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAdditionalInfoModal(context),
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text('Show Additional Information'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          const SizedBox(height: 24),
-        ],
-      ),
+        const SizedBox(height: 24),
+      ],
     );
-
-    // Envolver en RefreshIndicator
-    Widget content = RefreshIndicator(
-      onRefresh: onRefresh,
-      child: mainContent,
-    );
-
-    // Si se puede hacer swipe, añadir el detector de gestos
-    if (widget.canSwipe) {
-      content = _buildSwipeDetector(content);
-    }
-
-    return content;
   }
 
   /// Muestra un modal con información adicional del vuelo
   void _showAdditionalInfoModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Center(
-                  child: SelectableText(
-                    'Additional Flight Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const SelectableText(
-                  'Raw Flight Data:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: SelectableText(
-                    FlightFormatters.formatJsonString(widget.flightDetails),
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const SelectableText(
-                  'Gate History Data:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (widget.fullHistory.isEmpty)
-                  const SelectableText(
-                    'No gate history data available',
-                    style: TextStyle(
-                      fontStyle: FontStyle.italic,
-                      color: Colors.grey,
-                    ),
-                  )
-                else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: SelectableText(
-                      FlightFormatters.formatJsonList(widget.fullHistory),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                const SelectableText(
-                  'Trolleys Data:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('flights')
-                      .doc(widget.documentId)
-                      .collection('trolleys')
-                      .get(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (snapshot.hasError) {
-                      return SelectableText(
-                        'Error loading trolleys data: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.red),
-                      );
-                    }
-
-                    final trolleysData = snapshot.data?.docs
-                            .map((doc) => doc.data() as Map<String, dynamic>)
-                            .toList() ??
-                        [];
-
-                    if (trolleysData.isEmpty) {
-                      return const SelectableText(
-                        'No trolleys data available',
-                        style: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          color: Colors.grey,
-                        ),
-                      );
-                    }
-
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: SelectableText(
-                        FlightFormatters.formatJsonList(trolleysData),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+    // Widget adicional específico para FlightDetailsUI
+    final Widget trolleysDataSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const SelectableText(
+          'Trolleys Data:',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        FutureBuilder<QuerySnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('flights')
+              .doc(widget.documentId)
+              .collection('trolleys')
+              .get(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return SelectableText(
+                'Error loading trolleys data: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
+              );
+            }
+
+            final trolleysData = snapshot.data?.docs
+                    .map((doc) => doc.data() as Map<String, dynamic>)
+                    .toList() ??
+                [];
+
+            if (trolleysData.isEmpty) {
+              return const SelectableText(
+                'No trolleys data available',
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                ),
+              );
+            }
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SelectableText(
+                FlightFormatters.formatJsonList(trolleysData),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
+
+    // Llamar al método de la clase base pasando la sección adicional
+    showAdditionalInfoModal(context, additionalSections: [trolleysDataSection]);
   }
 }
