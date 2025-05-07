@@ -14,21 +14,18 @@ import '../../../services/user/user_flights_service.dart';
 import '../../../services/location/location_service.dart';
 import 'dart:async';
 import '../../../utils/flight_sort_util.dart';
+import '../base_departures_ui.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
-class MyDeparturesUI extends StatefulWidget {
-  final List<Map<String, dynamic>> flights;
+class MyDeparturesUI extends BaseDeparturesUI {
   final Future<void> Function(String flightId)? onRemoveFlight;
-  final Future<void> Function()? onRefresh;
-  final DateTime? lastUpdated;
-  final bool usingCachedData;
 
   const MyDeparturesUI({
-    required this.flights,
+    required super.flights,
     this.onRemoveFlight,
-    this.onRefresh,
-    this.lastUpdated,
-    this.usingCachedData = false,
+    super.onRefresh,
+    super.lastUpdated,
+    super.usingCachedData,
     super.key,
   });
 
@@ -36,112 +33,162 @@ class MyDeparturesUI extends StatefulWidget {
   State<MyDeparturesUI> createState() => _MyDeparturesUIState();
 }
 
-class _MyDeparturesUIState extends State<MyDeparturesUI> {
-  // Variables para búsqueda y filtrado
-  List<Map<String, dynamic>> _filteredFlights = [];
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-  bool _norwegianEquivalenceEnabled = true; // Habilitado por defecto
-
-  // Variables para el modo de selección
-  bool _isSelectionMode = false;
-  Set<int> _selectedFlightIndices = {};
-
+class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
   @override
-  void initState() {
-    super.initState();
-    _updateFilteredFlights();
-    _loadNorwegianPreference();
-  }
-
-  @override
-  void didUpdateWidget(MyDeparturesUI oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.flights != oldWidget.flights) {
-      _updateFilteredFlights();
+  Widget buildFlightsList() {
+    if (widget.flights.isEmpty) {
+      return _buildEmptyState();
     }
-  }
 
-  // Actualizar la lista filtrada cuando cambian los datos
-  void _updateFilteredFlights() {
-    // Primero filtrar los vuelos según el criterio de búsqueda
-    final filteredList = FlightFilterUtil.filterFlights(
-      flights: widget.flights,
-      searchQuery: _searchQuery,
-      norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: null,
+      floatingActionButton: buildSelectionControls(
+        actionLabel: 'Archive Departures',
+        actionIcon: Icons.archive,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Pequeño espacio en la parte superior
+            const SizedBox(height: 8),
+
+            // Barra de búsqueda
+            FlightSearchBar(
+              controller: searchController,
+              onSearch: filterFlights,
+              onClear: () {
+                filterFlights('');
+              },
+            ),
+
+            // Indicador de actualizado
+            TimeAgoWidget(lastUpdated: widget.lastUpdated),
+
+            // Contador de vuelos con botón de archivo
+            FlightsCounterDisplay(
+              flightCount: filteredFlights.length,
+              searchQuery: searchQuery,
+              norwegianEquivalenceEnabled: norwegianEquivalenceEnabled,
+              onSelectMode: null,
+              showResetButton: searchQuery.isNotEmpty,
+              onResetFilters: searchQuery.isNotEmpty
+                  ? () {
+                      searchController.clear();
+                      filterFlights('');
+                    }
+                  : null,
+              leadingActions: [
+                // Botón para ver vuelos archivados
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ArchivedFlightsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.archive_outlined, size: 16),
+                  label: const Text('Archived'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+
+            // Lista de vuelos
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 8),
+                itemCount: filteredFlights.length,
+                itemBuilder: (context, index) {
+                  return buildFlightItem(filteredFlights[index], index,
+                      isDismissible: true);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-
-    // Ordenar usando el utilitario compartido
-    final sortedList = FlightSortUtil.sortFlightsByTime(filteredList);
-
-    setState(() {
-      _filteredFlights = sortedList;
-    });
   }
 
-  // Filtrar vuelos por texto de búsqueda
-  void _filterFlights(String query) {
-    setState(() {
-      _searchQuery = query;
-      _updateFilteredFlights();
-    });
+  // Construye el estado vacío cuando no hay vuelos
+  Widget _buildEmptyState() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+
+            // Barra de búsqueda
+            FlightSearchBar(
+              controller: searchController,
+              onSearch: filterFlights,
+              onClear: () {
+                filterFlights('');
+              },
+            ),
+
+            // Indicador de actualizado
+            TimeAgoWidget(lastUpdated: widget.lastUpdated),
+
+            // Contador con botón de archivo
+            FlightsCounterDisplay(
+              flightCount: 0,
+              searchQuery: searchQuery,
+              norwegianEquivalenceEnabled: norwegianEquivalenceEnabled,
+              onSelectMode: null,
+              showResetButton: false,
+              onResetFilters: null,
+              leadingActions: [
+                // Botón para ver vuelos archivados
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ArchivedFlightsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.archive_outlined, size: 16),
+                  label: const Text('Archived'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+
+            // Mensaje centrado
+            Expanded(
+              child: Center(
+                child: Text(
+                  'No tienes vuelos guardados',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  // Cargar preferencia de equivalencia Norwegian usando el util compartido
-  Future<void> _loadNorwegianPreference() async {
-    final isEnabled = await FlightFilterUtil.loadNorwegianPreference();
-    setState(() {
-      _norwegianEquivalenceEnabled = isEnabled;
-    });
-    print(
-        'LOG: Norwegian equivalence preference loaded: $_norwegianEquivalenceEnabled');
+  @override
+  void onFlightTap(BuildContext context, Map<String, dynamic> flight) {
+    _navigateToFlightDetails(context, flight);
   }
 
-  /// Activar o desactivar el modo de selección múltiple
-  void _toggleSelectionMode() {
-    setState(() {
-      _isSelectionMode = !_isSelectionMode;
-      // Si desactivamos el modo selección, limpiar las selecciones
-      if (!_isSelectionMode) {
-        _selectedFlightIndices.clear();
-      }
-    });
-  }
-
-  /// Seleccionar o deseleccionar un vuelo por su índice
-  void _toggleFlightSelection(int index) {
-    setState(() {
-      if (_selectedFlightIndices.contains(index)) {
-        _selectedFlightIndices.remove(index);
-      } else {
-        _selectedFlightIndices.add(index);
-      }
-
-      // Si no quedan vuelos seleccionados, desactivar el modo selección
-      if (_selectedFlightIndices.isEmpty && _isSelectionMode) {
-        _isSelectionMode = false;
-      }
-    });
-  }
-
-  /// Seleccionar todos los vuelos filtrados
-  void _selectAllFlights() {
-    setState(() {
-      _selectedFlightIndices = Set<int>.from(
-          List<int>.generate(_filteredFlights.length, (index) => index));
-    });
-  }
-
-  /// Deseleccionar todos los vuelos
-  void _deselectAllFlights() {
-    setState(() {
-      _selectedFlightIndices.clear();
-    });
-  }
-
-  /// Método para archivar los vuelos seleccionados
-  Future<void> _archiveSelectedFlights() async {
-    if (_selectedFlightIndices.isEmpty) {
+  @override
+  Future<void> performActionOnSelectedFlights() async {
+    if (selectedFlightIndices.isEmpty) {
       return;
     }
 
@@ -166,9 +213,9 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     try {
       // Archivar cada vuelo seleccionado
       int archivedCount = 0;
-      for (final index in _selectedFlightIndices) {
-        if (index < _filteredFlights.length) {
-          final flight = _filteredFlights[index];
+      for (final index in selectedFlightIndices) {
+        if (index < filteredFlights.length) {
+          final flight = filteredFlights[index];
           // IMPORTANTE: Obtener el doc_id que es el ID real del documento en Firestore
           final docId = flight['doc_id'];
 
@@ -211,8 +258,8 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
       // Desactivar el modo selección y limpiar selecciones
       setState(() {
-        _isSelectionMode = false;
-        _selectedFlightIndices.clear();
+        isSelectionMode = false;
+        selectedFlightIndices.clear();
       });
 
       // Actualizar la lista de vuelos
@@ -269,236 +316,6 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     );
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Si estamos usando datos en caché, mostrar un indicador sutil
-    if (widget.usingCachedData) {
-      return Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-            color: Colors.blue.shade50,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.access_time, color: Colors.blue, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  widget.lastUpdated != null
-                      ? 'Última actualización: ${_formatLastUpdated(widget.lastUpdated!)}'
-                      : 'Usando datos almacenados',
-                  style: TextStyle(color: Colors.blue.shade900, fontSize: 13),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 16),
-                  onPressed: widget.onRefresh,
-                  tooltip: 'Actualizar datos ahora',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _buildFlightsList(),
-          ),
-        ],
-      );
-    }
-
-    return _buildFlightsList();
-  }
-
-  Widget _buildFlightsList() {
-    if (widget.flights.isEmpty) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 8),
-
-              // Barra de búsqueda
-              FlightSearchBar(
-                controller: _searchController,
-                onSearch: _filterFlights,
-                onClear: () {
-                  _filterFlights('');
-                },
-              ),
-
-              // Indicador de actualizado
-              TimeAgoWidget(lastUpdated: widget.lastUpdated),
-
-              // Contador con botón de archivo
-              FlightsCounterDisplay(
-                flightCount: 0,
-                searchQuery: _searchQuery,
-                norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-                onSelectMode: null,
-                showResetButton: false,
-                onResetFilters: null,
-                leadingActions: [
-                  // Botón para ver vuelos archivados
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const ArchivedFlightsScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.archive_outlined, size: 16),
-                    label: const Text('Archived'),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ),
-
-              // Mensaje centrado
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'No tienes vuelos guardados',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: null,
-      floatingActionButton: _isSelectionMode
-          ? FlightSelectionControls(
-              selectedCount: _selectedFlightIndices.length,
-              totalFlights: _filteredFlights.length,
-              onSelectAll: _selectAllFlights,
-              onDeselectAll: _deselectAllFlights,
-              onExit: _toggleSelectionMode,
-              onAction: _archiveSelectedFlights,
-              actionLabel: 'Archive Departures',
-              actionColor: Colors.white, // Fondo blanco
-              actionTextColor: Colors.black87, // Texto negro
-              actionIcon: Icons.archive,
-            )
-          : null,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Pequeño espacio en la parte superior (como en all_departures_ui.dart)
-            const SizedBox(height: 8),
-
-            // Barra de búsqueda reutilizable
-            FlightSearchBar(
-              controller: _searchController,
-              onSearch: _filterFlights,
-              onClear: () {
-                _filterFlights('');
-              },
-            ),
-
-            // Indicador de actualizado hace X tiempo (ahora como widget separado)
-            TimeAgoWidget(lastUpdated: widget.lastUpdated),
-
-            // Contador de vuelos reutilizable con botón de archivo
-            FlightsCounterDisplay(
-              flightCount: _filteredFlights.length,
-              searchQuery: _searchQuery,
-              norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
-              onSelectMode:
-                  null, // Ya no necesitamos este botón, usamos pulsación larga
-              showResetButton: _searchQuery.isNotEmpty,
-              onResetFilters: _searchQuery.isNotEmpty
-                  ? () {
-                      _searchController.clear();
-                      _filterFlights('');
-                    }
-                  : null,
-              leadingActions: [
-                // Botón para ver vuelos archivados
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ArchivedFlightsScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.archive_outlined, size: 16),
-                  label: const Text('Archived'),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-
-            // Lista de vuelos con Flexible para que ocupe el espacio restante
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
-                itemCount: _filteredFlights.length,
-                itemBuilder: (context, index) {
-                  final flight = _filteredFlights[index];
-
-                  // Widget del vuelo individual
-                  return FlightCard(
-                    flight: flight,
-                    isSelectionMode: _isSelectionMode,
-                    isSelected: _selectedFlightIndices.contains(index),
-                    isDismissible:
-                        !_isSelectionMode, // Solo permitir deslizar para eliminar fuera del modo selección
-                    onSelectionToggle: (isSelected) {
-                      _toggleFlightSelection(index);
-                    },
-                    onTap: () {
-                      if (_isSelectionMode) {
-                        _toggleFlightSelection(index);
-                      } else {
-                        // Navegar a detalles del vuelo
-                        _navigateToFlightDetails(context, flight);
-                      }
-                    },
-                    onLongPress: _isSelectionMode
-                        ? null
-                        : () async {
-                            // Si no estamos en modo selección, activarlo y seleccionar este vuelo
-                            if (!_isSelectionMode) {
-                              setState(() {
-                                _isSelectionMode = true;
-                                _selectedFlightIndices.add(index);
-                              });
-                            }
-                          },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
       BuildContext context, Map<String, dynamic> flight) async {
@@ -545,29 +362,6 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
     if (shouldRefresh == true && widget.onRefresh != null) {
       print('LOG: Forzando actualización tras regresar de detalles de vuelo');
       await widget.onRefresh!();
-    }
-  }
-
-  /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
-  bool _isLaterTime(String time1, String time2) {
-    return FlightFilterUtil.isLaterTime(time1, time2);
-  }
-
-  String _formatLastUpdated(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-
-    if (difference.inSeconds < 60) {
-      return 'hace unos segundos';
-    } else if (difference.inMinutes < 60) {
-      final minutes = difference.inMinutes;
-      return 'hace $minutes ${minutes == 1 ? 'minuto' : 'minutos'}';
-    } else if (difference.inHours < 24) {
-      final hours = difference.inHours;
-      return 'hace $hours ${hours == 1 ? 'hora' : 'horas'}';
-    } else {
-      final formatter = DateFormat('dd/MM HH:mm');
-      return formatter.format(timestamp);
     }
   }
 }

@@ -22,6 +22,10 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // Nuevas variables para el sistema de caché
+  DateTime? _lastUpdated;
+  bool _usingCachedData = false;
+
   // Fecha seleccionada actualmente
   String? _selectedDate;
 
@@ -35,8 +39,9 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
   }
 
   /// Cargar las fechas de vuelos archivados
-  Future<void> _loadArchivedDates() async {
-    print('LOG: Cargando fechas de vuelos archivados');
+  Future<void> _loadArchivedDates({bool forceRefresh = false}) async {
+    print(
+        'LOG: Cargando fechas de vuelos archivados ${forceRefresh ? "(forzando actualización)" : ""}');
 
     try {
       // Verificar si el widget está montado antes de actualizar estado
@@ -48,8 +53,8 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
       });
 
       // Obtener fechas de archivado desde el servicio
-      final archivedDates =
-          await UserFlightsService.getUserArchivedFlightDates();
+      final archivedDates = await UserFlightsService.getUserArchivedFlightDates(
+          forceRefresh: forceRefresh);
 
       // Verificar nuevamente si el widget sigue montado
       if (!mounted) return;
@@ -57,6 +62,8 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
       setState(() {
         _archivedDates = archivedDates;
         _isLoading = false;
+        _lastUpdated = DateTime.now();
+        _usingCachedData = !forceRefresh;
       });
 
       print(
@@ -73,13 +80,15 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
       setState(() {
         _errorMessage = 'Error loading archived flight dates: $e';
         _isLoading = false;
+        _lastUpdated = DateTime.now();
       });
     }
   }
 
   /// Seleccionar una fecha y cargar sus vuelos
-  Future<void> _selectDate(String date) async {
-    print('LOG: Seleccionando fecha $date');
+  Future<void> _selectDate(String date, {bool forceRefresh = false}) async {
+    print(
+        'LOG: Seleccionando fecha $date ${forceRefresh ? "(forzando actualización)" : ""}');
 
     setState(() {
       _selectedDate = date;
@@ -88,14 +97,17 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
     try {
       // Cargar vuelos para la fecha seleccionada
-      final flights =
-          await UserFlightsService.getUserArchivedFlightsByDate(date);
+      final flights = await UserFlightsService.getUserArchivedFlightsByDate(
+          date,
+          forceRefresh: forceRefresh);
 
       if (!mounted) return;
 
       setState(() {
         _archivedFlights = flights;
         _isLoading = false;
+        _lastUpdated = DateTime.now();
+        _usingCachedData = !forceRefresh;
       });
 
       print(
@@ -108,6 +120,7 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
       setState(() {
         _errorMessage = 'Error loading flights for selected date: $e';
         _isLoading = false;
+        _lastUpdated = DateTime.now();
       });
     }
   }
@@ -335,23 +348,44 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
     return Column(
       children: [
-        // Contador de fechas
+        // Contador de fechas y estado de caché
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${_archivedDates.length} dates with archived flights',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_archivedDates.length} dates with archived flights',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
               ),
-            ),
+              // Indicador de caché
+              if (_usingCachedData && _lastUpdated != null)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.cached,
+                      size: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Cached data',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
         ),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: _loadArchivedDates,
+            onRefresh: () => _loadArchivedDates(forceRefresh: true),
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               itemCount: _archivedDates.length,
@@ -407,6 +441,25 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
                       ),
                     ),
                   ),
+                  // Indicador de caché
+                  if (_usingCachedData && _lastUpdated != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.cached,
+                          size: 14,
+                          color: Colors.grey.shade700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Cached',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 4),
@@ -452,9 +505,12 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
                 )
               : ArchivedFlightsUI(
                   flights: _archivedFlights,
-                  onRefresh: () => _selectDate(_selectedDate!),
+                  onRefresh: () =>
+                      _selectDate(_selectedDate!, forceRefresh: true),
                   onRestoreFlight: _restoreFlight,
                   onDeleteFlight: _permanentlyDeleteFlight,
+                  lastUpdated: _lastUpdated,
+                  usingCachedData: _usingCachedData,
                 ),
         ),
       ],

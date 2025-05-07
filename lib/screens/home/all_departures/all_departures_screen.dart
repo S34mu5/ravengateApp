@@ -111,11 +111,90 @@ class _AllDeparturesScreenState
     }
   }
 
+  /// Carga vuelos históricos desde Firestore para un rango de fechas específico
+  Future<void> _loadHistoricalFlights(
+      DateTime startDateTime, DateTime endDateTime) async {
+    print(
+        'LOG: Cargando vuelos históricos desde: ${DateFormat('yyyy-MM-dd HH:mm').format(startDateTime)} hasta: ${DateFormat('yyyy-MM-dd HH:mm').format(endDateTime)}');
+
+    try {
+      if (!mounted) return;
+
+      setLoading(true);
+      setError(null);
+
+      // Convertir las fechas a formato ISO para la consulta
+      final String startTimeString = startDateTime.toIso8601String();
+      final String endTimeString = endDateTime.toIso8601String();
+
+      // Realizar la consulta a Firestore con el rango de fechas especificado
+      final QuerySnapshot snapshot = await _firestore
+          .collection('flights')
+          .orderBy('schedule_time', descending: false)
+          .where('schedule_time', isGreaterThanOrEqualTo: startTimeString)
+          .where('schedule_time', isLessThanOrEqualTo: endTimeString)
+          .get();
+
+      if (!mounted) return;
+
+      if (snapshot.docs.isEmpty) {
+        print(
+            'LOG: No se encontraron vuelos históricos en el rango seleccionado');
+        // No establecer error, simplemente mostrar vuelos vacíos
+        setState(() {
+          _flights = [];
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Convertir los datos de Firestore
+      final List<Map<String, dynamic>> loadedFlights = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        Color flightColor = data['color'] is int
+            ? Color(data['color'])
+            : AirlineHelper.getAirlineColor(data['airline'] ?? '');
+
+        return {
+          'id': doc.id,
+          'airline': data['airline'] ?? '',
+          'flight_id': data['flight_id'] ?? '',
+          'schedule_time': data['schedule_time'] ?? '',
+          'status_time': data['status_time'] ?? '',
+          'airport': data['airport'] ?? '',
+          'gate': data['gate'] ?? '',
+          'status_code': data['status_code'] ?? '',
+          'color': flightColor,
+        };
+      }).toList();
+
+      // Ordenar los vuelos históricos
+      final sortedFlights = FlightSortUtil.sortFlightsByTime(loadedFlights);
+
+      if (!mounted) return;
+
+      setState(() {
+        _flights = sortedFlights;
+      });
+
+      print('LOG: Cargados ${sortedFlights.length} vuelos históricos');
+      setLoading(false);
+      setUsingCachedData(false);
+      setLastUpdated(DateTime.now());
+    } catch (e) {
+      print('LOG: ERROR al cargar vuelos históricos: $e');
+      if (!mounted) return;
+      setError('Error al cargar vuelos históricos: $e');
+      setLoading(false);
+    }
+  }
+
   @override
   Widget buildUI() {
     return AllDeparturesUI(
       flights: _flights,
       onRefresh: () => loadFlights(forceRefresh: true),
+      onCustomRangeLoad: _loadHistoricalFlights,
       lastUpdated: lastUpdated,
       usingCachedData: usingCachedData,
     );

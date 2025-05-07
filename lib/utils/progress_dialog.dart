@@ -117,7 +117,12 @@ class ProgressDialog {
       _isShowing = false;
 
       if (_dismissingContext != null) {
-        Navigator.of(_dismissingContext!).pop();
+        if (_dismissingContext!.mounted) {
+          Navigator.of(_dismissingContext!).pop();
+        } else {
+          debugPrint(
+              'Warning: Context was already unmounted when hiding dialog');
+        }
         _dismissingContext = null;
       }
 

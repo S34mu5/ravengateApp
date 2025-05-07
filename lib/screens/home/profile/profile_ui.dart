@@ -5,6 +5,7 @@ import '../../../services/developer/developer_mode_service.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
 import 'notifications_screen.dart'; // Importar la pantalla de notificaciones
+import 'data_visualization_settings.dart'; // Importar la nueva pantalla de configuración
 
 /// Widget que muestra la interfaz de usuario para la pantalla de perfil
 class ProfileUI extends StatefulWidget {
@@ -22,7 +23,6 @@ class ProfileUI extends StatefulWidget {
 }
 
 class _ProfileUIState extends State<ProfileUI> {
-  bool _norwegianEquivalenceEnabled = true;
   bool _developerModeEnabled = false;
   final TextEditingController _pinController = TextEditingController();
   int _pinAttempts = 0;
@@ -30,7 +30,6 @@ class _ProfileUIState extends State<ProfileUI> {
   @override
   void initState() {
     super.initState();
-    _loadNorwegianPreference();
     _loadDeveloperModeStatus();
   }
 
@@ -38,13 +37,6 @@ class _ProfileUIState extends State<ProfileUI> {
   void dispose() {
     _pinController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadNorwegianPreference() async {
-    final isEnabled = await CacheService.getNorwegianEquivalencePreference();
-    setState(() {
-      _norwegianEquivalenceEnabled = isEnabled;
-    });
   }
 
   Future<void> _loadDeveloperModeStatus() async {
@@ -314,19 +306,21 @@ class _ProfileUIState extends State<ProfileUI> {
                       },
                     ),
                     const Divider(),
-                    // Opción de Norwegian Airlines
-                    SwitchListTile(
-                      title: const Text('Norwegian Airlines DY/D8 Equivalence'),
-                      subtitle: const Text(
-                          'Show flights with DY code when searching for D8 and vice versa'),
-                      value: _norwegianEquivalenceEnabled,
-                      activeColor: Colors.blue,
-                      onChanged: (bool value) async {
-                        setState(() {
-                          _norwegianEquivalenceEnabled = value;
-                        });
-                        await CacheService.saveNorwegianEquivalencePreference(
-                            value);
+                    // Configuración de visualización de datos
+                    ListTile(
+                      leading: const Icon(Icons.visibility, color: Colors.blue),
+                      title: const Text('Data Visualization Settings'),
+                      subtitle:
+                          const Text('Customize how flight data is displayed'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const DataVisualizationSettings(),
+                          ),
+                        );
                       },
                     ),
                     const Divider(),
