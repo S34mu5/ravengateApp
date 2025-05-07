@@ -85,7 +85,7 @@ class OzBaggageManagement extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            'Registering oversize item for flight $flightId at gate $currentGate'),
+            'SIMULATION: Registering oversize item for flight $flightId at gate $currentGate'),
         backgroundColor: Colors.amber,
         duration: const Duration(seconds: 2),
       ),
