@@ -135,7 +135,7 @@ abstract class BaseDeparturesScreenState<T extends BaseDeparturesScreen>
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    print('LOG: Disposing ${runtimeType} and canceling refresh timer');
+    print('LOG: Disposing $runtimeType and canceling refresh timer');
     super.dispose();
   }
 }

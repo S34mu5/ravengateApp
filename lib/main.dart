@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/auth/login/login_screen.dart';
-import 'screens/home/home_screen.dart';
 import 'services/auth/biometric_auth_service.dart';
 import 'services/auth/google_auth_service.dart';
 import 'services/auth/email_password_auth_service.dart';
@@ -221,8 +220,8 @@ class MyApp extends StatelessWidget {
         // Tipografía de Google Sans para tema oscuro
         fontFamily: 'Roboto',
         // Estilos para tema oscuro
-        appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFF202124), // Google Gray 900
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF202124), // Google Gray 900
           foregroundColor: Colors.white, // Blanco para texto en modo oscuro
           elevation: 0,
           centerTitle: false,

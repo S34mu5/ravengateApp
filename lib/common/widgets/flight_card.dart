@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/airline_helper.dart';
-import '../../utils/flight_search_helper.dart';
 import '../../utils/flight_filter_util.dart';
 import '../../screens/home/flight_details/utils/flight_formatters.dart';
 
@@ -279,13 +277,13 @@ class _FlightCardState extends State<FlightCard> {
                 // Mostrar badge según corresponda
                 if (isDelayedNotDeparted && !isCancelled)
                   _buildStatusPill(
-                      'DELAYED ${statusTime!}', Colors.amber.shade700)
+                      'DELAYED $statusTime', Colors.amber.shade700)
                 else if (isOnTimeOrEarlyDeparture)
                   _buildStatusPill(
-                      'DEPARTED ${statusTime!}', Colors.green.shade700)
+                      'DEPARTED $statusTime', Colors.green.shade700)
                 else if (isDelayedDeparture)
                   _buildStatusPill(
-                      'DEPARTED ${statusTime!}', Colors.amber.shade700),
+                      'DEPARTED $statusTime', Colors.amber.shade700),
               ],
             ),
           ],

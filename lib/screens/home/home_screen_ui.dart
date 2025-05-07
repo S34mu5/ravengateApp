@@ -111,14 +111,14 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
       ),
       body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
-        items: <BottomNavigationBarItem>[
+        items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: SizedBox(
               width: 48,
               height: 24,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(Icons.airplanemode_active, size: 16),
                   Icon(Icons.airplanemode_active, size: 16),
                   Icon(Icons.airplanemode_active, size: 16),
@@ -131,7 +131,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
             icon: Icon(Icons.flight),
             label: 'My Departures',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profile',
           ),

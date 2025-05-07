@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'swipeable_flights_service.dart';
 
 /// Mixin para añadir la funcionalidad de swipe entre vuelos en la pantalla de detalles
 mixin SwipeableFlightDetails<T extends StatefulWidget> on State<T> {

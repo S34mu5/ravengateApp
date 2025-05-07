@@ -684,7 +684,7 @@ class UserFlightsService {
 
       // Convertir a List<Map<String, dynamic>>
       final userFlightRefs = flightsSnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         return {
           ...data,
           'doc_id': doc.id,
@@ -888,7 +888,7 @@ class UserFlightsService {
           if (flightsSnapshot.docs.isNotEmpty) {
             // Convert to List<Map<String, dynamic>>
             userFlightRefs = flightsSnapshot.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+              final data = doc.data();
               // Add doc id as a field
               return {
                 ...data,
@@ -921,7 +921,7 @@ class UserFlightsService {
           userFlightRefs = [];
 
           for (final doc in allFlightsSnapshot.docs) {
-            final data = doc.data() as Map<String, dynamic>;
+            final data = doc.data();
 
             // Solo incluir documentos archivados
             if (data['archived'] == true) {
@@ -1488,7 +1488,7 @@ class UserFlightsService {
       return true;
     } catch (e) {
       print('LOG: Error saving flight to Firestore: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1515,7 +1515,7 @@ class UserFlightsService {
 
           // Convertir a List<Map<String, dynamic>> y ordenar en memoria
           List<Map<String, dynamic>> results = flightsSnapshot.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
+            final data = doc.data();
             return {
               ...data,
               'doc_id': doc.id,
@@ -1543,7 +1543,7 @@ class UserFlightsService {
           final List<Map<String, dynamic>> result = [];
 
           for (final doc in allFlightsSnapshot.docs) {
-            final data = doc.data() as Map<String, dynamic>;
+            final data = doc.data();
 
             // Solo incluir documentos no archivados
             if (data['archived'] != true) {
@@ -1579,7 +1579,7 @@ class UserFlightsService {
         final List<Map<String, dynamic>> result = [];
 
         for (final doc in allFlightsSnapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = doc.data();
 
           // Solo incluir documentos no archivados
           if (data['archived'] != true) {
@@ -1640,7 +1640,7 @@ class UserFlightsService {
       }
     } catch (e) {
       print('LOG: Error removing flight from Firestore: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1681,7 +1681,7 @@ class UserFlightsService {
       return true;
     } catch (e) {
       print('LOG: Error saving flight to local storage: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1702,7 +1702,7 @@ class UserFlightsService {
       return flights.where((flight) => flight['archived'] != true).toList();
     } catch (e) {
       print('LOG: Error getting flights from local storage: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -1732,7 +1732,7 @@ class UserFlightsService {
       return true;
     } catch (e) {
       print('LOG: Error removing flight from local storage: $e');
-      throw e;
+      rethrow;
     }
   }
 

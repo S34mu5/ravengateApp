@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'auth_methods.dart';
 import 'auth_result.dart';
 

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth/google_auth_service.dart';
-import '../../services/auth/biometric_auth_service.dart';
 import '../auth/login/login_screen.dart';
-import '../../controllers/auth_controller.dart';
 import 'home_screen_ui.dart';
 import '../../main.dart' as app;
 import '../../services/cache/cache_service.dart';

@@ -41,7 +41,7 @@ class GateMonitorService {
       print('❌ $formattedMessage');
     } else {
       developer.log(formattedMessage, name: 'GateMonitor');
-      print('$formattedMessage');
+      print(formattedMessage);
     }
   }
 

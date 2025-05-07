@@ -4,7 +4,6 @@ import '../../../controllers/auth_controller.dart';
 import '../../../services/auth/auth_methods.dart';
 import '../../../services/auth/auth_result.dart';
 import '../../../services/auth/email_password_auth_service.dart';
-import '../../home/home_screen.dart';
 import 'login_screen_ui.dart';
 import '../email_verification/email_verification_screen.dart';
 import '../../../main.dart' as app;

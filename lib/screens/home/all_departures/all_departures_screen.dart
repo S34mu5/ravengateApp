@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math';
 import 'package:intl/intl.dart';
 import 'dart:async'; // Importar para usar Timer
 import 'all_departures_ui.dart';

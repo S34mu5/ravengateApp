@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'archived_flights_ui.dart';
-import '../../../utils/airline_helper.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
 

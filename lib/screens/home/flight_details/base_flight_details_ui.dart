@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/services.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/developer/developer_mode_service.dart';
 import 'utils/flight_formatters.dart';

@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'flight_details_ui.dart';
-import '../../../services/navigation/swipeable_flight_details.dart';
-import '../../../services/navigation/swipeable_flights_service.dart';
 import 'base_flight_details_screen.dart';
 
 /// Component that handles the logic and data for the flight details screen

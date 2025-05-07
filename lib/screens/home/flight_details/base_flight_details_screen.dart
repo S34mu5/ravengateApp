@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/navigation/swipeable_flight_details.dart';
-import '../../../services/navigation/swipeable_flights_service.dart';
 import '../../../utils/flight_sort_util.dart';
 
 /// Clase base abstracta que contiene la lógica común para las pantallas de detalles de vuelo

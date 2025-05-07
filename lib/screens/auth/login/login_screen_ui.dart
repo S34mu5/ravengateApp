@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sign_in_button/sign_in_button.dart';
 import '../../../services/auth/auth_methods.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -264,16 +263,16 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                             _buildAuthButton(
                               onPressed: () =>
                                   widget.onAuthenticate(AuthMethod.google),
-                              child: Row(
+                              child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const FaIcon(
+                                  FaIcon(
                                     FontAwesomeIcons.google,
                                     size: 24,
                                     color: Colors.red,
                                   ),
-                                  const SizedBox(width: 12),
-                                  const Text(
+                                  SizedBox(width: 12),
+                                  Text(
                                     'Continue with Google',
                                     style: TextStyle(
                                       fontSize: 16,
@@ -289,15 +288,15 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                             _buildAuthButton(
                               onPressed: () =>
                                   widget.onAuthenticate(AuthMethod.biometric),
-                              child: Row(
+                              child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.fingerprint,
                                     size: 24,
                                   ),
-                                  const SizedBox(width: 12),
-                                  const Text(
+                                  SizedBox(width: 12),
+                                  Text(
                                     'Use biometrics',
                                     style: TextStyle(
                                       fontSize: 16,
@@ -318,7 +317,7 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),

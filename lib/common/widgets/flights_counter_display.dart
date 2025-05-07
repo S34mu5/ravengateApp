@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../utils/flight_filter_util.dart';
 
 /// Widget para mostrar el contador de vuelos y botones de acción
 class FlightsCounterDisplay extends StatelessWidget {

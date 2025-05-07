@@ -6,7 +6,6 @@ import '../../../utils/flight_filter_util.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../flight_details/oz_flight_details_screen.dart';
 import '../../../services/cache/cache_service.dart';
-import '../../../utils/progress_dialog.dart';
 import '../../../common/widgets/flight_card.dart';
 import '../../../services/location/location_service.dart';
 

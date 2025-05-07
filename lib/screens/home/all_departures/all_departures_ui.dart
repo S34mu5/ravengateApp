@@ -4,9 +4,7 @@ import '../../../services/cache/cache_service.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../flight_details/oz_flight_details_screen.dart';
-import '../../../utils/airline_helper.dart';
 import '../../../utils/progress_dialog.dart';
-import '../../../utils/flight_search_helper.dart';
 import '../../../utils/flight_filter_util.dart';
 import '../../../common/widgets/flight_card.dart';
 import '../../../common/widgets/flight_search_bar.dart';
@@ -41,15 +39,15 @@ class AllDeparturesUI extends StatefulWidget {
 }
 
 class _AllDeparturesUIState extends State<AllDeparturesUI> {
-  bool _isLoading = true;
+  final bool _isLoading = true;
   bool _isSelectionMode = false;
   List<Map<String, dynamic>> _filteredFlights = [];
   Set<int> _selectedFlightIndices = {};
   // Variables para la búsqueda
   final TextEditingController _searchController = TextEditingController();
-  String _searchAirline = '';
-  String _searchAirport = '';
-  String _searchGate = '';
+  final String _searchAirline = '';
+  final String _searchAirport = '';
+  final String _searchGate = '';
   String _searchQuery = '';
   bool _norwegianEquivalenceEnabled = true; // Enabled by default
 
@@ -559,7 +557,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
       // Si encontramos un vuelo ni departed ni cancelado, desplazarse a él
       if (index != -1) {
         // Calcular la posición aproximada
-        final double itemHeight =
+        const double itemHeight =
             70.0; // Altura aproximada de un Card (ajustar según diseño)
         final double offset = index * itemHeight;
 

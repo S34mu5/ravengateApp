@@ -18,7 +18,7 @@ class OversizeBaggage extends StatefulWidget {
 }
 
 class _OversizeBaggageState extends State<OversizeBaggage> {
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,14 +37,14 @@ class _OversizeBaggageState extends State<OversizeBaggage> {
             ),
           ],
         ),
-        child: Column(
+        child: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.luggage, color: Colors.amber),
-                const SizedBox(width: 8),
-                const Text(
+                Icon(Icons.luggage, color: Colors.amber),
+                SizedBox(width: 8),
+                Text(
                   'Oversize / Special Baggage',
                   style: TextStyle(
                     fontSize: 18,
@@ -53,16 +53,16 @@ class _OversizeBaggageState extends State<OversizeBaggage> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'This feature will allow tracking oversize baggage items for this flight.',
               style: TextStyle(
                 color: Colors.grey,
                 fontStyle: FontStyle.italic,
               ),
             ),
-            const SizedBox(height: 16),
-            const Center(
+            SizedBox(height: 16),
+            Center(
               child: Text(
                 'Functionality coming in future update',
                 style: TextStyle(

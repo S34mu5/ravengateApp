@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../utils/airline_helper.dart';
 import '../../../../utils/flight_filter_util.dart';
 import 'common_widgets.dart';
-import '../utils/flight_formatters.dart';
 
 /// Widget que muestra el encabezado con información básica del vuelo
 class FlightHeader extends StatefulWidget {

@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../archived_flights/archived_flights_screen.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../flight_details/oz_flight_details_screen.dart';
-import '../../../utils/airline_helper.dart';
-import '../../../utils/flight_search_helper.dart';
 import '../../../utils/flight_filter_util.dart';
 import '../../../common/widgets/flight_card.dart';
 import '../../../common/widgets/flight_search_bar.dart';
 import '../../../common/widgets/flights_counter_display.dart';
 import '../../../common/widgets/flight_selection_controls.dart';
 import '../../../common/widgets/time_ago_widget.dart';
-import '../../../services/cache/cache_service.dart';
 import '../../../utils/progress_dialog.dart';
 import '../../../services/user/user_flights_service.dart';
-import '../archived_flights/archived_flights_screen.dart';
 import '../../../services/location/location_service.dart';
 import 'dart:async';
 import '../../../utils/flight_sort_util.dart';
@@ -264,10 +259,10 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
                 widget.onRemoveFlight!(docId);
               }
             },
-            child: const Text('Eliminar'),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
@@ -324,10 +319,65 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
   Widget _buildFlightsList() {
     if (widget.flights.isEmpty) {
-      return const Center(
-        child: Text(
-          'No tienes vuelos guardados',
-          style: TextStyle(fontSize: 16),
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+
+              // Barra de búsqueda
+              FlightSearchBar(
+                controller: _searchController,
+                onSearch: _filterFlights,
+                onClear: () {
+                  _filterFlights('');
+                },
+              ),
+
+              // Indicador de actualizado
+              TimeAgoWidget(lastUpdated: widget.lastUpdated),
+
+              // Contador con botón de archivo
+              FlightsCounterDisplay(
+                flightCount: 0,
+                searchQuery: _searchQuery,
+                norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
+                onSelectMode: null,
+                showResetButton: false,
+                onResetFilters: null,
+                leadingActions: [
+                  // Botón para ver vuelos archivados
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const ArchivedFlightsScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.archive_outlined, size: 16),
+                    label: const Text('Archived'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+
+              // Mensaje centrado
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'No tienes vuelos guardados',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

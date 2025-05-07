@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_init;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'dart:developer' as developer;
 import '../developer/developer_mode_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,7 +40,7 @@ class NotificationService {
       print('❌ $formattedMessage');
     } else {
       developer.log(formattedMessage, name: 'Notifications');
-      print('$formattedMessage');
+      print(formattedMessage);
     }
   }
 

@@ -35,11 +35,11 @@ class OzBaggageManagement extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.luggage, color: Colors.amber),
-                const SizedBox(width: 8),
-                const Text(
+                Icon(Icons.luggage, color: Colors.amber),
+                SizedBox(width: 8),
+                Text(
                   'Oversize Baggage Management',
                   style: TextStyle(
                     fontSize: 18,
