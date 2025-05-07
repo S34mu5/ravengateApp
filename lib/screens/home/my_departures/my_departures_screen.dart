@@ -1,94 +1,49 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Importar para usar Timer
 import 'my_departures_ui.dart';
 import '../../../services/user/user_flights_service.dart';
 import '../../../services/notifications/notification_service.dart';
 import '../../../services/flights/flight_delay_detector.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../base_departures_screen.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
-class MyDeparturesScreen extends StatefulWidget {
+class MyDeparturesScreen extends BaseDeparturesScreen {
   const MyDeparturesScreen({super.key});
 
   @override
   State<MyDeparturesScreen> createState() => _MyDeparturesScreenState();
 }
 
-class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
+class _MyDeparturesScreenState
+    extends BaseDeparturesScreenState<MyDeparturesScreen> {
   List<Map<String, dynamic>> _userFlights = [];
   List<Map<String, dynamic>> _previousUserFlights = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-  Timer? _refreshTimer; // Timer para actualización periódica
-  DateTime? _lastUpdated; // Tiempo de última actualización
   final NotificationService _notificationService = NotificationService();
   final FlightDelayDetector _delayDetector = FlightDelayDetector();
-  bool _usingCachedData = false; // Indicador de si los datos son de la caché
-
-  // Claves para la caché
-  static const String _userFlightsLastUpdatedKey = 'user_flights_last_updated';
 
   @override
-  void initState() {
-    super.initState();
-    _initializeServices();
-    _loadData(); // Usar el nuevo método de carga en dos fases
-
-    // Configurar actualización automática cada 3 minutos
-    _refreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
-      print(
-          'LOG: Actualizando datos de vuelos del usuario automáticamente cada 3 minutos');
-      // Guardar los vuelos actuales como "anteriores" antes de cargar los nuevos
-      _previousUserFlights = List.from(_userFlights);
-      // Cada 3 actualizaciones (9 minutos), forzar actualización completa desde Firestore
-      final bool shouldForceRefresh = timer.tick % 3 == 0;
-      _loadUserFlights(forceRefresh: shouldForceRefresh);
-    });
-  }
-
-  /// Inicializa los servicios necesarios
   Future<void> _initializeServices() async {
-    // Inicializar el servicio de notificaciones
     await _notificationService.init();
-
-    // Solicitar permisos para las notificaciones
     final bool hasPermission = await _notificationService.requestPermissions();
     print(
         'LOG: Permisos de notificaciones ${hasPermission ? 'concedidos' : 'denegados'}');
   }
 
-  /// Método principal para cargar datos en dos fases
-  /// Primero intenta cargar la caché, luego actualiza desde Firestore
-  Future<void> _loadData() async {
-    print('LOG: Iniciando carga de datos en dos fases...');
-
-    // Intentar cargar desde la caché primero a través del servicio
-    // (ya está implementado en UserFlightsService.getUserFlights())
-    await _loadUserFlights();
-  }
-
-  /// Cargar los vuelos guardados por el usuario
-  Future<void> _loadUserFlights({bool forceRefresh = false}) async {
+  @override
+  Future<void> loadFlights({bool forceRefresh = false}) async {
     print(
         'LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen ${forceRefresh ? "(FORZANDO ACTUALIZACIÓN)" : ""}');
 
     try {
-      // Verificar si el widget está montado antes de actualizar estado
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-        _lastUpdated = DateTime
-            .now(); // Actualizar timestamp inmediatamente al iniciar carga
-      });
+      setLoading(true);
+      setError(null);
+      setLastUpdated(DateTime.now());
 
       // Obtener vuelos del usuario desde el servicio
-      // (El servicio intentará cargar desde caché primero, a menos que forzemos actualización)
       final userFlights =
           await UserFlightsService.getUserFlights(forceRefresh: forceRefresh);
 
-      // Verificar nuevamente si el widget sigue montado
       if (!mounted) return;
 
       // Guardar vuelos actuales
@@ -101,12 +56,10 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
 
       setState(() {
         _userFlights = newFlights;
-        _isLoading = false;
-        // Actualizar timestamp al momento actual cuando hacemos refresh
-        _lastUpdated = DateTime.now();
-        _usingCachedData =
-            false; // Si estamos forzando la actualización, no estamos usando caché
       });
+      setLoading(false);
+      setUsingCachedData(false);
+      setLastUpdated(DateTime.now());
 
       // Actualizar la lista de vuelos anteriores para futuras comparaciones
       _previousUserFlights = List.from(newFlights);
@@ -115,79 +68,28 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
           'LOG: Se cargaron ${_userFlights.length} vuelos del usuario (Actualización forzada: $forceRefresh)');
     } catch (e) {
       print('LOG: Error al cargar vuelos del usuario: $e');
-
-      // Verificar si el widget sigue montado antes de actualizar estado de error
       if (!mounted) return;
-
-      setState(() {
-        _errorMessage = 'Error loading flights: $e';
-        _isLoading = false;
-        _lastUpdated =
-            DateTime.now(); // Actualizar timestamp incluso en caso de error
-      });
+      setError('Error loading flights: $e');
+      setLoading(false);
+      setLastUpdated(DateTime.now());
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red.shade700),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadUserFlights,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: () => _loadUserFlights(forceRefresh: true),
-                  child: MyDeparturesUI(
-                    flights: _userFlights,
-                    onRemoveFlight: _removeFlight,
-                    onRefresh: () => _loadUserFlights(forceRefresh: true),
-                    lastUpdated: _lastUpdated,
-                    usingCachedData:
-                        _usingCachedData, // Pasar la información de caché a la UI
-                  ),
-                ),
-    );
   }
 
   /// Eliminar un vuelo de la lista del usuario
   Future<void> _removeFlight(String flightId) async {
     try {
-      // Verificar si el widget está montado antes de actualizar estado
       if (!mounted) return;
 
-      // Mostrar indicador de carga
-      setState(() {
-        _isLoading = true;
-      });
+      setLoading(true);
 
       // Eliminar el vuelo
       final wasRemoved = await UserFlightsService.removeFlight(flightId);
 
-      // Verificar si el widget sigue montado antes de recargar la lista
       if (!mounted) return;
 
       // Recargar la lista
-      await _loadUserFlights(forceRefresh: true);
+      await loadFlights(forceRefresh: true);
 
-      // Esta verificación ya existe, se mantiene
       if (!mounted) return;
 
       // Mostrar mensaje de éxito o error
@@ -203,11 +105,8 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
       );
     } catch (e) {
       print('LOG: Error removing flight: $e');
-
-      // Esta verificación ya existe, se mantiene
       if (!mounted) return;
 
-      // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error removing flight: $e'),
@@ -216,19 +115,19 @@ class _MyDeparturesScreenState extends State<MyDeparturesScreen> {
         ),
       );
 
-      // Verificar montado antes de recargar
       if (!mounted) return;
-
-      // Recargar la lista de todos modos
-      _loadUserFlights();
+      loadFlights();
     }
   }
 
   @override
-  void dispose() {
-    // Cancelar el timer cuando se destruye el widget
-    _refreshTimer?.cancel();
-    print('LOG: Disposing MyDeparturesScreen and canceling refresh timer');
-    super.dispose();
+  Widget buildUI() {
+    return MyDeparturesUI(
+      flights: _userFlights,
+      onRemoveFlight: _removeFlight,
+      onRefresh: () => loadFlights(forceRefresh: true),
+      lastUpdated: lastUpdated,
+      usingCachedData: usingCachedData,
+    );
   }
 }

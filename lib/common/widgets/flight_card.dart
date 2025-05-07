@@ -136,9 +136,32 @@ class _FlightCardState extends State<FlightCard> {
         statusTime != formattedTime &&
         FlightFilterUtil.isLaterTime(statusTime, formattedTime);
 
+    // Verificar si el vuelo despegó antes de tiempo o a su hora programada
+    final bool isOnTimeOrEarly = widget.flight['status_code'] == 'D' &&
+        statusTime != null &&
+        (!FlightFilterUtil.isLaterTime(statusTime, formattedTime) ||
+            statusTime == formattedTime);
+
     // Verificar estados especiales
     final bool isDeparted = widget.flight['status_code'] == 'D';
     final bool isCancelled = widget.flight['status_code'] == 'C';
+
+    // Verificar si el vuelo está retrasado pero aún no ha despegado
+    final bool isDelayedNotDeparted = statusTime != null &&
+        statusTime != formattedTime &&
+        FlightFilterUtil.isLaterTime(statusTime, formattedTime) &&
+        !isDeparted;
+
+    // Verificar si el vuelo despegó a tiempo o temprano
+    final bool isOnTimeOrEarlyDeparture = isDeparted &&
+        statusTime != null &&
+        (!FlightFilterUtil.isLaterTime(statusTime, formattedTime) ||
+            statusTime == formattedTime);
+
+    // Verificar si el vuelo despegó tarde
+    final bool isDelayedDeparture = isDeparted &&
+        statusTime != null &&
+        FlightFilterUtil.isLaterTime(statusTime, formattedTime);
 
     // Color de fondo según estado
     final Color cardColor = isCancelled
@@ -251,12 +274,18 @@ class _FlightCardState extends State<FlightCard> {
                           ),
                   ],
                 ),
-                // Empujar el badge DELAYED a la derecha
-                if (isDelayed && !isCancelled) ...[
-                  const Spacer(),
+                // Empujar los badges a la derecha
+                const Spacer(),
+                // Mostrar badge según corresponda
+                if (isDelayedNotDeparted && !isCancelled)
                   _buildStatusPill(
-                      'DELAYED ${statusTime!}', Colors.amber.shade700),
-                ],
+                      'DELAYED ${statusTime!}', Colors.amber.shade700)
+                else if (isOnTimeOrEarlyDeparture)
+                  _buildStatusPill(
+                      'DEPARTED ${statusTime!}', Colors.green.shade700)
+                else if (isDelayedDeparture)
+                  _buildStatusPill(
+                      'DEPARTED ${statusTime!}', Colors.amber.shade700),
               ],
             ),
           ],

@@ -18,6 +18,7 @@ import '../../../services/user/user_flights_service.dart';
 import '../archived_flights/archived_flights_screen.dart';
 import '../../../services/location/location_service.dart';
 import 'dart:async';
+import '../../../utils/flight_sort_util.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
 class MyDeparturesUI extends StatefulWidget {
@@ -75,36 +76,11 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
       norwegianEquivalenceEnabled: _norwegianEquivalenceEnabled,
     );
 
-    // Ordenar los vuelos por tiempo (primero los más tempranos)
-    filteredList.sort((a, b) {
-      try {
-        // Primero intentamos comparar por status_time (el tiempo actual del vuelo)
-        final aStatusTime = a['status_time']?.toString() ?? '';
-        final bStatusTime = b['status_time']?.toString() ?? '';
-
-        // Si ambos tienen status_time, comparamos esos valores
-        if (aStatusTime.isNotEmpty && bStatusTime.isNotEmpty) {
-          final aTime = FlightFilterUtil.extractTimeFromSchedule(aStatusTime);
-          final bTime = FlightFilterUtil.extractTimeFromSchedule(bStatusTime);
-          return aTime.compareTo(bTime);
-        }
-
-        // Si no tienen status_time, comparamos schedule_time
-        final aScheduleTime = a['schedule_time'].toString();
-        final bScheduleTime = b['schedule_time'].toString();
-
-        final aTime = FlightFilterUtil.extractTimeFromSchedule(aScheduleTime);
-        final bTime = FlightFilterUtil.extractTimeFromSchedule(bScheduleTime);
-
-        return aTime.compareTo(bTime);
-      } catch (e) {
-        print('LOG: Error ordenando vuelos: $e');
-        return 0; // En caso de error, no cambiamos el orden
-      }
-    });
+    // Ordenar usando el utilitario compartido
+    final sortedList = FlightSortUtil.sortFlightsByTime(filteredList);
 
     setState(() {
-      _filteredFlights = filteredList;
+      _filteredFlights = sortedList;
     });
   }
 
@@ -306,6 +282,56 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
 
   @override
   Widget build(BuildContext context) {
+    // Si estamos usando datos en caché, mostrar un indicador sutil
+    if (widget.usingCachedData) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+            color: Colors.blue.shade50,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.access_time, color: Colors.blue, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  widget.lastUpdated != null
+                      ? 'Última actualización: ${_formatLastUpdated(widget.lastUpdated!)}'
+                      : 'Usando datos almacenados',
+                  style: TextStyle(color: Colors.blue.shade900, fontSize: 13),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 16),
+                  onPressed: widget.onRefresh,
+                  tooltip: 'Actualizar datos ahora',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _buildFlightsList(),
+          ),
+        ],
+      );
+    }
+
+    return _buildFlightsList();
+  }
+
+  Widget _buildFlightsList() {
+    if (widget.flights.isEmpty) {
+      return const Center(
+        child: Text(
+          'No tienes vuelos guardados',
+          style: TextStyle(fontSize: 16),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: null,
@@ -475,5 +501,23 @@ class _MyDeparturesUIState extends State<MyDeparturesUI> {
   /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
   bool _isLaterTime(String time1, String time2) {
     return FlightFilterUtil.isLaterTime(time1, time2);
+  }
+
+  String _formatLastUpdated(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inSeconds < 60) {
+      return 'hace unos segundos';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return 'hace $minutes ${minutes == 1 ? 'minuto' : 'minutos'}';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return 'hace $hours ${hours == 1 ? 'hora' : 'horas'}';
+    } else {
+      final formatter = DateFormat('dd/MM HH:mm');
+      return formatter.format(timestamp);
+    }
   }
 }

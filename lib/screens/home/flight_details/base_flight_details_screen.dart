@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/navigation/swipeable_flight_details.dart';
 import '../../../services/navigation/swipeable_flights_service.dart';
+import '../../../utils/flight_sort_util.dart';
 
 /// Clase base abstracta que contiene la lógica común para las pantallas de detalles de vuelo
 abstract class BaseFlightDetailsScreen extends StatefulWidget {
@@ -91,65 +92,38 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
     return flightsList.length >= 2;
   }
 
-  /// Obtiene el ID del documento del vuelo siguiente en la lista
+  /// Método para obtener el ID del documento del vuelo siguiente en la lista
   String? getNextFlight(String currentDocId) {
     if (!canSwipeThroughFlights()) return null;
 
-    // Encontrar el índice del vuelo actual
-    final currentIndex = findFlightIndex(currentDocId);
-    if (currentIndex == -1) return null;
+    // Ordenar la lista de vuelos usando el utilitario común
+    final sortedFlights = FlightSortUtil.sortFlightsByTime(flightsList);
 
-    // Calcular el índice del siguiente vuelo
-    // Para my_departures la dirección se invierte
-    int targetIndex;
-    if (flightsSource == 'my') {
-      targetIndex = currentIndex - 1;
-      if (targetIndex < 0) return null; // No hay vuelos anteriores
-    } else {
-      targetIndex = currentIndex + 1;
-      if (targetIndex >= flightsList.length) return null; // No hay más vuelos
-    }
+    // Encontrar el índice del siguiente vuelo
+    final nextIndex = FlightSortUtil.findNextFlightIndex(
+        sortedFlights, currentDocId, flightsSource);
 
-    // Devolver el ID del documento del vuelo objetivo
-    return getDocIdFromFlightItem(flightsList[targetIndex]);
+    if (nextIndex == -1) return null;
+
+    // Obtener el ID del documento del vuelo objetivo
+    return getDocIdFromFlightItem(sortedFlights[nextIndex]);
   }
 
   /// Obtiene el ID del documento del vuelo anterior en la lista
   String? getPreviousFlight(String currentDocId) {
     if (!canSwipeThroughFlights()) return null;
 
-    // Encontrar el índice del vuelo actual
-    final currentIndex = findFlightIndex(currentDocId);
-    if (currentIndex == -1) return null;
+    // Ordenar la lista de vuelos usando el utilitario común
+    final sortedFlights = FlightSortUtil.sortFlightsByTime(flightsList);
 
-    // Calcular el índice del vuelo anterior
-    // Para my_departures la dirección se invierte
-    int targetIndex;
-    if (flightsSource == 'my') {
-      targetIndex = currentIndex + 1;
-      if (targetIndex >= flightsList.length) return null; // No hay más vuelos
-    } else {
-      targetIndex = currentIndex - 1;
-      if (targetIndex < 0) return null; // No hay vuelos anteriores
-    }
+    // Encontrar el índice del vuelo anterior
+    final prevIndex = FlightSortUtil.findPreviousFlightIndex(
+        sortedFlights, currentDocId, flightsSource);
 
-    // Devolver el ID del documento del vuelo objetivo
-    return getDocIdFromFlightItem(flightsList[targetIndex]);
-  }
+    if (prevIndex == -1) return null;
 
-  /// Encuentra el índice de un vuelo en la lista de vuelos
-  int findFlightIndex(String docId) {
-    // Buscar primero por id directo
-    int index = flightsList.indexWhere((flight) => flight['id'] == docId);
-
-    // Si no se encuentra, intentar con otros campos
-    if (index == -1) {
-      index = flightsList.indexWhere((flight) =>
-          (flight['flight_ref'] != null && flight['flight_ref'] == docId) ||
-          (flight['doc_id'] != null && flight['doc_id'] == docId));
-    }
-
-    return index;
+    // Obtener el ID del documento del vuelo objetivo
+    return getDocIdFromFlightItem(sortedFlights[prevIndex]);
   }
 
   /// Obtiene el ID del documento de un elemento de la lista de vuelos
@@ -383,45 +357,42 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
 
   /// Loads the details of the adjacent flight in the specified direction
   Future<void> loadAdjacentFlightDetails(bool isNext) async {
-    if (widget.flightsList == null ||
-        widget.flightsList!.isEmpty ||
-        loadingAdjacentFlight) {
+    if (flightsList.isEmpty || loadingAdjacentFlight) {
       return;
     }
 
-    // Find the current index
-    int currentIndex = widget.flightsList!
-        .indexWhere((flight) => flight['id'] == widget.documentId);
+    // Ordenar la lista de vuelos usando el utilitario compartido
+    final sortedFlights = FlightSortUtil.sortFlightsByTime(flightsList);
+
+    // Encontrar el índice del vuelo actual
+    int currentIndex = -1;
+    for (int i = 0; i < sortedFlights.length; i++) {
+      final flight = sortedFlights[i];
+      final String id = flightsSource == 'my'
+          ? (flight['flight_ref'] ?? flight['id'] ?? '')
+          : flight['id'];
+
+      if (id == currentFlightDocId) {
+        currentIndex = i;
+        break;
+      }
+    }
 
     if (currentIndex == -1) {
-      currentIndex = widget.flightsList!.indexWhere((flight) =>
-          (flight['flight_ref'] != null &&
-              flight['flight_ref'] == widget.documentId) ||
-          (flight['doc_id'] != null && flight['doc_id'] == widget.documentId));
-    }
-
-    if (currentIndex == -1) {
       return;
     }
 
-    // Calculate adjacent index based on the source and direction
-    int adjacentIndex;
-    if (widget.flightsSource == 'my') {
-      // For my_departures the logic is reversed
-      adjacentIndex = isNext ? currentIndex - 1 : currentIndex + 1;
-    } else {
-      // For all_departures
-      adjacentIndex = isNext ? currentIndex + 1 : currentIndex - 1;
-    }
+    // Calcular índice adyacente según la dirección
+    int adjacentIndex = isNext ? currentIndex + 1 : currentIndex - 1;
 
-    // Check valid index
-    if (adjacentIndex < 0 || adjacentIndex >= widget.flightsList!.length) {
+    // Verificar índice válido
+    if (adjacentIndex < 0 || adjacentIndex >= sortedFlights.length) {
       return;
     }
 
-    // Get adjacent flight data
-    final adjacentFlight = widget.flightsList![adjacentIndex];
-    final String docId = widget.flightsSource == 'my'
+    // Obtener datos del vuelo adyacente
+    final adjacentFlight = sortedFlights[adjacentIndex];
+    final String docId = flightsSource == 'my'
         ? (adjacentFlight['flight_ref'] ?? adjacentFlight['id'] ?? '')
         : adjacentFlight['id'];
 
@@ -464,80 +435,77 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
 
   /// Checks if we're at the edge of the flight list
   bool checkIfAtEdgeOfList(bool isNext) {
-    if (widget.flightsList == null || widget.flightsList!.isEmpty) {
+    if (flightsList.isEmpty) {
       return true;
     }
 
-    final currentIndex = widget.flightsList!
-        .indexWhere((flight) => flight['id'] == widget.documentId);
+    // Ordenar la lista de vuelos usando el utilitario compartido
+    final sortedFlights = FlightSortUtil.sortFlightsByTime(flightsList);
 
-    int index = currentIndex;
-    if (index == -1) {
-      index = widget.flightsList!.indexWhere((flight) =>
-          (flight['flight_ref'] != null &&
-              flight['flight_ref'] == widget.documentId) ||
-          (flight['doc_id'] != null && flight['doc_id'] == widget.documentId));
-    }
+    // Encontrar la posición actual
+    int currentIndex = -1;
+    for (int i = 0; i < sortedFlights.length; i++) {
+      final flight = sortedFlights[i];
+      final String id = flightsSource == 'my'
+          ? (flight['flight_ref'] ?? flight['id'] ?? '')
+          : flight['id'];
 
-    if (index == -1) {
-      return true;
-    }
-
-    if (widget.flightsSource == 'my') {
-      // For my_departures the logic is reversed
-      if (isNext && index <= 0) {
-        return true; // Already at first flight
-      }
-      if (!isNext && index >= widget.flightsList!.length - 1) {
-        return true; // Already at last flight
-      }
-    } else {
-      // For all_departures
-      if (isNext && index >= widget.flightsList!.length - 1) {
-        return true; // Already at last flight
-      }
-      if (!isNext && index <= 0) {
-        return true; // Already at first flight
+      if (id == currentFlightDocId) {
+        currentIndex = i;
+        break;
       }
     }
 
-    return false;
+    if (currentIndex == -1) {
+      return true; // No se encontró el vuelo actual
+    }
+
+    // Verificar si estamos en el borde de la lista
+    if (isNext && currentIndex >= sortedFlights.length - 1) {
+      return true; // Ya estamos en el último vuelo
+    }
+
+    if (!isNext && currentIndex <= 0) {
+      return true; // Ya estamos en el primer vuelo
+    }
+
+    return false; // No estamos en el borde
   }
 
   /// Navigate to adjacent flight
   void navigateToAdjacentFlight(bool isNext) {
-    if (widget.flightsList != null && widget.flightsList!.isNotEmpty) {
-      // Indicar a SwipeableFlightsService que debe forzar actualización al volver
-      // solo si la fuente es my_departures
-      final bool shouldForceRefresh = widget.flightsSource == 'my';
-
-      // Obtener el destino del vuelo
-      final String? targetDocId = isNext
-          ? getNextFlight(currentFlightDocId)
-          : getPreviousFlight(currentFlightDocId);
-
-      if (targetDocId == null) {
-        print(
-            'LOG: No hay ${isNext ? "siguiente" : "anterior"} vuelo disponible');
-        return;
-      }
-
-      // Navegar al vuelo adyacente
-      final Widget targetScreen = buildAdjacentFlightScreen(
-        flightId: '', // Se actualizará después de cargar los datos
-        documentId: targetDocId,
-        flightsList: flightsList,
-        flightsSource: flightsSource,
-        forceRefreshOnReturn: shouldForceRefresh,
-      );
-
-      // Usar Navigator para navegar a la nueva pantalla
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => targetScreen),
-      );
-    } else {
+    if (flightsList.isEmpty) {
       print('LOG: No se puede navegar - lista de vuelos vacía');
+      return;
     }
+
+    // Indicar que debe forzar actualización al volver si la fuente es my_departures
+    final bool shouldForceRefresh = flightsSource == 'my';
+
+    // Obtener el destino del vuelo
+    final String? targetDocId = isNext
+        ? getNextFlight(currentFlightDocId)
+        : getPreviousFlight(currentFlightDocId);
+
+    if (targetDocId == null) {
+      print(
+          'LOG: No hay ${isNext ? "siguiente" : "anterior"} vuelo disponible');
+      return;
+    }
+
+    // Navegar al vuelo adyacente
+    final Widget targetScreen = buildAdjacentFlightScreen(
+      flightId: '', // Se actualizará después de cargar los datos
+      documentId: targetDocId,
+      flightsList: flightsList,
+      flightsSource: flightsSource,
+      forceRefreshOnReturn: shouldForceRefresh,
+    );
+
+    // Usar Navigator para navegar a la nueva pantalla
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => targetScreen),
+    );
   }
 
   /// Método abstracto para obtener el nombre de la pantalla (para logs)

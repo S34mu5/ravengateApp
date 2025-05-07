@@ -14,6 +14,7 @@ import '../../../common/widgets/flights_counter_display.dart';
 import '../../../common/widgets/flight_selection_controls.dart';
 import '../../../common/widgets/time_ago_widget.dart';
 import '../../../services/location/location_service.dart';
+import '../../../utils/flight_sort_util.dart';
 
 /// Widget that displays the user interface for the list of all departure flights
 class AllDeparturesUI extends StatefulWidget {
@@ -23,6 +24,7 @@ class AllDeparturesUI extends StatefulWidget {
       onCustomRangeLoad;
   final bool isRefreshing;
   final DateTime? lastUpdated;
+  final bool usingCachedData;
 
   const AllDeparturesUI({
     required this.flights,
@@ -30,6 +32,7 @@ class AllDeparturesUI extends StatefulWidget {
     this.onCustomRangeLoad,
     this.isRefreshing = false,
     this.lastUpdated,
+    this.usingCachedData = false,
     super.key,
   });
 
@@ -223,7 +226,7 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
   // Update the list of filtered flights when data changes
   void _updateFilteredFlights() {
     _filteredFlights = List.from(widget.flights);
-    // Sort flights by departure time (ascending order)
+    // Sort flights using shared utility
     _sortFlightsByDepartureTime();
     // Apply existing filters
     _applyFilters();
@@ -231,57 +234,8 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   // Sort flights in ascending order by departure time
   void _sortFlightsByDepartureTime() {
-    _filteredFlights.sort((a, b) {
-      try {
-        final aTime = a['schedule_time'].toString();
-        final bTime = b['schedule_time'].toString();
-
-        // Parse times to DateTime objects for comparison
-        DateTime aDateTime, bDateTime;
-
-        // Handle ISO format
-        if (aTime.contains('T')) {
-          aDateTime = DateTime.parse(aTime);
-        } else {
-          // Simple HH:MM format
-          final parts = aTime.split(':');
-          if (parts.length == 2) {
-            aDateTime = DateTime(
-              DateTime.now().year,
-              DateTime.now().month,
-              DateTime.now().day,
-              int.parse(parts[0]),
-              int.parse(parts[1]),
-            );
-          } else {
-            return 0; // Invalid format, no change in order
-          }
-        }
-
-        if (bTime.contains('T')) {
-          bDateTime = DateTime.parse(bTime);
-        } else {
-          final parts = bTime.split(':');
-          if (parts.length == 2) {
-            bDateTime = DateTime(
-              DateTime.now().year,
-              DateTime.now().month,
-              DateTime.now().day,
-              int.parse(parts[0]),
-              int.parse(parts[1]),
-            );
-          } else {
-            return 0; // Invalid format, no change in order
-          }
-        }
-
-        // Compare times and return sort order (ascending)
-        return aDateTime.compareTo(bDateTime);
-      } catch (e) {
-        print('LOG: Error sorting flights: $e');
-        return 0; // On error, no change in order
-      }
-    });
+    // Usar el utilitario compartido para ordenar
+    _filteredFlights = FlightSortUtil.sortFlightsByTime(_filteredFlights);
   }
 
   // Convert TimeOfDay to DateTime
@@ -875,6 +829,47 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
 
   @override
   Widget build(BuildContext context) {
+    // Si estamos usando datos en caché, mostrar un indicador sutil
+    if (widget.usingCachedData) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+            color: Colors.blue.shade50,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.access_time, color: Colors.blue, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  widget.lastUpdated != null
+                      ? 'Última actualización: ${_formatLastUpdated(widget.lastUpdated!)}'
+                      : 'Usando datos almacenados',
+                  style: TextStyle(color: Colors.blue.shade900, fontSize: 13),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 16),
+                  onPressed: widget.onRefresh ?? () async {},
+                  tooltip: 'Actualizar datos ahora',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _buildFlightsList(),
+          ),
+        ],
+      );
+    }
+
+    return _buildFlightsList();
+  }
+
+  Widget _buildFlightsList() {
     return Scaffold(
       backgroundColor: Colors.white,
       // Reemplazar el FloatingActionButton con FlightSelectionControls
@@ -1033,5 +1028,23 @@ class _AllDeparturesUIState extends State<AllDeparturesUI> {
         ],
       ),
     );
+  }
+
+  String _formatLastUpdated(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inSeconds < 60) {
+      return 'hace unos segundos';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return 'hace $minutes ${minutes == 1 ? 'minuto' : 'minutos'}';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return 'hace $hours ${hours == 1 ? 'hora' : 'horas'}';
+    } else {
+      final formatter = DateFormat('dd/MM HH:mm');
+      return formatter.format(timestamp);
+    }
   }
 }
