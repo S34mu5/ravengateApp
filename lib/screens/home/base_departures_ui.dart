@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../common/widgets/flight_card.dart';
-import '../../common/widgets/flight_search_bar.dart';
-import '../../common/widgets/flights_counter_display.dart';
 import '../../common/widgets/flight_selection_controls.dart';
-import '../../common/widgets/time_ago_widget.dart';
 import '../../utils/flight_filter_util.dart';
 import '../../utils/flight_sort_util.dart';
 

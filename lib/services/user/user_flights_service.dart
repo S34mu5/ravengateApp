@@ -627,8 +627,8 @@ class UserFlightsService {
     try {
       // Get current user
       final user = FirebaseAuth.instance.currentUser;
-      print('LOG: Obteniendo fechas de vuelos archivados' +
-          (forceRefresh ? " (forzando actualización)" : ""));
+      print(
+          'LOG: Obteniendo fechas de vuelos archivados${forceRefresh ? " (forzando actualización)" : ""}');
 
       // Intentar cargar desde la caché primero si no se fuerza la actualización
       if (!forceRefresh) {
@@ -762,8 +762,8 @@ class UserFlightsService {
     try {
       // Get current user
       final user = FirebaseAuth.instance.currentUser;
-      print('LOG: Obteniendo vuelos archivados para la fecha: $date' +
-          (forceRefresh ? " (forzando actualización)" : ""));
+      print(
+          'LOG: Obteniendo vuelos archivados para la fecha: $date${forceRefresh ? " (forzando actualización)" : ""}');
 
       // Intentar cargar desde la caché primero si no se fuerza la actualización
       if (!forceRefresh) {
@@ -1954,33 +1954,27 @@ class UserFlightsService {
           filteredFlights.add(flight);
         } else if (statusCode == 'E') {
           // Para vuelos con status 'E' (new time), verificar si la caché es reciente
-          if (lastUpdatedStr != null) {
-            final lastUpdated = DateTime.parse(lastUpdatedStr);
-            final now = DateTime.now();
-            final difference = now.difference(lastUpdated);
-            if (difference.inMinutes <= 5) {
-              filteredFlights.add(flight);
-            }
+          final lastUpdated = DateTime.parse(lastUpdatedStr);
+          final now = DateTime.now();
+          final difference = now.difference(lastUpdated);
+          if (difference.inMinutes <= 5) {
+            filteredFlights.add(flight);
           }
         } else if (statusCode == 'N/A') {
           // Para vuelos con status 'N/A' (pronto para saber el estado), verificar si la caché es reciente
-          if (lastUpdatedStr != null) {
-            final lastUpdated = DateTime.parse(lastUpdatedStr);
-            final now = DateTime.now();
-            final difference = now.difference(lastUpdated);
-            if (difference.inMinutes <= 5) {
-              filteredFlights.add(flight);
-            }
+          final lastUpdated = DateTime.parse(lastUpdatedStr);
+          final now = DateTime.now();
+          final difference = now.difference(lastUpdated);
+          if (difference.inMinutes <= 5) {
+            filteredFlights.add(flight);
           }
         } else {
           // Para otros vuelos, verificar si la caché es reciente
-          if (lastUpdatedStr != null) {
-            final lastUpdated = DateTime.parse(lastUpdatedStr);
-            final now = DateTime.now();
-            final difference = now.difference(lastUpdated);
-            if (difference.inMinutes <= 5) {
-              filteredFlights.add(flight);
-            }
+          final lastUpdated = DateTime.parse(lastUpdatedStr);
+          final now = DateTime.now();
+          final difference = now.difference(lastUpdated);
+          if (difference.inMinutes <= 5) {
+            filteredFlights.add(flight);
           }
         }
       }

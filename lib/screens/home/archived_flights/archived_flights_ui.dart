@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../utils/airline_helper.dart';
 import '../../../utils/flight_search_helper.dart';
 import '../../../utils/flight_filter_util.dart';
 import '../flight_details/flight_details_screen.dart';
@@ -9,7 +8,6 @@ import '../../../services/cache/cache_service.dart';
 import '../../../common/widgets/flight_card.dart';
 import '../../../services/location/location_service.dart';
 import '../../../utils/progress_dialog.dart';
-import '../../../common/widgets/flight_selection_controls.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos archivados
 class ArchivedFlightsUI extends StatefulWidget {

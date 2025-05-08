@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'widgets/flight_header.dart';
 import 'widgets/gate_history.dart';
 import 'widgets/oz_baggage_management.dart';
+import 'widgets/oz_oversize_items_list.dart';
 import 'widgets/debug_information.dart';
 import 'base_flight_details_ui.dart';
 
@@ -42,44 +43,52 @@ class _OzFlightDetailsUIState
     bool developerModeEnabled,
     Future<void> Function() onRefresh,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header con información principal (reutilizado de flight_details_ui.dart)
-        FlightHeader(
-          flightDetails: flightDetails,
-          formattedScheduleTime: formattedScheduleTime,
-          formattedStatusTime: formattedStatusTime,
-          isDelayed: isDelayed,
-          isDeparted: isDeparted,
-          isCancelled: isCancelled,
-          airlineColor: airlineColor,
-          documentId: documentId,
-        ),
-
-        // Historial de cambios de puerta/gate
-        GateHistory(
-          gateHistory: gateHistory,
-          formattedScheduleTime: formattedScheduleTime,
-        ),
-
-        // Área para la gestión de equipaje sobredimensionado
-        OzBaggageManagement(
-          flightId: flightDetails['flight_id'] ?? '',
-          documentId: documentId,
-          currentGate: currentGate,
-          onRegisterSuccess: onRefresh,
-        ),
-
-        // Debug Information - solo visible en modo desarrollador
-        if (developerModeEnabled)
-          DebugInformation(
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header con información principal (reutilizado de flight_details_ui.dart)
+          FlightHeader(
+            flightDetails: flightDetails,
+            formattedScheduleTime: formattedScheduleTime,
+            formattedStatusTime: formattedStatusTime,
+            isDelayed: isDelayed,
+            isDeparted: isDeparted,
+            isCancelled: isCancelled,
+            airlineColor: airlineColor,
             documentId: documentId,
-            onShowAdditionalInfo: () => _showAdditionalInfoModal(context),
           ),
 
-        const SizedBox(height: 24),
-      ],
+          // Historial de cambios de puerta/gate
+          GateHistory(
+            gateHistory: gateHistory,
+            formattedScheduleTime: formattedScheduleTime,
+          ),
+
+          // Área para la gestión de equipaje sobredimensionado
+          OzBaggageManagement(
+            flightId: flightDetails['flight_id'] ?? '',
+            documentId: documentId,
+            currentGate: currentGate,
+            onRegisterSuccess: onRefresh,
+          ),
+
+          // Lista de elementos sobredimensionados registrados
+          OzOversizeItemsList(
+            documentId: documentId,
+            onRefresh: onRefresh,
+          ),
+
+          // Debug Information - solo visible en modo desarrollador
+          if (developerModeEnabled)
+            DebugInformation(
+              documentId: documentId,
+              onShowAdditionalInfo: () => _showAdditionalInfoModal(context),
+            ),
+
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 

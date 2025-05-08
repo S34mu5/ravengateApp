@@ -167,7 +167,7 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
             ),
 
             // Mensaje centrado
-            Expanded(
+            const Expanded(
               child: Center(
                 child: Text(
                   'No tienes vuelos guardados',

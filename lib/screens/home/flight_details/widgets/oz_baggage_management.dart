@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../forms/oversize_item_registration_form.dart';
 
 /// Widget para la gestión de equipaje sobredimensionado
 class OzBaggageManagement extends StatelessWidget {
@@ -80,20 +81,33 @@ class OzBaggageManagement extends StatelessWidget {
 
   /// Método para registrar un nuevo elemento de equipaje sobredimensionado
   void _registerNewOversizeItem(BuildContext context) {
-    // Por ahora solo mostraremos un SnackBar para indicar que se ha pulsado el botón
-    // Esta funcionalidad se implementará más adelante
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'SIMULATION: Registering oversize item for flight $flightId at gate $currentGate'),
-        backgroundColor: Colors.amber,
-        duration: const Duration(seconds: 2),
+    // Abrir un modal con el formulario de registro de equipaje sobredimensionado
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OversizeItemRegistrationForm(
+        flightId: flightId,
+        documentId: documentId, // Este es el flight_ref
+        currentGate: currentGate,
+        onSuccess: () {
+          // Cerrar el modal
+          Navigator.pop(context);
+
+          // Notificar éxito
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Artículo registrado correctamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Llamar al callback para actualizar la UI si es necesario
+          if (onRegisterSuccess != null) {
+            onRegisterSuccess!();
+          }
+        },
       ),
     );
-
-    // Llamar al callback si se proporciona
-    if (onRegisterSuccess != null) {
-      onRegisterSuccess!();
-    }
   }
 }
