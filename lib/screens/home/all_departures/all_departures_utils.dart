@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/location/location_service.dart';
+import '../../../services/navigation/nested_navigation_service.dart';
 import '../../../utils/flight_sort_util.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../flight_details/oz_flight_details_screen.dart';
@@ -32,48 +33,25 @@ class AllDeparturesUtils {
     return FlightSortUtil.sortFlightsByTime(flights);
   }
 
-  /// Navega a la pantalla de detalles del vuelo seleccionado
-  static Future<void> navigateToFlightDetails(
-      BuildContext context,
-      Map<String, dynamic> flight,
-      List<Map<String, dynamic>> flightsList) async {
+  /// Navega a la pantalla de detalles del vuelo seleccionado usando navegación anidada
+  static void navigateToFlightDetails(BuildContext context,
+      Map<String, dynamic> flight, List<Map<String, dynamic>> flightsList) {
     // Añadir logs para depuración
-    print('LOG: Navegando a detalles de vuelo desde All Departures');
     print(
-        'LOG: Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
-    print('LOG: Pasando lista de ${flightsList.length} vuelos');
+        'LOG: AllDeparturesUtils - Navegando a detalles de vuelo usando navegación anidada');
+    print(
+        'LOG: AllDeparturesUtils - Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
+    print(
+        'LOG: AllDeparturesUtils - Pasando lista de ${flightsList.length} vuelos');
 
-    // Verificar la ubicación actual
-    final bool isOversize = await LocationService.isOversizeLocation();
-    print('LOG: Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
-
-    if (isOversize) {
-      // Si la ubicación es Oversize, mostrar la pantalla de detalles de Oversize
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OzFlightDetailsScreen(
-            flightId: flight['flight_id'],
-            documentId: flight['id'],
-            flightsList: flightsList, // Pasar toda la lista de vuelos
-            flightsSource: 'all', // Indicar que viene de "todos los vuelos"
-          ),
-        ),
-      );
-    } else {
-      // Si la ubicación es Bins, mostrar la pantalla de detalles normal
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FlightDetailsScreen(
-            flightId: flight['flight_id'],
-            documentId: flight['id'],
-            flightsList: flightsList, // Pasar toda la lista de vuelos
-            flightsSource: 'all', // Indicar que viene de "todos los vuelos"
-          ),
-        ),
-      );
-    }
+    // Usar el servicio de navegación anidada
+    final navigationService = NestedNavigationService();
+    navigationService.navigateToFlightDetails(
+      flight: flight,
+      flightsList: flightsList,
+      flightsSource: 'all',
+      currentTabIndex: 0, // All Departures es el tab 0
+    );
   }
 
   /// Encuentra el primer vuelo activo (no departed y no cancelado) para desplazarse

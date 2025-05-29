@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../utils/airline_helper.dart';
 import '../../../../utils/flight_filter_util.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -36,13 +37,40 @@ class _FlightHeaderState extends State<FlightHeader> {
   int? _totalTrolleys;
   bool _isLoadingTrolleys = false;
   String? _errorMessage;
+  String _selectedLocation = 'Bins'; // Valor por defecto
+  bool _isLocationLoaded = false; // Flag para evitar parpadeo
 
   @override
   void initState() {
     super.initState();
     // Iniciamos con valor por defecto
     _totalTrolleys = 0;
+    _loadSelectedLocation();
     _loadTotalTrolleys();
+  }
+
+  /// Carga la ubicación seleccionada desde SharedPreferences
+  Future<void> _loadSelectedLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final location = prefs.getString('selected_location') ?? 'Bins';
+      setState(() {
+        _selectedLocation = location;
+        _isLocationLoaded = true; // Marcamos como cargado
+      });
+    } catch (e) {
+      print('Error al cargar la ubicación: $e');
+      setState(() {
+        _isLocationLoaded = true; // Marcamos como cargado incluso con error
+      });
+    }
+  }
+
+  /// Obtiene el color de fondo según la ubicación
+  Color _getBackgroundColor() {
+    return _selectedLocation == 'Bins'
+        ? Colors.blue.shade50 // Azul claro para Bins
+        : Colors.amber.shade50; // Amarillo claro para Oversize
   }
 
   /// Carga el total acumulado de trolleys
@@ -151,11 +179,34 @@ class _FlightHeaderState extends State<FlightHeader> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
 
+    // Mostrar un contenedor mínimo hasta cargar la ubicación
+    if (!_isLocationLoaded) {
+      return Container(
+        width: double.infinity,
+        height: 120, // Altura mínima para evitar saltos
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100, // Color neutro mientras carga
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+          ),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: _getBackgroundColor(),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(16),
           bottomRight: Radius.circular(16),

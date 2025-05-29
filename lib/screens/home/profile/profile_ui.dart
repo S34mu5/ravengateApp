@@ -5,9 +5,8 @@ import '../../../services/user/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
 import 'notifications_screen.dart'; // Importar la pantalla de notificaciones
 import 'data_visualization_settings.dart'; // Importar la nueva pantalla de configuración
+import 'language_settings_screen.dart'; // Importar la pantalla de configuración de idioma
 import '../../../l10n/app_localizations.dart';
-import '../../../common/widgets/language_selector.dart';
-import '../../../main.dart' as app;
 
 /// Widget que muestra la interfaz de usuario para la pantalla de perfil
 class ProfileUI extends StatefulWidget {
@@ -327,28 +326,19 @@ class _ProfileUIState extends State<ProfileUI> {
                       },
                     ),
                     const Divider(),
-                    // Configuración de idioma (MOVIDO AQUÍ)
-                    CurrentLanguageDisplay(
-                      languageCode:
-                          Localizations.localeOf(context).languageCode,
+                    // Configuración de idioma (ACTUALIZADO)
+                    ListTile(
+                      leading: const Icon(Icons.language, color: Colors.blue),
+                      title: Text(localizations.languageSettings),
+                      subtitle: Text(localizations.selectLanguage),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
-                        LanguageSelector.show(
+                        Navigator.push(
                           context,
-                          currentLanguageCode:
-                              Localizations.localeOf(context).languageCode,
-                          onLanguageChanged: (String languageCode) {
-                            // Cambiar idioma usando la función global
-                            app.changeAppLanguage(languageCode);
-
-                            // Mostrar confirmación
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(localizations.success),
-                                backgroundColor: Colors.green,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const LanguageSettingsScreen(),
+                          ),
                         );
                       },
                     ),

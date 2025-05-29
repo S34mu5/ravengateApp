@@ -21,6 +21,7 @@ class GateHistory extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,

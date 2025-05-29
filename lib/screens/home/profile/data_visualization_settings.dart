@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/cache/cache_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class DataVisualizationSettings extends StatefulWidget {
   const DataVisualizationSettings({super.key});
@@ -29,9 +30,11 @@ class _DataVisualizationSettingsState extends State<DataVisualizationSettings> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Data Visualization Settings'),
+        title: Text(localizations.dataVisualizationSettings),
         elevation: 0,
       ),
       body: ListView(
@@ -47,9 +50,8 @@ class _DataVisualizationSettingsState extends State<DataVisualizationSettings> {
             ),
           ),
           SwitchListTile(
-            title: const Text('Norwegian DY/D8 Equivalence'),
-            subtitle: const Text(
-                'Show flights with DY code when searching for D8 and vice versa'),
+            title: Text(localizations.norwegianDyD8Equivalence),
+            subtitle: Text(localizations.norwegianDyD8EquivalenceSubtitle),
             value: _norwegianEquivalenceEnabled,
             activeColor: Colors.blue,
             onChanged: (bool value) async {

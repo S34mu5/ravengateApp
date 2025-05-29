@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/cache/cache_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -37,27 +38,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notification Settings'),
+        title: Text(localizations.notificationSettings),
         elevation: 0,
       ),
       body: ListView(
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Text(
-              'Configure which notifications you want to receive for your saved flights',
-              style: TextStyle(
+              localizations.notificationsDescription,
+              style: const TextStyle(
                 fontSize: 16,
                 color: Colors.grey,
               ),
             ),
           ),
           SwitchListTile(
-            title: const Text('Flight Delay Notifications'),
-            subtitle: const Text(
-                'Receive alerts when flights saved in My Departures are delayed'),
+            title: Text(localizations.flightDelayNotifications),
+            subtitle: Text(localizations.delayNotificationsSubtitle),
             value: _delayNotificationsEnabled,
             activeColor: Colors.blue,
             onChanged: (bool value) async {
@@ -69,9 +71,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const Divider(),
           SwitchListTile(
-            title: const Text('Flight Departure Notifications'),
-            subtitle: const Text(
-                'Receive alerts when flights saved in My Departures have departed'),
+            title: Text(localizations.flightDepartureNotifications),
+            subtitle: Text(localizations.departureNotificationsSubtitle),
             value: _departureNotificationsEnabled,
             activeColor: Colors.blue,
             onChanged: (bool value) async {
@@ -83,9 +84,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const Divider(),
           SwitchListTile(
-            title: const Text('Gate Change Notifications'),
-            subtitle: const Text(
-                'Receive alerts when flights saved in My Departures have gate changes'),
+            title: Text(localizations.gateChangeNotifications),
+            subtitle: Text(localizations.gateChangeNotificationsSubtitle),
             value: _gateChangeNotificationsEnabled,
             activeColor: Colors.blue,
             onChanged: (bool value) async {

@@ -504,6 +504,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noDataFoundForFlight => 'No data found for this flight';
 
+  @override
+  String get details => 'details';
+
   // Gate history
   @override
   String get showingChangesFrom => 'Showing changes from';
@@ -535,4 +538,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get delayedUpper => 'DELAYED';
+
+  // Language settings
+  @override
+  String get languageInfo => 'Information';
+
+  @override
+  String get languageChangeInfo =>
+      'Language changes will be applied immediately throughout the app. Settings will be saved automatically.';
+
+  // Notifications screen
+  @override
+  String get notificationsDescription =>
+      'Configure which notifications you want to receive for your saved flights';
+
+  @override
+  String get flightDelayNotifications => 'Flight Delay Notifications';
+
+  @override
+  String get delayNotificationsSubtitle =>
+      'Receive alerts when flights saved in My Departures are delayed';
+
+  @override
+  String get flightDepartureNotifications => 'Flight Departure Notifications';
+
+  @override
+  String get departureNotificationsSubtitle =>
+      'Receive alerts when flights saved in My Departures have departed';
+
+  @override
+  String get gateChangeNotificationsSubtitle =>
+      'Receive alerts when flights saved in My Departures have gate changes';
+
+  // Data visualization screen
+  @override
+  String get norwegianDyD8Equivalence => 'Norwegian DY/D8 Equivalence';
+
+  @override
+  String get norwegianDyD8EquivalenceSubtitle =>
+      'Show flights with DY code when searching for D8 and vice versa';
 }

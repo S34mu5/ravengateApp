@@ -15,6 +15,7 @@ import '../../../services/location/location_service.dart';
 import 'dart:async';
 import '../../../utils/flight_sort_util.dart';
 import '../base_departures_ui.dart';
+import '../../../services/navigation/nested_navigation_service.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
 class MyDeparturesUI extends BaseDeparturesUI {
@@ -316,52 +317,22 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
     );
   }
 
-  /// Navega a la pantalla de detalles del vuelo seleccionado
+  /// Navega a la pantalla de detalles del vuelo seleccionado usando navegación anidada
   void _navigateToFlightDetails(
-      BuildContext context, Map<String, dynamic> flight) async {
-    // Verificar la ubicación actual
-    final bool isOversize = await LocationService.isOversizeLocation();
-    print('LOG: Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
+      BuildContext context, Map<String, dynamic> flight) {
+    print(
+        'LOG: MyDeparturesUI - Navegando a detalles de vuelo usando navegación anidada');
+    print('LOG: MyDeparturesUI - Vuelo seleccionado: ${flight['flight_id']}');
+    print(
+        'LOG: MyDeparturesUI - Pasando lista de ${widget.flights.length} vuelos');
 
-    // Variable para almacenar el resultado (si se debe actualizar)
-    bool? shouldRefresh;
-
-    if (isOversize) {
-      // Si la ubicación es Oversize, mostrar la pantalla de detalles de Oversize
-      shouldRefresh = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OzFlightDetailsScreen(
-            flightId: flight['flight_id'],
-            documentId: flight['flight_ref'] ?? flight['id'] ?? '',
-            flightsList: widget.flights, // Pasar toda la lista de vuelos
-            flightsSource: 'my', // Indicar que viene de "mis vuelos"
-            forceRefreshOnReturn:
-                true, // Siempre forzar actualización al volver
-          ),
-        ),
-      );
-    } else {
-      // Si la ubicación es Bins, mostrar la pantalla de detalles normal
-      shouldRefresh = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FlightDetailsScreen(
-            flightId: flight['flight_id'],
-            documentId: flight['flight_ref'] ?? flight['id'] ?? '',
-            flightsList: widget.flights, // Pasar toda la lista de vuelos
-            flightsSource: 'my', // Indicar que viene de "mis vuelos"
-            forceRefreshOnReturn:
-                true, // Siempre forzar actualización al volver
-          ),
-        ),
-      );
-    }
-
-    // Si se recibió true como resultado, actualizar la lista de vuelos
-    if (shouldRefresh == true && widget.onRefresh != null) {
-      print('LOG: Forzando actualización tras regresar de detalles de vuelo');
-      await widget.onRefresh!();
-    }
+    // Usar el servicio de navegación anidada
+    final navigationService = NestedNavigationService();
+    navigationService.navigateToFlightDetails(
+      flight: flight,
+      flightsList: widget.flights,
+      flightsSource: 'my',
+      currentTabIndex: 1, // My Departures es el tab 1
+    );
   }
 }

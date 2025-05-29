@@ -19,6 +19,12 @@ class LanguageService {
       name: 'English',
       flag: '🇺🇸',
     ),
+    LanguageOption(
+      languageCode: 'no',
+      countryCode: '',
+      name: 'Norsk',
+      flag: '🇳🇴',
+    ),
   ];
 
   /// Obtiene el idioma guardado en preferencias o el del sistema

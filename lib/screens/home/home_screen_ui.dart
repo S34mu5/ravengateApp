@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../location/select_location_screen.dart';
 import 'all_departures/all_departures_screen.dart';
 import 'my_departures/my_departures_screen.dart';
 import 'profile/profile_screen.dart';
+import 'nested_flight_details/nested_flight_details_screen.dart';
+import '../../services/navigation/nested_navigation_service.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Widget que maneja la UI de la pantalla principal
@@ -25,11 +28,64 @@ class HomeScreenUI extends StatefulWidget {
 class _HomeScreenUIState extends State<HomeScreenUI> {
   int _selectedIndex = 0;
   String _selectedLocation = 'Bins'; // Valor por defecto
+  final NestedNavigationService _navigationService = NestedNavigationService();
 
   @override
   void initState() {
     super.initState();
     _loadSelectedLocation();
+
+    // Escuchar cambios en el servicio de navegación anidada
+    _navigationService.addListener(_onNestedNavigationChanged);
+  }
+
+  @override
+  void dispose() {
+    _navigationService.removeListener(_onNestedNavigationChanged);
+    super.dispose();
+  }
+
+  /// Callback que se ejecuta cuando cambia el estado de navegación anidada
+  void _onNestedNavigationChanged() {
+    // Forzar rebuild cuando cambie el estado de navegación
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  /// Ejecuta el refresh de la pantalla anidada de detalles de vuelo
+  void _refreshNestedFlightDetails() {
+    _navigationService.refreshNestedDetails();
+  }
+
+  /// Formatea el título para los detalles de vuelo: "NUMEROVUELO dd/mm details"
+  String _formatFlightDetailsTitle(Map<String, dynamic> flightData) {
+    try {
+      final localizations = AppLocalizations.of(context)!;
+      final String flightId = flightData['flight_id'] ?? 'XX';
+      final String? scheduleTime = flightData['schedule_time'];
+
+      if (scheduleTime != null && scheduleTime.isNotEmpty) {
+        // Intentar parsear la fecha
+        DateTime? flightDate;
+        try {
+          flightDate = DateTime.parse(scheduleTime);
+        } catch (e) {
+          print('Error parseando fecha del vuelo: $e');
+        }
+
+        if (flightDate != null) {
+          final String formattedDate = DateFormat('dd/MM').format(flightDate);
+          return '$flightId $formattedDate ${localizations.details}';
+        }
+      }
+
+      // Fallback si no se puede obtener la fecha
+      return '$flightId ${localizations.details}';
+    } catch (e) {
+      print('Error formateando título del vuelo: $e');
+      return 'Flight details';
+    }
   }
 
   Future<void> _loadSelectedLocation() async {
@@ -45,6 +101,11 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   }
 
   void _onItemTapped(int index) {
+    // Si estamos mostrando detalles de vuelo, regresar primero
+    if (_navigationService.isShowingFlightDetails) {
+      _navigationService.navigateBack();
+    }
+
     final localizations = AppLocalizations.of(context)!;
     final titles = [
       localizations.allDeparturesLabel,
@@ -60,18 +121,40 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final titles = [
-      localizations.allDeparturesLabel,
-      localizations.myDeparturesLabel,
-      localizations.profileLabel
-    ];
 
+    // Si estamos mostrando detalles de vuelo, usar ese título
+    String appBarTitle;
+    if (_navigationService.isShowingFlightDetails &&
+        _navigationService.currentFlightData != null) {
+      appBarTitle =
+          _formatFlightDetailsTitle(_navigationService.currentFlightData!);
+    } else {
+      final titles = [
+        localizations.allDeparturesLabel,
+        localizations.myDeparturesLabel,
+        localizations.profileLabel
+      ];
+      appBarTitle = titles[_selectedIndex];
+    }
+
+    print('LOG: Construyendo UI de HomeScreen, título: $appBarTitle');
     print(
-        'LOG: Construyendo UI de HomeScreen, sección actual: ${titles[_selectedIndex]}');
+        'LOG: Mostrando detalles de vuelo: ${_navigationService.isShowingFlightDetails}');
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[_selectedIndex]),
+        title: Text(appBarTitle),
         actions: [
+          // Si estamos en detalles de vuelo, mostrar botón de refresh
+          if (_navigationService.isShowingFlightDetails)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                // Notificar a la pantalla anidada que debe refrescar
+                // Esto se puede hacer a través del servicio de navegación
+                _refreshNestedFlightDetails();
+              },
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: InkWell(
@@ -105,6 +188,14 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
             ),
           ),
         ],
+        leading: _navigationService.isShowingFlightDetails
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  _navigationService.navigateBack();
+                },
+              )
+            : null,
       ),
       body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
@@ -133,7 +224,10 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
             label: localizations.profileLabel,
           ),
         ],
-        currentIndex: _selectedIndex,
+        currentIndex: _navigationService.isShowingFlightDetails
+            ? _navigationService
+                .originalTabIndex // Mantener el tab original resaltado
+            : _selectedIndex,
         selectedItemColor: const Color(0xFF202124), // Negro Google
         unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
@@ -142,6 +236,25 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   }
 
   Widget _buildBody() {
+    // Si estamos mostrando detalles de vuelo, mostrar la pantalla anidada
+    if (_navigationService.isShowingFlightDetails) {
+      final flightData = _navigationService.currentFlightData;
+      final flightsList = _navigationService.flightsList;
+      final flightsSource = _navigationService.flightsSource;
+
+      if (flightData != null && flightsList != null && flightsSource != null) {
+        // Crear una nueva instancia cada vez que cambie el vuelo
+        return NestedFlightDetailsScreen(
+          key:
+              ValueKey('flight_${flightData['id']}_${flightData['flight_id']}'),
+          flight: flightData,
+          flightsList: flightsList,
+          flightsSource: flightsSource,
+        );
+      }
+    }
+
+    // Mostrar las pantallas normales
     final localizations = AppLocalizations.of(context)!;
     final titles = [
       localizations.allDeparturesLabel,

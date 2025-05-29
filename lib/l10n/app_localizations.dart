@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
+import 'app_localizations_no.dart';
 
 /// Callers can lookup localized strings with an instance of AppLocalizations
 /// returned by `AppLocalizations.of(context)`.
@@ -57,7 +58,8 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('es')
+    Locale('es'),
+    Locale('no')
   ];
 
   // Authentication
@@ -235,6 +237,7 @@ abstract class AppLocalizations {
   // Flight details screen
   String get flightTitle;
   String get noDataFoundForFlight;
+  String get details;
 
   // Gate history
   String get showingChangesFrom;
@@ -249,6 +252,22 @@ abstract class AppLocalizations {
   String get departedUpper;
   String get cancelledUpper;
   String get delayedUpper;
+
+  // Language settings
+  String get languageInfo;
+  String get languageChangeInfo;
+
+  // Notifications screen
+  String get notificationsDescription;
+  String get flightDelayNotifications;
+  String get delayNotificationsSubtitle;
+  String get flightDepartureNotifications;
+  String get departureNotificationsSubtitle;
+  String get gateChangeNotificationsSubtitle;
+
+  // Data visualization screen
+  String get norwegianDyD8Equivalence;
+  String get norwegianDyD8EquivalenceSubtitle;
 }
 
 class _AppLocalizationsDelegate
@@ -262,7 +281,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'es'].contains(locale.languageCode);
+      <String>['en', 'es', 'no'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -275,6 +294,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
+    case 'no':
+      return AppLocalizationsNo();
   }
 
   throw FlutterError(
