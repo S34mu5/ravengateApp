@@ -11,11 +11,15 @@ import 'screens/auth/email_verification/email_verification_screen.dart';
 import 'services/notifications/notification_service.dart';
 import 'services/gate/gate_monitor_service.dart';
 import 'screens/location/select_location_screen.dart';
+import 'l10n/app_localizations.dart';
+import 'services/localization/language_service.dart';
 
 // Referencia global al controlador de autenticación para acceder desde cualquier lugar
 late AuthController authController;
 // Referencia global al servicio de monitoreo de cambios de puerta
 late GateMonitorService gateMonitorService;
+// Referencia global para cambiar idioma desde cualquier lugar
+late Function(String) changeAppLanguage;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,7 +99,7 @@ Future<void> initializeGateMonitorService() async {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final AuthController authController;
 
   const MyApp({
@@ -104,9 +108,72 @@ class MyApp extends StatelessWidget {
   });
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Locale? _currentLocale;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLanguage();
+  }
+
+  /// Cargar el idioma guardado en las preferencias
+  Future<void> _loadSavedLanguage() async {
+    final savedLocale = await LanguageService.getSavedLanguage();
+    setState(() {
+      _currentLocale = savedLocale;
+    });
+  }
+
+  /// Cambiar el idioma de la aplicación
+  Future<void> changeLanguage(String languageCode) async {
+    final success = await LanguageService.saveLanguage(languageCode);
+    if (success) {
+      setState(() {
+        _currentLocale = Locale(languageCode);
+      });
+      print('LOG: Idioma cambiado a: $languageCode');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Si aún no se ha cargado el idioma, mostrar loading
+    if (_currentLocale == null) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    // Asignar la función global para cambiar idioma
+    changeAppLanguage = changeLanguage;
+
     return MaterialApp(
       title: 'RavenGate App',
+      // Configuración de internacionalización
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: _currentLocale,
+      // Callback para cuando el sistema cambia el idioma
+      localeResolutionCallback: (locale, supportedLocales) {
+        // Si el idioma del sistema es soportado, usarlo
+        if (locale != null) {
+          for (var supportedLocale in supportedLocales) {
+            if (supportedLocale.languageCode == locale.languageCode) {
+              return supportedLocale;
+            }
+          }
+        }
+        // Fallback al primer idioma soportado (español)
+        return supportedLocales.first;
+      },
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF4285F4), // Google Blue
@@ -297,7 +364,7 @@ class MyApp extends StatelessWidget {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
                         builder: (context) => LoginScreen(
-                          authController: authController,
+                          authController: widget.authController,
                         ),
                       ),
                     );
@@ -316,7 +383,7 @@ class MyApp extends StatelessWidget {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (context) => LoginScreen(
-                        authController: authController,
+                        authController: widget.authController,
                       ),
                     ),
                   );
@@ -328,7 +395,7 @@ class MyApp extends StatelessWidget {
             return SelectLocationScreen(user: user);
           }
 
-          return LoginScreen(authController: authController);
+          return LoginScreen(authController: widget.authController);
         },
       ),
     );

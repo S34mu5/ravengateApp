@@ -5,6 +5,9 @@ import '../../../services/user/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
 import 'notifications_screen.dart'; // Importar la pantalla de notificaciones
 import 'data_visualization_settings.dart'; // Importar la nueva pantalla de configuración
+import '../../../l10n/app_localizations.dart';
+import '../../../common/widgets/language_selector.dart';
+import '../../../main.dart' as app;
 
 /// Widget que muestra la interfaz de usuario para la pantalla de perfil
 class ProfileUI extends StatefulWidget {
@@ -239,6 +242,8 @@ class _ProfileUIState extends State<ProfileUI> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     print(
         'LOG: Construyendo UI de perfil para usuario: ${widget.user.displayName ?? "sin nombre"} (${widget.user.email ?? "sin email"})');
     return Scaffold(
@@ -281,19 +286,18 @@ class _ProfileUIState extends State<ProfileUI> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Preferences',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    Text(
+                      localizations.preferences,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     // Configuración de notificaciones (movida arriba)
                     ListTile(
                       leading:
                           const Icon(Icons.notifications, color: Colors.blue),
-                      title: const Text('Notification Settings'),
-                      subtitle: const Text(
-                          'Configure flight alerts and notifications'),
+                      title: Text(localizations.notificationSettings),
+                      subtitle: Text(localizations.configureNotifications),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
@@ -308,9 +312,9 @@ class _ProfileUIState extends State<ProfileUI> {
                     // Configuración de visualización de datos
                     ListTile(
                       leading: const Icon(Icons.visibility, color: Colors.blue),
-                      title: const Text('Data Visualization Settings'),
+                      title: Text(localizations.dataVisualizationSettings),
                       subtitle:
-                          const Text('Customize how flight data is displayed'),
+                          Text(localizations.customizeDataDisplaySubtitle),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
@@ -323,11 +327,36 @@ class _ProfileUIState extends State<ProfileUI> {
                       },
                     ),
                     const Divider(),
+                    // Configuración de idioma (MOVIDO AQUÍ)
+                    CurrentLanguageDisplay(
+                      languageCode:
+                          Localizations.localeOf(context).languageCode,
+                      onTap: () {
+                        LanguageSelector.show(
+                          context,
+                          currentLanguageCode:
+                              Localizations.localeOf(context).languageCode,
+                          onLanguageChanged: (String languageCode) {
+                            // Cambiar idioma usando la función global
+                            app.changeAppLanguage(languageCode);
+
+                            // Mostrar confirmación
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(localizations.success),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const Divider(),
                     // Opción de Developer Mode
                     SwitchListTile(
-                      title: const Text('Developer Mode'),
-                      subtitle: const Text(
-                          'Enable advanced diagnostics and debugging tools'),
+                      title: Text(localizations.developerMode),
+                      subtitle: Text(localizations.enableDeveloperModeSubtitle),
                       value: _developerModeEnabled,
                       activeColor: Colors.purple,
                       onChanged: _toggleDeveloperMode,
@@ -355,7 +384,7 @@ class _ProfileUIState extends State<ProfileUI> {
                   widget.onLogout();
                 },
                 icon: const Icon(Icons.logout),
-                label: const Text('Log Out'),
+                label: Text(localizations.logOut),
                 style: OutlinedButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

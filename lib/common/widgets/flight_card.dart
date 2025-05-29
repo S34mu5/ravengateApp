@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/airline_helper.dart';
 import '../../utils/flight_filter_util.dart';
 import '../../screens/home/flight_details/utils/flight_formatters.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Widget reutilizable que representa una tarjeta de vuelo
 /// Se puede usar tanto en All Departures como en My Departures
@@ -117,6 +118,8 @@ class _FlightCardState extends State<FlightCard> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     // Extraer información del vuelo
     final String formattedTime =
         FlightFormatters.formatTime(widget.flight['schedule_time']);
@@ -234,9 +237,11 @@ class _FlightCardState extends State<FlightCard> {
                 if (widget.trailing != null) widget.trailing!,
                 if (widget.showStatusBadges && widget.trailing == null) ...[
                   if (isDeparted)
-                    _buildStatusPill('DEPARTED', Colors.red.shade700),
+                    _buildStatusPill(localizations.departed.toUpperCase(),
+                        Colors.red.shade700),
                   if (isCancelled)
-                    _buildStatusPill('CANCELLED', Colors.grey.shade800),
+                    _buildStatusPill(localizations.cancelled.toUpperCase(),
+                        Colors.grey.shade800),
                 ],
               ],
             ),
@@ -246,7 +251,7 @@ class _FlightCardState extends State<FlightCard> {
               children: [
                 Icon(Icons.meeting_room, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
-                Text('Gate: ${widget.flight['gate']}',
+                Text('${localizations.gate}: ${widget.flight['gate']}',
                     style: TextStyle(color: textColor)),
                 // Mostrar siempre trolleys at gate con el contador actualizado
                 Row(
@@ -264,7 +269,7 @@ class _FlightCardState extends State<FlightCard> {
                             ),
                           )
                         : Text(
-                            'Trolleys at gate: $_trolleyCount',
+                            '${localizations.trolleysAtGate}: $_trolleyCount',
                             style: TextStyle(
                               fontSize: 13,
                               color: textColor,
@@ -277,13 +282,16 @@ class _FlightCardState extends State<FlightCard> {
                 // Mostrar badge según corresponda
                 if (isDelayedNotDeparted && !isCancelled)
                   _buildStatusPill(
-                      'DELAYED $statusTime', Colors.amber.shade700)
+                      '${localizations.delayed.toUpperCase()} $statusTime',
+                      Colors.amber.shade700)
                 else if (isOnTimeOrEarlyDeparture)
                   _buildStatusPill(
-                      'DEPARTED $statusTime', Colors.green.shade700)
+                      '${localizations.departedShort.toUpperCase()} $statusTime',
+                      Colors.green.shade700)
                 else if (isDelayedDeparture)
                   _buildStatusPill(
-                      'DEPARTED $statusTime', Colors.amber.shade700),
+                      '${localizations.departedShort.toUpperCase()} $statusTime',
+                      Colors.amber.shade700),
               ],
             ),
           ],

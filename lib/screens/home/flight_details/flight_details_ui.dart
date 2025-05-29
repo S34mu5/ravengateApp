@@ -7,6 +7,7 @@ import 'widgets/oversize_baggage.dart';
 import 'widgets/debug_information.dart';
 import 'utils/flight_formatters.dart';
 import 'base_flight_details_ui.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Widget that displays the user interface for a specific flight details
 class FlightDetailsUI extends BaseFlightDetailsUI {
@@ -95,14 +96,16 @@ class _FlightDetailsUIState extends BaseFlightDetailsUIState<FlightDetailsUI> {
 
   /// Muestra un modal con información adicional del vuelo
   void _showAdditionalInfoModal(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     // Widget adicional específico para FlightDetailsUI
     final Widget trolleysDataSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        const SelectableText(
-          'Trolleys Data:',
-          style: TextStyle(
+        SelectableText(
+          localizations.trolleysData,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -121,7 +124,7 @@ class _FlightDetailsUIState extends BaseFlightDetailsUIState<FlightDetailsUI> {
 
             if (snapshot.hasError) {
               return SelectableText(
-                'Error loading trolleys data: ${snapshot.error}',
+                '${localizations.errorLoadingTrolleysData} ${snapshot.error}',
                 style: const TextStyle(color: Colors.red),
               );
             }
@@ -132,9 +135,9 @@ class _FlightDetailsUIState extends BaseFlightDetailsUIState<FlightDetailsUI> {
                 [];
 
             if (trolleysData.isEmpty) {
-              return const SelectableText(
-                'No trolleys data available',
-                style: TextStyle(
+              return SelectableText(
+                localizations.noTrolleysDataAvailable,
+                style: const TextStyle(
                   fontStyle: FontStyle.italic,
                   color: Colors.grey,
                 ),

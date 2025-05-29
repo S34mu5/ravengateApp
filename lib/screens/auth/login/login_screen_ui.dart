@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/auth/auth_methods.dart';
+import '../../../l10n/app_localizations.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// Widget that handles the UI of the login screen
@@ -92,6 +93,8 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -111,10 +114,10 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                   children: [
                     // Logo/título con tamaño adaptado
                     SizedBox(height: 16 * spacingFactor),
-                    const Text(
-                      'RavenGate',
-                      style:
-                          TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    Text(
+                      localizations.appName,
+                      style: const TextStyle(
+                          fontSize: 32, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                     SizedBox(height: 24 * spacingFactor),
@@ -128,9 +131,9 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                               width: 120 * spacingFactor,
                             ),
                           )
-                        : const Text(
-                            'Create account',
-                            style: TextStyle(
+                        : Text(
+                            localizations.createAccount,
+                            style: const TextStyle(
                                 fontSize: 24, fontWeight: FontWeight.w500),
                             textAlign: TextAlign.center,
                           ),
@@ -139,8 +142,8 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                     // Texto secundario
                     Text(
                       _isLogin
-                          ? 'Sign in to access your account'
-                          : 'Sign up to start',
+                          ? localizations.signInToAccessAccount
+                          : localizations.signUpToStart,
                       style: const TextStyle(fontSize: 16, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
@@ -149,15 +152,15 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                     // Campos de formulario
                     _buildTextField(
                       controller: _emailController,
-                      labelText: 'Email',
+                      labelText: localizations.email,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
+                          return localizations.pleaseEnterYourEmail;
                         }
                         final emailRegExp =
                             RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                         if (!emailRegExp.hasMatch(value)) {
-                          return 'Please enter a valid email address';
+                          return localizations.pleaseEnterValidEmail;
                         }
                         return null;
                       },
@@ -165,14 +168,14 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                     SizedBox(height: 12 * spacingFactor),
                     _buildTextField(
                       controller: _passwordController,
-                      labelText: 'Password',
+                      labelText: localizations.password,
                       isPassword: true,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
+                          return localizations.pleaseEnterYourPassword;
                         }
                         if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
+                          return localizations.passwordMustBeAtLeast6Characters;
                         }
                         return null;
                       },
@@ -198,7 +201,9 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(_isLogin ? 'Sign in' : 'Sign up'),
+                      child: Text(_isLogin
+                          ? localizations.signIn
+                          : localizations.signUp),
                     ),
 
                     // Botón para cambiar entre login/signup
@@ -210,8 +215,8 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                       },
                       child: Text(
                         _isLogin
-                            ? 'Don\'t have an account? Sign up'
-                            : 'Already have an account? Sign in',
+                            ? localizations.dontHaveAccount
+                            : localizations.alreadyHaveAccount,
                       ),
                     ),
 
@@ -225,30 +230,30 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                                 _emailController.text);
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                    'Please enter a valid email address first'),
+                                    localizations.pleaseEnterValidEmailFirst),
                                 backgroundColor: Colors.orange,
                               ),
                             );
                           }
                         },
-                        child: const Text(
-                          'Check email verification status',
-                          style: TextStyle(color: Colors.blue),
+                        child: Text(
+                          localizations.checkEmailVerification,
+                          style: const TextStyle(color: Colors.blue),
                         ),
                       ),
 
                     // Divisor
                     SizedBox(height: 12 * spacingFactor),
-                    const Row(
+                    Row(
                       children: [
-                        Expanded(child: Divider()),
+                        const Expanded(child: Divider()),
                         Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('Or continue with'),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(localizations.orContinueWith),
                         ),
-                        Expanded(child: Divider()),
+                        const Expanded(child: Divider()),
                       ],
                     ),
                     SizedBox(height: 12 * spacingFactor),
@@ -263,18 +268,18 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                             _buildAuthButton(
                               onPressed: () =>
                                   widget.onAuthenticate(AuthMethod.google),
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  FaIcon(
+                                  const FaIcon(
                                     FontAwesomeIcons.google,
                                     size: 24,
                                     color: Colors.red,
                                   ),
-                                  SizedBox(width: 12),
+                                  const SizedBox(width: 12),
                                   Text(
-                                    'Continue with Google',
-                                    style: TextStyle(
+                                    localizations.continueWithGoogle,
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -288,17 +293,17 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                             _buildAuthButton(
                               onPressed: () =>
                                   widget.onAuthenticate(AuthMethod.biometric),
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.fingerprint,
                                     size: 24,
                                   ),
-                                  SizedBox(width: 12),
+                                  const SizedBox(width: 12),
                                   Text(
-                                    'Use biometrics',
-                                    style: TextStyle(
+                                    localizations.useBiometrics,
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -312,9 +317,9 @@ class _LoginScreenUIState extends State<LoginScreenUI> {
                     ),
 
                     // Texto de términos y condiciones
-                    const Text(
-                      'By continuing, you agree to our Terms of Service and Privacy Policy',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    Text(
+                      localizations.termsAndPrivacy,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),

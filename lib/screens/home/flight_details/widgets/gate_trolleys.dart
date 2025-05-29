@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../utils/flight_formatters.dart';
 
 /// Widget that allows the operator to register the number of trolleys left at the gate
@@ -142,43 +143,43 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
   /// Returns the correct form of trolley/trolleys based on count
   String _getTrolleyText(int count) {
-    return count == 1 ? 'trolley' : 'trolleys';
+    final localizations = AppLocalizations.of(context)!;
+    return count == 1 ? localizations.trolley : '${localizations.trolley}s';
   }
 
   /// Shows confirmation dialog before marking as deleted
   Future<void> _showDeleteConfirmation(
       String docId, int count, String gate) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Deletion'),
-          content: Text(
-              'Are you sure you want to mark as deleted the delivery of $count ${_getTrolleyText(count)} at gate $gate?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
+    final localizations = AppLocalizations.of(context)!;
 
-    if (confirm == true) {
-      await _markAsDeleted(docId);
-    }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(localizations.confirmDeletion),
+        content: Text(
+            '${localizations.areYouSureDelete} $count ${_getTrolleyText(count)} ${localizations.gate.toLowerCase()}: $gate?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(localizations.cancel),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _markDeliveryAsDeleted(docId);
+            },
+            child: Text(localizations.delete),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Marks a trolley delivery as deleted
-  Future<void> _markAsDeleted(String docId) async {
+  Future<void> _markDeliveryAsDeleted(String docId) async {
+    final localizations = AppLocalizations.of(context)!;
+
     try {
       await _firestore
           .collection('flights')
@@ -203,8 +204,8 @@ class _GateTrolleysState extends State<GateTrolleys> {
       // Mostrar mensaje de éxito
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Delivery has been marked as deleted'),
+          SnackBar(
+            content: Text(localizations.deliveryMarkedDeleted),
             backgroundColor: Colors.green,
           ),
         );
@@ -252,24 +253,26 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
   /// Shows confirmation dialog before saving
   Future<bool> _showSaveConfirmation(int count) async {
+    final localizations = AppLocalizations.of(context)!;
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Confirm Delivery'),
+          title: Text(localizations.confirmDelivery),
           content: Text(
-              'Please confirm that you are leaving $count ${_getTrolleyText(count)} at gate ${widget.currentGate}'),
+              '${localizations.pleaseConfirmDelivery} $count ${_getTrolleyText(count)} en ${localizations.gate.toLowerCase()} ${widget.currentGate}'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(localizations.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.green,
               ),
-              child: const Text('Confirm'),
+              child: Text(localizations.confirmDelivery),
             ),
           ],
         );
@@ -281,10 +284,12 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
   /// Saves trolley count to Firestore
   Future<void> _saveTrolleyCount() async {
+    final localizations = AppLocalizations.of(context)!;
+
     // Validate it's a number
     if (_trolleyController.text.isEmpty) {
       setState(() {
-        _errorMessage = 'Please enter a number';
+        _errorMessage = localizations.pleaseEnterNumber;
       });
       return;
     }
@@ -292,7 +297,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
     final int? count = int.tryParse(_trolleyController.text);
     if (count == null || count < 0) {
       setState(() {
-        _errorMessage = 'Please enter a valid number';
+        _errorMessage = localizations.pleaseEnterValidNumber;
       });
       return;
     }
@@ -347,7 +352,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
       if (mounted) {
         setState(() {
           _isUpdating = false;
-          _errorMessage = 'Error saving: $e';
+          _errorMessage = '${localizations.errorSaving} $e';
         });
       }
       debugPrint('Error saving trolleys: $e');
@@ -465,6 +470,8 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Container(
@@ -484,9 +491,9 @@ class _GateTrolleysState extends State<GateTrolleys> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Section title
-            const Text(
-              'Trolleys at Gate',
-              style: TextStyle(
+            Text(
+              localizations.trolleysAtGate,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -496,7 +503,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
             // Description
             Text(
-              'Register the number of trolleys left at gate ${widget.currentGate}',
+              '${localizations.registerTrolleysLeft} ${widget.currentGate}',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -517,11 +524,11 @@ class _GateTrolleysState extends State<GateTrolleys> {
                       border: const OutlineInputBorder(),
                       errorText: _errorMessage,
                       hintText: _isLoadingCurrentCount
-                          ? 'Cargando...'
+                          ? localizations.loading
                           : (_currentTrolleyCount != null &&
                                   _currentTrolleyCount! > 0
-                              ? 'Current: $_currentTrolleyCount'
-                              : 'Enter quantity'),
+                              ? '${localizations.currentTrolleyCount}: $_currentTrolleyCount'
+                              : localizations.enterQuantity),
                       prefixIcon: const Icon(Icons.shopping_cart),
                     ),
                   ),
@@ -538,7 +545,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.local_shipping, size: 16),
-                  label: const Text('Deliver'),
+                  label: Text(localizations.deliver),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         vertical: 12, horizontal: 16),
@@ -571,7 +578,9 @@ class _GateTrolleysState extends State<GateTrolleys> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _showHistory ? 'Hide history' : 'Show history',
+                      _showHistory
+                          ? localizations.hideHistory
+                          : localizations.showHistory,
                       style: const TextStyle(
                         color: Colors.blue,
                         fontWeight: FontWeight.bold,
@@ -594,18 +603,19 @@ class _GateTrolleysState extends State<GateTrolleys> {
                         ),
                       )
                     : _trolleyHistory.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Text('No history available'),
+                        ? Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(localizations.noHistoryAvailable),
                           )
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8.0),
                                 child: Text(
-                                  'Gate Trolleys History',
-                                  style: TextStyle(
+                                  localizations.gateTrolleysHistory,
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -668,7 +678,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              '${item['count']} ${_getTrolleyText(item['count'])} delivered at gate ${item['gate']}',
+                                              '${item['count']} ${_getTrolleyText(item['count'])} ${localizations.deliveredAtGate} ${item['gate']}',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15,
@@ -693,9 +703,9 @@ class _GateTrolleysState extends State<GateTrolleys> {
                                   onPressed: _showDeleteAllConfirmation,
                                   icon: const Icon(Icons.delete_forever,
                                       color: Colors.red),
-                                  label: const Text(
-                                    'Delete All Deliveries (Use for gate changes)',
-                                    style: TextStyle(color: Colors.red),
+                                  label: Text(
+                                    localizations.deleteAllDeliveries,
+                                    style: const TextStyle(color: Colors.red),
                                   ),
                                 ),
                               ),

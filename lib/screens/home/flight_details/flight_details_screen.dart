@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'flight_details_ui.dart';
 import 'base_flight_details_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Component that handles the logic and data for the flight details screen
 /// Gets detailed data of a specific flight from Firestore
@@ -44,6 +45,8 @@ class _FlightDetailsScreenState
 
   @override
   Widget buildContent() {
+    final localizations = AppLocalizations.of(context)!;
+
     // Determine if swipe is available
     final bool canSwipe = widget.flightsList != null &&
         widget.flightsList!.isNotEmpty &&
@@ -55,7 +58,7 @@ class _FlightDetailsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Flight ${widget.flightId}'),
+        title: Text('${localizations.flightTitle} ${widget.flightId}'),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -93,8 +96,8 @@ class _FlightDetailsScreenState
                       onSwipeDirectionChanged: handleSwipeDirectionChange,
                       adjacentFlightDetails: adjacentFlightDetails,
                     )
-                  : const Center(
-                      child: Text('No data found for this flight'),
+                  : Center(
+                      child: Text(localizations.noDataFoundForFlight),
                     ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../screens/home/home_screen.dart';
 import '../../screens/auth/login/login_screen.dart';
+import '../../l10n/app_localizations.dart';
 import '../../main.dart' as app;
 
 class SelectLocationScreen extends StatefulWidget {
@@ -96,6 +97,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Location'),
@@ -130,7 +133,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _logout,
                         icon: const Icon(Icons.logout),
-                        label: const Text('Log Out'),
+                        label: Text(localizations.logOut),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),

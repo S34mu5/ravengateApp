@@ -5,6 +5,7 @@ import '../location/select_location_screen.dart';
 import 'all_departures/all_departures_screen.dart';
 import 'my_departures/my_departures_screen.dart';
 import 'profile/profile_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Widget que maneja la UI de la pantalla principal
 class HomeScreenUI extends StatefulWidget {
@@ -25,9 +26,6 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   int _selectedIndex = 0;
   String _selectedLocation = 'Bins'; // Valor por defecto
 
-  // Lista de títulos para el AppBar
-  final List<String> _titles = ['All Departures', 'My Departures', 'Profile'];
-
   @override
   void initState() {
     super.initState();
@@ -47,7 +45,13 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   }
 
   void _onItemTapped(int index) {
-    print('LOG: Usuario navegó a ${_titles[index]}');
+    final localizations = AppLocalizations.of(context)!;
+    final titles = [
+      localizations.allDeparturesLabel,
+      localizations.myDeparturesLabel,
+      localizations.profileLabel
+    ];
+    print('LOG: Usuario navegó a ${titles[index]}');
     setState(() {
       _selectedIndex = index;
     });
@@ -55,25 +59,18 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    final titles = [
+      localizations.allDeparturesLabel,
+      localizations.myDeparturesLabel,
+      localizations.profileLabel
+    ];
+
     print(
-        'LOG: Construyendo UI de HomeScreen, sección actual: ${_titles[_selectedIndex]}');
+        'LOG: Construyendo UI de HomeScreen, sección actual: ${titles[_selectedIndex]}');
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Text(_titles[_selectedIndex]),
-            const SizedBox(width: 8),
-            Text(
-              '• $_selectedLocation',
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.black54
-                    : Colors.white70,
-              ),
-            ),
-          ],
-        ),
+        title: Text(titles[_selectedIndex]),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -111,9 +108,9 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
       ),
       body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: SizedBox(
+            icon: const SizedBox(
               width: 48,
               height: 24,
               child: Row(
@@ -125,15 +122,15 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
                 ],
               ),
             ),
-            label: 'All Departures',
+            label: localizations.allDeparturesLabel,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.flight),
-            label: 'My Departures',
+            icon: const Icon(Icons.flight),
+            label: localizations.myDeparturesLabel,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+            icon: const Icon(Icons.person),
+            label: localizations.profileLabel,
           ),
         ],
         currentIndex: _selectedIndex,
@@ -145,9 +142,15 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
   }
 
   Widget _buildBody() {
+    final localizations = AppLocalizations.of(context)!;
+    final titles = [
+      localizations.allDeparturesLabel,
+      localizations.myDeparturesLabel,
+      localizations.profileLabel
+    ];
+
     // Usar los componentes modularizados según el índice seleccionado
-    print(
-        'LOG: Cargando contenido para la sección: ${_titles[_selectedIndex]}');
+    print('LOG: Cargando contenido para la sección: ${titles[_selectedIndex]}');
     switch (_selectedIndex) {
       case 0:
         return const AllDeparturesScreen();

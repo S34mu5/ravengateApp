@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../utils/airline_helper.dart';
 import '../../../../utils/flight_filter_util.dart';
+import '../../../../l10n/app_localizations.dart';
 import 'common_widgets.dart';
 
 /// Widget que muestra el encabezado con información básica del vuelo
@@ -148,6 +149,8 @@ class _FlightHeaderState extends State<FlightHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -189,7 +192,7 @@ class _FlightHeaderState extends State<FlightHeader> {
                     ),
                   ),
                   Text(
-                    'Destination: ${widget.flightDetails['airport'] ?? ''}',
+                    '${localizations.destinationLabel}: ${widget.flightDetails['airport'] ?? ''}',
                     style: const TextStyle(
                       fontSize: 16,
                     ),
@@ -198,11 +201,15 @@ class _FlightHeaderState extends State<FlightHeader> {
               ),
               const Spacer(),
               if (widget.isDeparted)
-                const StatusChip(text: 'DEPARTED', color: Colors.red),
+                StatusChip(
+                    text: localizations.departedUpper, color: Colors.red),
               if (widget.isCancelled)
-                const StatusChip(text: 'CANCELLED', color: Colors.black),
+                StatusChip(
+                    text: localizations.cancelledUpper, color: Colors.black),
               if (widget.isDelayed && !widget.isDeparted && !widget.isCancelled)
-                StatusChip(text: 'DELAYED', color: Colors.amber.shade700),
+                StatusChip(
+                    text: localizations.delayedUpper,
+                    color: Colors.amber.shade700),
             ],
           ),
 
@@ -214,7 +221,7 @@ class _FlightHeaderState extends State<FlightHeader> {
             children: [
               InfoColumn(
                 icon: Icons.schedule,
-                title: 'Scheduled Time',
+                title: localizations.scheduledTime,
                 value: widget.formattedScheduleTime,
                 valueColor: widget.isDelayed ? Colors.grey : null,
                 valueDecoration:
@@ -222,19 +229,19 @@ class _FlightHeaderState extends State<FlightHeader> {
               ),
               InfoColumn(
                 icon: Icons.door_front_door,
-                title: 'Gate',
+                title: localizations.gate,
                 value: widget.flightDetails['gate'] ?? '-',
               ),
               if (_isLoadingTrolleys)
-                const InfoColumn(
+                InfoColumn(
                   icon: Icons.shopping_cart,
-                  title: 'Trolleys at Gate',
+                  title: localizations.trolleysAtGate,
                   value: '...',
                 ),
               if (!_isLoadingTrolleys)
                 InfoColumn(
                   icon: Icons.shopping_cart,
-                  title: 'Trolleys at Gate',
+                  title: localizations.trolleysAtGate,
                   value: _totalTrolleys?.toString() ?? '0',
                   valueColor: _errorMessage != null
                       ? Colors.red.shade300
@@ -246,7 +253,7 @@ class _FlightHeaderState extends State<FlightHeader> {
               if (widget.isDelayed && widget.formattedStatusTime != null)
                 InfoColumn(
                   icon: Icons.update,
-                  title: 'New Time',
+                  title: localizations.newTime,
                   value: widget.formattedStatusTime!,
                   valueColor: Colors.amber.shade700,
                   valueFontWeight: FontWeight.bold,

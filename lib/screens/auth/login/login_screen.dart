@@ -4,6 +4,7 @@ import '../../../controllers/auth_controller.dart';
 import '../../../services/auth/auth_methods.dart';
 import '../../../services/auth/auth_result.dart';
 import '../../../services/auth/email_password_auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 import 'login_screen_ui.dart';
 import '../email_verification/email_verification_screen.dart';
 import '../../../main.dart' as app;
@@ -61,10 +62,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // Mostrar indicador de carga
       if (!mounted) return;
+      final localizations = AppLocalizations.of(context)!;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Processing...'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(localizations.processing),
+          duration: const Duration(seconds: 1),
         ),
       );
 
@@ -79,9 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
         print('❌ Error: EmailPasswordAuthService no está disponible');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'El servicio de autenticación por email no está disponible'),
+          SnackBar(
+            content: Text(localizations.emailAuthServiceNotAvailable),
             backgroundColor: Colors.red,
           ),
         );
@@ -105,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result.error ?? 'Registration error'),
+              content: Text(result.error ?? localizations.registrationError),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 5),
             ),
@@ -148,9 +150,10 @@ class _LoginScreenState extends State<LoginScreen> {
       print('❌ Error in email/password auth: $e');
       if (!mounted) return;
 
+      final localizations = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('An unexpected error occurred: $e'),
+          content: Text('${localizations.unexpectedErrorOccurred}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -171,10 +174,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (service == null) {
         print('❌ Error: EmailPasswordAuthService no está disponible');
         if (!mounted) return;
+        final localizations = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'El servicio de autenticación por email no está disponible'),
+          SnackBar(
+            content: Text(localizations.emailAuthServiceNotAvailable),
             backgroundColor: Colors.red,
           ),
         );
@@ -189,10 +192,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
+      final localizations = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Email verification status: ${isVerified ? "Verified ✓" : "Not Verified ✗"}'),
+              '${localizations.emailVerificationStatus}: ${isVerified ? localizations.verified : localizations.notVerified}'),
           backgroundColor: isVerified ? Colors.green : Colors.orange,
           duration: const Duration(seconds: 5),
         ),
@@ -201,9 +205,10 @@ class _LoginScreenState extends State<LoginScreen> {
       print('❌ Error checking email verification: $e');
       if (!mounted) return;
 
+      final localizations = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error checking verification status: $e'),
+          content: Text('${localizations.errorCheckingVerification}: $e'),
           backgroundColor: Colors.red,
         ),
       );

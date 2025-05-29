@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/flight_formatters.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Widget que muestra el historial de cambios de puerta del vuelo
 class GateHistory extends StatelessWidget {
@@ -15,6 +16,8 @@ class GateHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Container(
@@ -37,9 +40,9 @@ class GateHistory extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Gate Change History',
-                  style: TextStyle(
+                Text(
+                  localizations.gateChangeHistory,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -53,15 +56,15 @@ class GateHistory extends StatelessWidget {
                       color: Colors.grey.shade600,
                     ),
                     children: [
-                      const TextSpan(text: 'Showing changes from '),
+                      TextSpan(text: '${localizations.showingChangesFrom} '),
                       TextSpan(
-                        text: '2 hours before',
+                        text: localizations.twoHoursBefore,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.blue.shade700,
                         ),
                       ),
-                      const TextSpan(text: ' scheduled departure at '),
+                      TextSpan(text: ' ${localizations.scheduledDepartureAt} '),
                       TextSpan(
                         text: formattedScheduleTime,
                         style: TextStyle(
@@ -79,11 +82,11 @@ class GateHistory extends StatelessWidget {
 
             // Lista de cambios
             gateHistory.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                      'No gate changes recorded for this flight.',
-                      style: TextStyle(
+                      localizations.noGateChangesRecorded,
+                      style: const TextStyle(
                         fontStyle: FontStyle.italic,
                         color: Colors.grey,
                       ),
@@ -109,9 +112,9 @@ class GateHistory extends StatelessWidget {
                             text: TextSpan(
                               style: DefaultTextStyle.of(context).style,
                               children: [
-                                const TextSpan(
-                                  text: 'Changed from ',
-                                  style: TextStyle(color: Colors.grey),
+                                TextSpan(
+                                  text: '${localizations.changedFrom} ',
+                                  style: const TextStyle(color: Colors.grey),
                                 ),
                                 TextSpan(
                                   text: '${historyItem['old_gate']}',
@@ -119,9 +122,9 @@ class GateHistory extends StatelessWidget {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const TextSpan(
-                                  text: ' to ',
-                                  style: TextStyle(color: Colors.grey),
+                                TextSpan(
+                                  text: ' ${localizations.to} ',
+                                  style: const TextStyle(color: Colors.grey),
                                 ),
                                 TextSpan(
                                   text: '${historyItem['new_gate']}',
