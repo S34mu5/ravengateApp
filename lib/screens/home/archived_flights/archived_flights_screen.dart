@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'archived_flights_ui.dart';
 import '../../../services/user/user_flights_service.dart';
+import '../../../services/user/models/archived_flight_date.dart';
 import '../../../utils/progress_dialog.dart';
+import '../../../utils/logger.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos archivados
 class ArchivedFlightsScreen extends StatefulWidget {
@@ -40,8 +42,8 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
   /// Cargar las fechas de vuelos archivados
   Future<void> _loadArchivedDates({bool forceRefresh = false}) async {
-    print(
-        'LOG: Cargando fechas de vuelos archivados ${forceRefresh ? "(forzando actualización)" : ""}');
+    AppLogger.info(
+        'Cargando fechas de vuelos archivados ${forceRefresh ? "(forzando actualización)" : ""}');
 
     try {
       // Verificar si el widget está montado antes de actualizar estado
@@ -66,13 +68,13 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         _usingCachedData = !forceRefresh;
       });
 
-      print(
-          'LOG: Se cargaron ${_archivedDates.length} fechas de vuelos archivados');
+      AppLogger.info(
+          'Se cargaron ${_archivedDates.length} fechas de vuelos archivados');
 
       // Ya no seleccionamos automáticamente la fecha más reciente
       // Dejamos que el usuario seleccione una fecha de la lista
     } catch (e) {
-      print('LOG: Error al cargar fechas de vuelos archivados: $e');
+      AppLogger.error('Error al cargar fechas de vuelos archivados', e);
 
       // Verificar si el widget sigue montado antes de actualizar estado de error
       if (!mounted) return;
@@ -87,8 +89,8 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
   /// Seleccionar una fecha y cargar sus vuelos
   Future<void> _selectDate(String date, {bool forceRefresh = false}) async {
-    print(
-        'LOG: Seleccionando fecha $date ${forceRefresh ? "(forzando actualización)" : ""}');
+    AppLogger.info(
+        'Seleccionando fecha $date ${forceRefresh ? "(forzando actualización)" : ""}');
 
     setState(() {
       _selectedDate = date;
@@ -110,10 +112,10 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         _usingCachedData = !forceRefresh;
       });
 
-      print(
-          'LOG: Se cargaron ${_archivedFlights.length} vuelos para la fecha $date');
+      AppLogger.info(
+          'Se cargaron ${_archivedFlights.length} vuelos para la fecha $date');
     } catch (e) {
-      print('LOG: Error al cargar vuelos para la fecha $date: $e');
+      AppLogger.error('Error al cargar vuelos para la fecha $date', e);
 
       if (!mounted) return;
 
@@ -149,7 +151,7 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
       progressDialog.show();
 
-      print('LOG: Intentando restaurar vuelo con ID de documento: $docId');
+      AppLogger.info('Intentando restaurar vuelo con ID de documento: $docId');
 
       // Restaurar el vuelo archivado usando el ID del documento
       final wasRestored = await UserFlightsService.restoreArchivedFlight(docId);
@@ -184,7 +186,7 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         await _loadArchivedDates();
       }
     } catch (e) {
-      print('LOG: Error restoring flight with document ID $docId: $e');
+      AppLogger.error('Error restoring flight with document ID $docId', e);
 
       // Verificar si el widget sigue montado
       if (!mounted) return;
@@ -224,7 +226,8 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
 
       progressDialog.show();
 
-      print('LOG: Intentando eliminar permanentemente vuelo con ID: $docId');
+      AppLogger.info(
+          'Intentando eliminar permanentemente vuelo con ID: $docId');
 
       // Eliminar permanentemente el vuelo usando el ID del documento
       final wasDeleted =
@@ -260,7 +263,7 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
         await _loadArchivedDates();
       }
     } catch (e) {
-      print('LOG: Error deleting flight with document ID $docId: $e');
+      AppLogger.error('Error deleting flight with document ID $docId', e);
 
       // Verificar si el widget sigue montado
       if (!mounted) return;
@@ -520,7 +523,7 @@ class _ArchivedFlightsScreenState extends State<ArchivedFlightsScreen> {
   @override
   void dispose() {
     // Agregar limpieza o cancelación de operaciones pendientes si es necesario
-    print('LOG: Disposing ArchivedFlightsScreen');
+    AppLogger.info('Disposing ArchivedFlightsScreen');
     super.dispose();
   }
 }

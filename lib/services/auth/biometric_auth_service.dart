@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'auth_service.dart';
 import 'auth_methods.dart';
 import 'auth_result.dart';
+import '../../utils/logger.dart';
 
 /// Implementation of AuthService for biometric authentication
 class BiometricAuthService implements AuthService {
@@ -18,39 +19,43 @@ class BiometricAuthService implements AuthService {
   @override
   Future<bool> isAvailable() async {
     try {
-      debugPrint('🔐 Verificando disponibilidad de biometría...');
+      AppLogger.debug('🔐 Verificando disponibilidad de biometría...');
 
-      // First check if device supports biometrics
-      final isSupported = await _localAuth.isDeviceSupported();
-      debugPrint('📱 ¿El dispositivo soporta biometría?: $isSupported');
+      final bool isSupported = await _localAuth.isDeviceSupported();
+      AppLogger.debug('📱 ¿El dispositivo soporta biometría?: $isSupported');
       if (!isSupported) {
-        debugPrint('❌ El dispositivo no soporta autenticación biométrica');
+        AppLogger.warning(
+            '❌ El dispositivo no soporta autenticación biométrica');
         return false;
       }
 
-      // Then check if biometrics are available
-      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      debugPrint('🔍 ¿Se pueden verificar biometrías?: $canCheckBiometrics');
+      // Verificar si hay biometrías disponibles
+      final bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      AppLogger.debug(
+          '🔍 ¿Se pueden verificar biometrías?: $canCheckBiometrics');
       if (!canCheckBiometrics) {
-        debugPrint('❌ No hay biometrías disponibles en este dispositivo');
+        AppLogger.warning(
+            '❌ No hay biometrías disponibles en este dispositivo');
         return false;
       }
 
-      // Get list of available biometrics
-      _availableBiometrics = await _localAuth.getAvailableBiometrics();
-      debugPrint('📋 Biometrías disponibles: $_availableBiometrics');
+      // Obtener lista de biometrías disponibles
+      final List<BiometricType> _availableBiometrics =
+          await _localAuth.getAvailableBiometrics();
+      AppLogger.debug('📋 Biometrías disponibles: $_availableBiometrics');
 
-      final hasAvailableBiometrics = _availableBiometrics?.isNotEmpty ?? false;
-      debugPrint(hasAvailableBiometrics
-          ? '✅ Biometría disponible y lista para usar'
-          : '❌ No hay tipos de biometría disponibles');
+      final bool hasAvailableBiometrics = _availableBiometrics.isNotEmpty;
+      AppLogger.debug(hasAvailableBiometrics
+          ? '✅ Biometrías disponibles'
+          : '❌ No hay biometrías configuradas');
 
       return hasAvailableBiometrics;
     } on PlatformException catch (e) {
-      debugPrint('Error checking biometrics availability: ${e.message}');
+      AppLogger.error(
+          'Error checking biometrics availability: ${e.message}', e);
       return false;
     } catch (e) {
-      debugPrint('Unexpected error checking biometrics: $e');
+      AppLogger.error('Unexpected error checking biometrics', e);
       return false;
     }
   }
@@ -85,18 +90,34 @@ class BiometricAuthService implements AuthService {
         error: success ? null : 'La autenticación biométrica falló',
       );
     } on PlatformException catch (e) {
-      debugPrint('Platform error in biometric authentication: ${e.message}');
-      return AuthResult(
-        success: false,
-        method: method,
-        error: _getErrorMessage(e),
-      );
+      AppLogger.error(
+          'Platform error in biometric authentication: ${e.message}', e);
+
+      if (e.code == 'UserCancel') {
+        return AuthResult(
+          success: false,
+          method: method,
+          error: 'Usuario canceló la autenticación',
+        );
+      } else if (e.code == 'NotAvailable') {
+        return AuthResult(
+          success: false,
+          method: method,
+          error: 'Autenticación biométrica no disponible',
+        );
+      } else {
+        return AuthResult(
+          success: false,
+          method: method,
+          error: 'Error en autenticación biométrica: ${e.message}',
+        );
+      }
     } catch (e) {
-      debugPrint('Unexpected error in biometric authentication: $e');
+      AppLogger.error('Unexpected error in biometric authentication', e);
       return AuthResult(
         success: false,
         method: method,
-        error: 'Error inesperado durante la autenticación biométrica',
+        error: 'Error inesperado en autenticación biométrica',
       );
     }
   }

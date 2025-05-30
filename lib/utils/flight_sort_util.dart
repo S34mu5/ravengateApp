@@ -1,4 +1,5 @@
 import '../utils/flight_filter_util.dart';
+import '../utils/logger.dart';
 
 /// Utilitario para ordenar los vuelos de manera consistente en toda la aplicación
 class FlightSortUtil {
@@ -12,34 +13,39 @@ class FlightSortUtil {
     // Crear una copia para no modificar la lista original
     final List<Map<String, dynamic>> sortedFlights = List.from(flights);
 
-    sortedFlights.sort((a, b) {
-      try {
-        // Primero intentar ordenar por status_time si está disponible
-        final aStatusTime = a['status_time']?.toString() ?? '';
-        final bStatusTime = b['status_time']?.toString() ?? '';
+    try {
+      sortedFlights.sort((a, b) {
+        try {
+          // Primero intentar ordenar por status_time si está disponible
+          final aStatusTime = a['status_time']?.toString() ?? '';
+          final bStatusTime = b['status_time']?.toString() ?? '';
 
-        // Si ambos vuelos tienen status_time, usar eso para comparar
-        if (aStatusTime.isNotEmpty && bStatusTime.isNotEmpty) {
-          final DateTime aTime = DateTime.parse(aStatusTime);
-          final DateTime bTime = DateTime.parse(bStatusTime);
+          // Si ambos vuelos tienen status_time, usar eso para comparar
+          if (aStatusTime.isNotEmpty && bStatusTime.isNotEmpty) {
+            final DateTime aTime = DateTime.parse(aStatusTime);
+            final DateTime bTime = DateTime.parse(bStatusTime);
+            return aTime.compareTo(bTime);
+          }
+
+          // Si alguno no tiene status_time, usar schedule_time
+          final aScheduleTime = a['schedule_time'].toString();
+          final bScheduleTime = b['schedule_time'].toString();
+
+          final DateTime aTime = DateTime.parse(aScheduleTime);
+          final DateTime bTime = DateTime.parse(bScheduleTime);
+
           return aTime.compareTo(bTime);
+        } catch (e) {
+          AppLogger.error('Error sorting individual flights', e);
+          return 0; // En caso de error, mantener el orden original
         }
+      });
 
-        // Si alguno no tiene status_time, usar schedule_time
-        final aScheduleTime = a['schedule_time'].toString();
-        final bScheduleTime = b['schedule_time'].toString();
-
-        final DateTime aTime = DateTime.parse(aScheduleTime);
-        final DateTime bTime = DateTime.parse(bScheduleTime);
-
-        return aTime.compareTo(bTime);
-      } catch (e) {
-        print('LOG: Error sorting flights: $e');
-        return 0; // En caso de error, mantener el orden original
-      }
-    });
-
-    return sortedFlights;
+      return sortedFlights;
+    } catch (e) {
+      AppLogger.error('Error sorting flights', e);
+      return flights; // Return original list if sorting fails
+    }
   }
 
   /// Extrae un DateTime completo de un timestamp de vuelo, considerando fecha y hora
@@ -128,9 +134,8 @@ class FlightSortUtil {
       // Crear un DateTime con la fecha actual y la hora extraída
       return DateTime(now.year, now.month, now.day, hour, minute);
     } catch (e) {
-      print('LOG: Error extracting full datetime: $e');
-      // En caso de error, devolver la fecha actual
-      return DateTime.now();
+      AppLogger.error('Error extracting full datetime', e);
+      return DateTime.now(); // Return current time if parsing fails
     }
   }
 

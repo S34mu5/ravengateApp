@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'flight_search_helper.dart';
 import '../services/cache/cache_service.dart';
+import 'logger.dart';
 
 /// Utilidad para filtrar y buscar vuelos, eliminando duplicación de código
 class FlightFilterUtil {
@@ -55,7 +56,7 @@ class FlightFilterUtil {
 
       return scheduleTime;
     } catch (e) {
-      print('LOG: Error extracting time: $e');
+      AppLogger.error('Error extracting time', e);
       return scheduleTime;
     }
   }
@@ -74,7 +75,7 @@ class FlightFilterUtil {
       final now = DateTime.now();
       return '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}';
     } catch (e) {
-      print('LOG: Error extracting date: $e');
+      AppLogger.error('Error extracting date', e);
       return '';
     }
   }
@@ -101,7 +102,7 @@ class FlightFilterUtil {
       }
       return false;
     } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
+      AppLogger.error('Error comparando tiempos', e);
       return false;
     }
   }

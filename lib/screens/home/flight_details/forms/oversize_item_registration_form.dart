@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../../utils/logger.dart';
 
 /// Tipos de elementos sobredimensionados
 enum OversizeItemType {
@@ -360,7 +361,7 @@ class _OversizeItemRegistrationFormState
         _errorMessage = 'Error al registrar: $e';
         _isLoading = false;
       });
-      debugPrint('Error registrando elemento sobredimensionado: $e');
+      AppLogger.error('Error registrando elemento sobredimensionado', e);
     }
   }
 }

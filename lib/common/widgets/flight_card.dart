@@ -4,6 +4,7 @@ import '../../utils/airline_helper.dart';
 import '../../utils/flight_filter_util.dart';
 import '../../screens/home/flight_details/utils/flight_formatters.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/logger.dart';
 
 /// Widget reutilizable que representa una tarjeta de vuelo
 /// Se puede usar tanto en All Departures como en My Departures
@@ -107,7 +108,7 @@ class _FlightCardState extends State<FlightCard> {
         });
       }
     } catch (e) {
-      debugPrint('Error cargando conteo de trolleys en FlightCard: $e');
+      AppLogger.error('Error cargando conteo de trolleys en FlightCard', e);
       if (mounted) {
         setState(() {
           _isLoadingTrolleys = false;

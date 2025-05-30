@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../utils/flight_formatters.dart';
+import '../../../../utils/logger.dart';
 
 /// Widget that allows the operator to register the number of trolleys left at the gate
 class GateTrolleys extends StatefulWidget {
@@ -77,7 +78,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
         });
       }
     } catch (e) {
-      debugPrint('Error cargando conteo actual de trolleys: $e');
+      AppLogger.error('Error cargando conteo actual de trolleys', e);
       if (mounted) {
         setState(() {
           _isLoadingCurrentCount = false;
@@ -132,7 +133,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
         _showHistory = true;
       });
     } catch (e) {
-      debugPrint('Error loading trolley history: $e');
+      AppLogger.error('Error loading trolley history', e);
       if (mounted) {
         setState(() {
           _isLoadingHistory = false;
@@ -216,7 +217,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
         widget.onUpdateSuccess!();
       }
     } catch (e) {
-      debugPrint('Error marking trolley delivery as deleted: $e');
+      AppLogger.error('Error marking trolley delivery as deleted', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -247,7 +248,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
         await _loadTrolleyHistory();
       }
     } catch (e) {
-      debugPrint('Error restoring trolley delivery: $e');
+      AppLogger.error('Error restoring trolley delivery', e);
     }
   }
 
@@ -349,13 +350,13 @@ class _GateTrolleysState extends State<GateTrolleys> {
         widget.onUpdateSuccess!();
       }
     } catch (e) {
+      AppLogger.error('Error saving trolleys', e);
       if (mounted) {
         setState(() {
           _isUpdating = false;
           _errorMessage = '${localizations.errorSaving} $e';
         });
       }
-      debugPrint('Error saving trolleys: $e');
     }
   }
 
@@ -456,7 +457,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
         widget.onUpdateSuccess!();
       }
     } catch (e) {
-      debugPrint('Error deleting all trolley deliveries: $e');
+      AppLogger.error('Error deleting all trolley deliveries', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

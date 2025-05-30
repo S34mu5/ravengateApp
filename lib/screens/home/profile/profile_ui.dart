@@ -7,6 +7,7 @@ import 'notifications_screen.dart'; // Importar la pantalla de notificaciones
 import 'data_visualization_settings.dart'; // Importar la nueva pantalla de configuración
 import 'language_settings_screen.dart'; // Importar la pantalla de configuración de idioma
 import '../../../l10n/app_localizations.dart';
+import '../../../utils/logger.dart';
 
 /// Widget que muestra la interfaz de usuario para la pantalla de perfil
 class ProfileUI extends StatefulWidget {
@@ -202,8 +203,15 @@ class _ProfileUIState extends State<ProfileUI> {
     await progressDialog.show();
 
     try {
-      // Ejecutar el diagnóstico
-      await UserFlightsService.ensureFirestoreStructure();
+      // Ejecutar diagnóstico simple usando métodos disponibles
+      // Actualizar información del usuario
+      await UserFlightsService.updateUserInfo();
+
+      // Forzar actualización de vuelos para verificar conectividad
+      await UserFlightsService.getUserFlights(forceRefresh: true);
+
+      // Forzar actualización de vuelos archivados
+      await UserFlightsService.getUserArchivedFlightDates(forceRefresh: true);
 
       // Cerrar el diálogo de progreso
       if (progressDialog.isShowing) {
@@ -243,8 +251,8 @@ class _ProfileUIState extends State<ProfileUI> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
 
-    print(
-        'LOG: Construyendo UI de perfil para usuario: ${widget.user.displayName ?? "sin nombre"} (${widget.user.email ?? "sin email"})');
+    AppLogger.info(
+        'Construyendo UI de perfil para usuario: ${widget.user.displayName ?? "sin nombre"} (${widget.user.email ?? "sin email"})');
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
@@ -369,8 +377,8 @@ class _ProfileUIState extends State<ProfileUI> {
               const SizedBox(height: 32),
               OutlinedButton.icon(
                 onPressed: () {
-                  print(
-                      'LOG: Usuario pulsó el botón de logout en la pantalla de perfil');
+                  AppLogger.info(
+                      'Usuario pulsó el botón de logout en la pantalla de perfil');
                   widget.onLogout();
                 },
                 icon: const Icon(Icons.logout),

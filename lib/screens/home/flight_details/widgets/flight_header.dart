@@ -5,6 +5,7 @@ import '../../../../utils/airline_helper.dart';
 import '../../../../utils/flight_filter_util.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'common_widgets.dart';
+import '../../../../utils/logger.dart';
 
 /// Widget que muestra el encabezado con información básica del vuelo
 class FlightHeader extends StatefulWidget {
@@ -76,19 +77,19 @@ class _FlightHeaderState extends State<FlightHeader> {
   /// Carga el total acumulado de trolleys
   Future<void> _loadTotalTrolleys() async {
     // Mostrar todos los campos disponibles en flightDetails para depuración
-    debugPrint(
+    AppLogger.debug(
         'FlightDetails disponibles: ${widget.flightDetails.keys.join(', ')}');
 
     // Usamos directamente el documentId del widget, como en GateTrolleys
     final String documentId = widget.documentId;
-    debugPrint('DocumentId usado: $documentId');
+    AppLogger.debug('DocumentId usado: $documentId');
 
     if (documentId.isEmpty) {
       setState(() {
         _errorMessage = 'DocumentId vacío';
         _isLoadingTrolleys = false;
       });
-      debugPrint('Error: DocumentId vacío');
+      AppLogger.debug('Error: DocumentId vacío');
       return;
     }
 
@@ -100,12 +101,12 @@ class _FlightHeaderState extends State<FlightHeader> {
       // Verificamos la colección
       final flightDoc =
           FirebaseFirestore.instance.collection('flights').doc(documentId);
-      debugPrint('Ruta del documento de vuelo: ${flightDoc.path}');
+      AppLogger.debug('Ruta del documento de vuelo: ${flightDoc.path}');
 
       // Primero verificamos si el documento existe
       final docSnapshot = await flightDoc.get();
       if (!docSnapshot.exists) {
-        debugPrint(
+        AppLogger.warning(
             'ALERTA: El documento de vuelo no existe en la ruta: ${flightDoc.path}');
         setState(() {
           _errorMessage = 'Documento de vuelo no encontrado';
@@ -114,21 +115,22 @@ class _FlightHeaderState extends State<FlightHeader> {
         return;
       }
 
-      debugPrint('Documento de vuelo encontrado, buscando trolleys...');
+      AppLogger.debug('Documento de vuelo encontrado, buscando trolleys...');
 
       // Ahora obtenemos la colección trolleys
       final trolleysCollection = flightDoc.collection('trolleys');
-      debugPrint('Ruta de colección trolleys: ${trolleysCollection.path}');
+      AppLogger.debug('Ruta de colección trolleys: ${trolleysCollection.path}');
 
       final QuerySnapshot snapshot = await trolleysCollection.get();
 
       if (!mounted) return;
 
-      debugPrint('Documentos encontrados en trolleys: ${snapshot.docs.length}');
+      AppLogger.debug(
+          'Documentos encontrados en trolleys: ${snapshot.docs.length}');
 
       // Si no hay documentos, mostramos un mensaje claro
       if (snapshot.docs.isEmpty) {
-        debugPrint(
+        AppLogger.warning(
             'IMPORTANTE: No se encontraron documentos en la colección trolleys');
         setState(() {
           _totalTrolleys = 0;
@@ -141,23 +143,24 @@ class _FlightHeaderState extends State<FlightHeader> {
       // Imprimimos cada documento para verificar
       for (final doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        debugPrint('Documento completo: $data');
+        AppLogger.debug('Documento completo: $data');
 
         // Verificar si contiene el campo count
         if (!data.containsKey('count')) {
-          debugPrint('ALERTA: Documento ${doc.id} no contiene campo count');
+          AppLogger.warning(
+              'ALERTA: Documento ${doc.id} no contiene campo count');
           continue;
         }
 
         // Solo sumamos si no está eliminado
         if (!(data['deleted'] ?? false)) {
           final int countValue = data['count'] as int? ?? 0;
-          debugPrint('Documento trolley: ID=${doc.id}, count=$countValue');
+          AppLogger.debug('Documento trolley: ID=${doc.id}, count=$countValue');
           totalCount += countValue;
         }
       }
 
-      debugPrint('Total de trolleys calculado: $totalCount');
+      AppLogger.debug('Total de trolleys calculado: $totalCount');
 
       setState(() {
         _totalTrolleys = totalCount;
@@ -165,7 +168,7 @@ class _FlightHeaderState extends State<FlightHeader> {
         _isLoadingTrolleys = false;
       });
     } catch (e) {
-      debugPrint('Error cargando total de trolleys: $e');
+      AppLogger.error('Error cargando total de trolleys', e);
       if (mounted) {
         setState(() {
           _errorMessage = 'Error: $e';

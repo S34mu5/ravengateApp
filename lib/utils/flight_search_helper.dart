@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'airline_helper.dart';
+import '../utils/logger.dart';
 
 /// Clase de utilidad para buscar y filtrar vuelos en la aplicación
 class FlightSearchHelper {
@@ -89,7 +90,7 @@ class FlightSearchHelper {
         return flightDateTime.isAfter(startDateTime) &&
             flightDateTime.isBefore(endDateTime);
       } catch (e) {
-        print('LOG: Error analizando fecha para filtrado: $e');
+        AppLogger.error('Error analizando fecha para filtrado', e);
         return false;
       }
     }).toList();

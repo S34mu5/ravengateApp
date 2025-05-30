@@ -13,6 +13,7 @@ import 'services/gate/gate_monitor_service.dart';
 import 'screens/location/select_location_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'services/localization/language_service.dart';
+import 'utils/logger.dart';
 
 // Referencia global al controlador de autenticación para acceder desde cualquier lugar
 late AuthController authController;
@@ -23,6 +24,12 @@ late Function(String) changeAppLanguage;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configurar el sistema de logging antes que nada
+  AppLogger
+      .enableDevelopmentMode(); // Cambiar a enableProductionMode() para release
+  AppLogger.info('🚀 Iniciando RavenGate App');
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -41,7 +48,7 @@ void main() async {
 
 /// Inicializa o reinicializa los servicios de autenticación
 void initializeAuthServices() {
-  print('🔄 Inicializando servicios de autenticación...');
+  AppLogger.info('🔄 Inicializando servicios de autenticación...');
   final authServices = [
     BiometricAuthService(),
     GoogleAuthService(),
@@ -55,24 +62,25 @@ void initializeAuthServices() {
 /// Inicializa el servicio de notificaciones
 Future<void> initializeNotificationService() async {
   try {
-    print('🔔 Inicializando servicio de notificaciones...');
+    AppLogger.info('🔔 Inicializando servicio de notificaciones...');
     final notificationService = NotificationService();
     await notificationService.init();
 
     // Solicitar permisos para notificaciones
     final hasPermission = await notificationService.requestPermissions();
-    print('✅ Servicio de notificaciones inicializado correctamente');
-    print(
+    AppLogger.info('✅ Servicio de notificaciones inicializado correctamente');
+    AppLogger.info(
         '📱 Permisos de notificaciones: ${hasPermission ? 'concedidos' : 'denegados'}');
   } catch (e) {
-    print('❌ Error al inicializar el servicio de notificaciones: $e');
+    AppLogger.error('❌ Error al inicializar el servicio de notificaciones', e);
   }
 }
 
 /// Inicializa el servicio de monitoreo de cambios de puerta
 Future<void> initializeGateMonitorService() async {
   try {
-    print('🚪 Inicializando servicio de monitoreo de cambios de puerta...');
+    AppLogger.info(
+        '🚪 Inicializando servicio de monitoreo de cambios de puerta...');
     gateMonitorService = GateMonitorService();
     await gateMonitorService.initialize();
 
@@ -80,22 +88,23 @@ Future<void> initializeGateMonitorService() async {
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (user != null) {
         // Usuario autenticado, iniciar monitoreo
-        print(
+        AppLogger.info(
             '👤 Usuario autenticado, iniciando monitoreo de cambios de puerta');
         gateMonitorService.startMonitoring();
       } else {
         // Usuario desconectado, detener monitoreo
-        print(
+        AppLogger.info(
             '👤 Usuario desconectado, deteniendo monitoreo de cambios de puerta');
         gateMonitorService.stopMonitoring();
       }
     });
 
-    print(
+    AppLogger.info(
         '✅ Servicio de monitoreo de cambios de puerta inicializado correctamente');
   } catch (e) {
-    print(
-        '❌ Error al inicializar el servicio de monitoreo de cambios de puerta: $e');
+    AppLogger.error(
+        '❌ Error al inicializar el servicio de monitoreo de cambios de puerta',
+        e);
   }
 }
 
@@ -135,7 +144,7 @@ class _MyAppState extends State<MyApp> {
       setState(() {
         _currentLocale = Locale(languageCode);
       });
-      print('LOG: Idioma cambiado a: $languageCode');
+      AppLogger.info('Idioma cambiado a: $languageCode');
     }
   }
 

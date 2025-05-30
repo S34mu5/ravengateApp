@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../../utils/logger.dart';
 
 /// Widget para mostrar la lista de elementos sobredimensionados registrados
 class OzOversizeItemsList extends StatefulWidget {
@@ -72,7 +73,7 @@ class _OzOversizeItemsListState extends State<OzOversizeItemsList> {
           _isLoading = false;
         });
       }
-      debugPrint('Error cargando elementos sobredimensionados: $e');
+      AppLogger.error('Error cargando elementos sobredimensionados', e);
     }
   }
 
@@ -206,7 +207,8 @@ class _OzOversizeItemsListState extends State<OzOversizeItemsList> {
         formattedDate =
             DateFormat('dd/MM/yyyy HH:mm').format(timestamp.toDate());
       } catch (e) {
-        debugPrint('Error formateando fecha: $e');
+        AppLogger.error('Error formateando fecha', e);
+        formattedDate = 'Fecha inválida';
       }
     }
 
@@ -414,7 +416,7 @@ class _OzOversizeItemsListState extends State<OzOversizeItemsList> {
           ),
         );
       }
-      debugPrint('Error eliminando elemento sobredimensionado: $e');
+      AppLogger.error('Error eliminando elemento sobredimensionado', e);
     }
   }
 }

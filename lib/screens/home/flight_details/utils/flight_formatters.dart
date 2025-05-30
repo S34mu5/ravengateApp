@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../utils/logger.dart';
 
 /// Clase de utilidades para formatear datos de vuelos
 class FlightFormatters {
@@ -18,7 +19,7 @@ class FlightFormatters {
       final DateTime dateTime = DateTime.parse(timeString);
       return DateFormat('HH:mm').format(dateTime.toLocal());
     } catch (e) {
-      debugPrint('Error formatting time: $e');
+      AppLogger.error('Error formatting time', e);
       return timeString; // Devolver el string original si hay error
     }
   }
@@ -28,7 +29,7 @@ class FlightFormatters {
     try {
       return DateFormat('MMM d, yyyy - HH:mm').format(dateTime.toLocal());
     } catch (e) {
-      debugPrint('Error formatting datetime: $e');
+      AppLogger.error('Error formatting datetime', e);
       return dateTime.toString(); // Devolver el string por defecto si hay error
     }
   }
@@ -38,7 +39,7 @@ class FlightFormatters {
     try {
       return DateFormat('MMM d').format(dateTime.toLocal());
     } catch (e) {
-      debugPrint('Error formatting short date: $e');
+      AppLogger.error('Error formatting short date', e);
       return dateTime.toString();
     }
   }
@@ -60,7 +61,7 @@ class FlightFormatters {
 
       return hour1 > hour2 || (hour1 == hour2 && minute1 > minute2);
     } catch (e) {
-      debugPrint('Error comparing times: $e');
+      AppLogger.error('Error comparing times', e);
       return false;
     }
   }

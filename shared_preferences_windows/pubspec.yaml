@@ -1,5 +1,0 @@
-name: shared_preferences_windows
-description: Dummy plugin to satisfy pub resolver
-version: 0.0.1
-environment:
-  sdk: '>=3.1.5 <4.0.0'
