@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../notifications/notification_service.dart';
 import '../cache/cache_service.dart';
 import '../developer/developer_mode_service.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para monitorear cambios de puerta en los vuelos guardados por el usuario
 class GateMonitorService {
@@ -38,10 +39,10 @@ class GateMonitorService {
 
     if (isError) {
       developer.log(formattedMessage, name: 'GateMonitor', error: true);
-      print('❌ $formattedMessage');
+      AppLogger.error(formattedMessage, null);
     } else {
       developer.log(formattedMessage, name: 'GateMonitor');
-      print(formattedMessage);
+      AppLogger.info(formattedMessage);
     }
   }
 

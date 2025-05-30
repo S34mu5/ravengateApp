@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import '../notifications/notification_service.dart';
 import '../cache/cache_service.dart';
+import '../../utils/logger.dart';
 
 /// Clase para detectar retrasos en vuelos comparando datos actualizados
 class FlightDelayDetector {
@@ -20,7 +21,7 @@ class FlightDelayDetector {
     List<Map<String, dynamic>> previousFlights,
     List<Map<String, dynamic>> currentFlights,
   ) async {
-    print('LOG: Verifying delays in ${currentFlights.length} flights');
+    AppLogger.info('Verificando retrasos en ${currentFlights.length} vuelos');
 
     // Inicializar el servicio de notificaciones
     await _notificationService.init();
@@ -35,7 +36,8 @@ class FlightDelayDetector {
 
     // Si ambas notificaciones están desactivadas, salir
     if (!delayNotificationsEnabled && !departureNotificationsEnabled) {
-      print('LOG: Flight notifications are disabled by user');
+      AppLogger.info(
+          'Las notificaciones de vuelos están desactivadas por el usuario');
       return;
     }
 
@@ -77,8 +79,8 @@ class FlightDelayDetector {
               newTime: newTime,
             );
 
-            print(
-                'LOG: Delay detected in flight $flightCode - New time: $newTime');
+            AppLogger.info(
+                'Retraso detectado en vuelo $flightCode - Nueva hora: $newTime');
           }
         }
 
@@ -105,8 +107,8 @@ class FlightDelayDetector {
               departureTime: departureTime,
             );
 
-            print(
-                'LOG: Departure detected for flight $flightCode at time: $departureTime');
+            AppLogger.info(
+                'Despegue detectado para vuelo $flightCode a las: $departureTime');
           }
         }
       }
@@ -128,7 +130,7 @@ class FlightDelayDetector {
       // El vuelo ha despegado si el status_code ha cambiado a 'D' (Departed)
       return previousStatus != 'D' && currentStatus == 'D';
     } catch (e) {
-      print('LOG: Error detecting departure: $e');
+      AppLogger.error('Error detectando despegue', e);
       return false;
     }
   }
@@ -154,8 +156,8 @@ class FlightDelayDetector {
 
       // Si delayed ha cambiado de false a true, notificar
       if (!wasDelayedBefore && isDelayedNow) {
-        print(
-            'LOG: Delay detected based on delayed flag change for flight ${currentFlight['flight_id']}');
+        AppLogger.info(
+            'Retraso detectado basado en cambio de flag delayed para vuelo ${currentFlight['flight_id']}');
         return true;
       }
 
@@ -194,7 +196,7 @@ class FlightDelayDetector {
 
       return false;
     } catch (e) {
-      print('LOG: Error detecting delay: $e');
+      AppLogger.error('Error detectando retraso', e);
       return false;
     }
   }
@@ -216,7 +218,7 @@ class FlightDelayDetector {
 
       return scheduleTime;
     } catch (e) {
-      print('LOG: Error extracting time: $e');
+      AppLogger.error('Error extrayendo tiempo', e);
       return scheduleTime;
     }
   }
@@ -243,7 +245,7 @@ class FlightDelayDetector {
       }
       return false;
     } catch (e) {
-      print('LOG: Error comparando tiempos: $e');
+      AppLogger.error('Error comparando tiempos', e);
       return false;
     }
   }

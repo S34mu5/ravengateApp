@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para manejar la configuración de idioma de la aplicación
 class LanguageService {
@@ -34,16 +35,16 @@ class LanguageService {
       final savedLanguageCode = prefs.getString(_languageKey);
 
       if (savedLanguageCode != null) {
-        print('LOG: Idioma guardado encontrado: $savedLanguageCode');
+        AppLogger.info('Idioma guardado encontrado: $savedLanguageCode');
         return Locale(savedLanguageCode);
       }
 
       // Si no hay idioma guardado, detectar idioma del sistema
       final systemLocale = _getSystemLocale();
-      print('LOG: Usando idioma del sistema: ${systemLocale.languageCode}');
+      AppLogger.info('Usando idioma del sistema: ${systemLocale.languageCode}');
       return systemLocale;
     } catch (e) {
-      print('ERROR: No se pudo cargar el idioma guardado: $e');
+      AppLogger.error('No se pudo cargar el idioma guardado', e);
       // Fallback a inglés para usuarios nuevos
       return const Locale('en');
     }
@@ -54,10 +55,10 @@ class LanguageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_languageKey, languageCode);
-      print('LOG: Idioma guardado: $languageCode');
+      AppLogger.info('Idioma guardado: $languageCode');
       return true;
     } catch (e) {
-      print('ERROR: No se pudo guardar el idioma: $e');
+      AppLogger.error('No se pudo guardar el idioma', e);
       return false;
     }
   }
@@ -112,10 +113,10 @@ class LanguageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_languageKey);
-      print('LOG: Configuración de idioma eliminada');
+      AppLogger.info('Configuración de idioma eliminada');
       return true;
     } catch (e) {
-      print('ERROR: No se pudo eliminar la configuración de idioma: $e');
+      AppLogger.error('No se pudo eliminar la configuración de idioma', e);
       return false;
     }
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../user/user_flights_service.dart';
+import '../../utils/logger.dart';
 
 /// Mixin para añadir la funcionalidad de swipe entre vuelos en la pantalla de detalles
 mixin SwipeableFlightDetails<T extends StatefulWidget> on State<T> {
@@ -13,8 +15,8 @@ mixin SwipeableFlightDetails<T extends StatefulWidget> on State<T> {
 
   /// Método de ayuda para depurar información sobre el swipe
   void _debugSwipeInfo() {
-    print('SWIPE DEBUG: Lista de vuelos: ${flightsList.length} elementos');
-    print('SWIPE DEBUG: ID de documento actual: $currentFlightDocId');
-    print('SWIPE DEBUG: Origen de los datos: $flightsSource');
+    AppLogger.info('Lista de vuelos: ${flightsList.length} elementos');
+    AppLogger.info('ID de documento actual: $currentFlightDocId');
+    AppLogger.info('Origen de los datos: $flightsSource');
   }
 }

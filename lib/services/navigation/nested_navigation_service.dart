@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para manejar la navegación anidada manteniendo el BottomNavigationBar fijo
 class NestedNavigationService extends ChangeNotifier {
@@ -35,10 +36,10 @@ class NestedNavigationService extends ChangeNotifier {
     required String flightsSource,
     required int currentTabIndex,
   }) {
-    print(
-        'LOG: NestedNavigation - Navegando a detalles de vuelo: ${flight['flight_id']}');
-    print('LOG: NestedNavigation - Origen: $flightsSource');
-    print('LOG: NestedNavigation - Tab actual: $currentTabIndex');
+    AppLogger.info(
+        'NestedNavigation - Navegando a detalles de vuelo: ${flight['flight_id']}');
+    AppLogger.info('NestedNavigation - Origen: $flightsSource');
+    AppLogger.info('NestedNavigation - Tab actual: $currentTabIndex');
 
     _isShowingFlightDetails = true;
     _currentFlightData = flight;
@@ -51,7 +52,7 @@ class NestedNavigationService extends ChangeNotifier {
 
   /// Regresa a la pantalla anterior (lista de vuelos)
   void navigateBack() {
-    print('LOG: NestedNavigation - Regresando a la lista de vuelos');
+    AppLogger.info('NestedNavigation - Regresando a la lista de vuelos');
 
     _isShowingFlightDetails = false;
     _currentFlightData = null;
@@ -65,8 +66,8 @@ class NestedNavigationService extends ChangeNotifier {
   void navigateToAdjacentFlight({
     required Map<String, dynamic> flight,
   }) {
-    print(
-        'LOG: NestedNavigation - Navegando a vuelo adyacente: ${flight['flight_id']}');
+    AppLogger.info(
+        'NestedNavigation - Navegando a vuelo adyacente: ${flight['flight_id']}');
 
     _currentFlightData = flight;
 
@@ -75,7 +76,7 @@ class NestedNavigationService extends ChangeNotifier {
 
   /// Limpia el estado (útil para logout o cambios de ubicación)
   void clear() {
-    print('LOG: NestedNavigation - Limpiando estado de navegación');
+    AppLogger.info('NestedNavigation - Limpiando estado de navegación');
 
     _isShowingFlightDetails = false;
     _currentFlightData = null;

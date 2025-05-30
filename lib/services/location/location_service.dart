@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para obtener y gestionar la ubicación actual del usuario
 class LocationService {
@@ -11,8 +12,8 @@ class LocationService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(_locationKey) ?? 'Bins';
     } catch (e) {
-      print('ERROR: No se pudo obtener la ubicación: $e');
-      return 'Bins'; // Valor por defecto en caso de error
+      AppLogger.error('No se pudo obtener la ubicación', e);
+      return 'Bins';
     }
   }
 

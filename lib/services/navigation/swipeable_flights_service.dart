@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../screens/home/flight_details/flight_details_screen.dart';
+import '../../utils/logger.dart';
 
 /// Servicio que permite la navegación entre vuelos mediante gestos de swipe
 class SwipeableFlightsService {
@@ -22,7 +23,7 @@ class SwipeableFlightsService {
   }) {
     // Validar que la lista no esté vacía
     if (flightsList.isEmpty) {
-      print('LOG: No se puede navegar - lista de vuelos vacía');
+      AppLogger.info('No se puede navegar - lista de vuelos vacía');
       return;
     }
 
@@ -41,12 +42,13 @@ class SwipeableFlightsService {
 
     // Si aún no se encuentra el vuelo, no hacer nada
     if (index == -1) {
-      print(
-          'LOG: No se puede navegar - vuelo actual no encontrado en la lista');
+      AppLogger.info(
+          'No se puede navegar - vuelo actual no encontrado en la lista');
       return;
     }
 
-    print('LOG: Índice actual en la lista: $index de ${flightsList.length}');
+    AppLogger.info(
+        'Índice actual en la lista: $index de ${flightsList.length}');
 
     // Calcular el índice del vuelo al que se desea navegar
     int targetIndex;
@@ -60,26 +62,26 @@ class SwipeableFlightsService {
 
         // Verificar si estamos en el primer elemento
         if (targetIndex < 0) {
-          print(
-              'LOG: Ya estás en el primer vuelo, no se puede navegar más arriba');
+          AppLogger.info(
+              'Ya estás en el primer vuelo, no se puede navegar más arriba');
           return;
         }
 
-        print(
-            'LOG: Navegando al vuelo anterior (índice $targetIndex) en my_departures');
+        AppLogger.info(
+            'Navegando al vuelo anterior (índice $targetIndex) en my_departures');
       } else {
         // isNext=false (swipe de izquierda a derecha) -> siguiente vuelo
         targetIndex = index + 1;
 
         // Verificar si estamos en el último elemento
         if (targetIndex >= flightsList.length) {
-          print(
-              'LOG: Ya estás en el último vuelo, no se puede navegar más abajo');
+          AppLogger.info(
+              'Ya estás en el último vuelo, no se puede navegar más abajo');
           return;
         }
 
-        print(
-            'LOG: Navegando al siguiente vuelo (índice $targetIndex) en my_departures');
+        AppLogger.info(
+            'Navegando al siguiente vuelo (índice $targetIndex) en my_departures');
       }
     } else {
       // Para all_departures mantenemos la lógica original
@@ -89,26 +91,26 @@ class SwipeableFlightsService {
 
         // Verificar si estamos en el último elemento
         if (targetIndex >= flightsList.length) {
-          print(
-              'LOG: Ya estás en el último vuelo, no se puede navegar más abajo');
+          AppLogger.info(
+              'Ya estás en el último vuelo, no se puede navegar más abajo');
           return;
         }
 
-        print(
-            'LOG: Navegando al siguiente vuelo (índice $targetIndex) en all_departures');
+        AppLogger.info(
+            'Navegando al siguiente vuelo (índice $targetIndex) en all_departures');
       } else {
         // isNext=false (swipe de izquierda a derecha) -> vuelo anterior
         targetIndex = index - 1;
 
         // Verificar si estamos en el primer elemento
         if (targetIndex < 0) {
-          print(
-              'LOG: Ya estás en el primer vuelo, no se puede navegar más arriba');
+          AppLogger.info(
+              'Ya estás en el primer vuelo, no se puede navegar más arriba');
           return;
         }
 
-        print(
-            'LOG: Navegando al vuelo anterior (índice $targetIndex) en all_departures');
+        AppLogger.info(
+            'Navegando al vuelo anterior (índice $targetIndex) en all_departures');
       }
     }
 
@@ -120,7 +122,8 @@ class SwipeableFlightsService {
         ? (targetFlight['flight_ref'] ?? targetFlight['id'] ?? '')
         : targetFlight['id'];
 
-    print('LOG: Navegando al vuelo ${targetFlight['flight_id']} (ID: $docId)');
+    AppLogger.info(
+        'Navegando al vuelo ${targetFlight['flight_id']} (ID: $docId)');
 
     // Navegar a la pantalla de detalles del vuelo objetivo
     Navigator.pushReplacement(

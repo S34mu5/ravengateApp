@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz_init;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:developer' as developer;
-import '../developer/developer_mode_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tz_init;
+import 'package:timezone/timezone.dart' as tz;
+import '../developer/developer_mode_service.dart';
+import '../gate/gate_monitor_service.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para manejar notificaciones locales en la aplicación
 class NotificationService {
@@ -37,10 +40,10 @@ class NotificationService {
 
     if (isError) {
       developer.log(formattedMessage, name: 'Notifications', error: true);
-      print('❌ $formattedMessage');
+      AppLogger.error(formattedMessage, null);
     } else {
       developer.log(formattedMessage, name: 'Notifications');
-      print(formattedMessage);
+      AppLogger.info(formattedMessage);
     }
   }
 
@@ -197,10 +200,11 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       isDeveloperMode = prefs.getBool('developer_mode_enabled') ?? false;
-      print(
-          '🔔 NOTIFICATIONS: Estado de modo desarrollador: ${isDeveloperMode ? 'ACTIVADO' : 'DESACTIVADO'}');
+      AppLogger.info(
+          'NOTIFICATIONS: Estado de modo desarrollador: ${isDeveloperMode ? 'ACTIVADO' : 'DESACTIVADO'}');
     } catch (e) {
-      print('🔔 NOTIFICATIONS: Error al verificar modo desarrollador: $e');
+      AppLogger.error(
+          'NOTIFICATIONS: Error al verificar modo desarrollador', e);
     }
 
     // Crear notificación para el servicio en primer plano (siempre, independientemente del modo)
@@ -259,11 +263,12 @@ class NotificationService {
             ),
           ),
         );
-        print(
+        AppLogger.info(
             '🔔 NOTIFICATIONS: Notificación de modo desarrollador enviada correctamente');
       } catch (e) {
-        print(
-            '🔔 NOTIFICATIONS: Error al enviar notificación de modo desarrollador: $e');
+        AppLogger.error(
+            '🔔 NOTIFICATIONS: Error al enviar notificación de modo desarrollador',
+            e);
       }
     }
   }
