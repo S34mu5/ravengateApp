@@ -87,8 +87,9 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   Future<void> _loadNorwegianPreference() async {
     final isEnabled = await CacheService.getNorwegianEquivalencePreference();
 
-    if (!mounted)
+    if (!mounted) {
       return; // Evitar usar context/setState si el widget ya no está
+    }
 
     setState(() {
       _norwegianEquivalenceEnabled = isEnabled;
@@ -256,8 +257,9 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
       ),
     );
 
-    if (!mounted)
+    if (!mounted) {
       return; // El widget pudo haber sido removido mientras el diálogo estaba abierto
+    }
 
     if (shouldDelete != true) {
       return;

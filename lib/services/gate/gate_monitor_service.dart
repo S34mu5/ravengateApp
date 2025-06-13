@@ -397,9 +397,11 @@ class GateMonitorService {
         return;
       }
 
-      // Para depuración: forzar que siempre se considere un cambio nuevo si el debugMode está activado
-      bool isDebugMode =
-          false; // Cambiar a true para forzar notificaciones durante pruebas
+      // Si el modo desarrollador está activado, forzamos la notificación (útil en pruebas)
+      final bool isDebugMode =
+          await DeveloperModeService.isDeveloperModeEnabled();
+
+      // Verificar si este es un cambio nuevo que no hemos procesado antes
       bool isNewChange = lastKnownTimestamp == null ||
           changeTimestamp.compareTo(lastKnownTimestamp) > 0 ||
           isDebugMode;
