@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/flight_search_helper.dart';
-import '../../../utils/flight_filter_util.dart';
 import '../flight_details/flight_details_screen.dart';
 import '../flight_details/oz_flight_details_screen.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../common/widgets/flight_card.dart';
 import '../../../services/location/location_service.dart';
 import '../../../utils/progress_dialog.dart';
+import '../../../utils/logger.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos archivados
 class ArchivedFlightsUI extends StatefulWidget {
@@ -44,9 +44,6 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   Set<int> _selectedFlightIndices = {};
 
   // Formatters for date and time
-  final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
-  final DateFormat _timeFormatter = DateFormat('HH:mm');
-  final DateFormat _displayFormatter = DateFormat('dd MMM HH:mm');
 
   @override
   void initState() {
@@ -89,26 +86,15 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   // Cargar preferencia de equivalencia Norwegian
   Future<void> _loadNorwegianPreference() async {
     final isEnabled = await CacheService.getNorwegianEquivalencePreference();
+
+    if (!mounted)
+      return; // Evitar usar context/setState si el widget ya no está
+
     setState(() {
       _norwegianEquivalenceEnabled = isEnabled;
     });
-    print(
-        'LOG: Norwegian equivalence preference loaded: $_norwegianEquivalenceEnabled');
-  }
-
-  /// Extract time from ISO 8601 format or traditional "HH:MM" format
-  String _extractTimeFromSchedule(String scheduleTime) {
-    return FlightFilterUtil.extractTimeFromSchedule(scheduleTime);
-  }
-
-  /// Extract date from ISO 8601 format and format it as dd/MM
-  String _extractDateFromSchedule(String scheduleTime) {
-    return FlightFilterUtil.extractDateFromSchedule(scheduleTime);
-  }
-
-  /// Compara dos tiempos en formato HH:MM para determinar si el primero es posterior al segundo
-  bool _isLaterTime(String time1, String time2) {
-    return FlightFilterUtil.isLaterTime(time1, time2);
+    AppLogger.info(
+        'Norwegian equivalence preference loaded: $_norwegianEquivalenceEnabled');
   }
 
   /// Activar o desactivar el modo de selección múltiple
@@ -189,7 +175,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
             // Llamar a la función para restaurar usando el doc_id
             await widget.onRestoreFlight!(docId);
             restoredCount++;
-            print('LOG: Vuelo con ID $docId restaurado correctamente');
+            AppLogger.info('Vuelo restaurado: $docId');
           }
         }
       }
@@ -270,6 +256,9 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
       ),
     );
 
+    if (!mounted)
+      return; // El widget pudo haber sido removido mientras el diálogo estaba abierto
+
     if (shouldDelete != true) {
       return;
     }
@@ -304,7 +293,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
             // Llamar a la función para eliminar usando el doc_id
             await widget.onDeleteFlight!(docId);
             deletedCount++;
-            print('LOG: Vuelo con ID $docId eliminado correctamente');
+            AppLogger.info('Vuelo eliminado: $docId');
           }
         }
       }
@@ -537,8 +526,8 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   }
 
   Widget _buildFlightsList() {
-    print(
-        'LOG: Construyendo UI para vuelos archivados (${widget.flights.length} vuelos, ${_filteredFlights.length} filtrados)');
+    AppLogger.debug(
+        'Construyendo UI de archived flights (${widget.flights.length} total, ${_filteredFlights.length} filtrados)');
     return Expanded(
       child: _filteredFlights.isEmpty
           ? _buildEmptyState(context)
@@ -653,17 +642,20 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
       BuildContext context, Map<String, dynamic> flight) async {
     // Verificar la ubicación actual
     final bool isOversize = await LocationService.isOversizeLocation();
-    print('LOG: Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
+
+    if (!mounted) return; // Evitar usar context después del await
+
+    AppLogger.debug('Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
 
     // Registrar información de depuración
-    print('LOG: Navegando a detalles de vuelo archivado:');
-    print('LOG: Flight ID (número de vuelo): ${flight['flight_id']}');
-    print('LOG: Doc ID en colección archived_flights: ${flight['doc_id']}');
-    print(
-        'LOG: Original Doc ID: ${flight['original_doc_id'] ?? "No disponible"}');
-    print('LOG: ID original (campo id): ${flight['id'] ?? "No disponible"}');
-    print('LOG: Archived at: ${flight['archived_at']}');
-    print('LOG: Status code: ${flight['status_code'] ?? "No disponible"}');
+    AppLogger.debug('Navegando a detalles de vuelo archivado');
+    AppLogger.debug('Flight ID: ${flight['flight_id']}');
+    AppLogger.debug('Doc ID en archived_flights: ${flight['doc_id']}');
+    AppLogger.debug(
+        'Original Doc ID: ${flight['original_doc_id'] ?? "No disponible"}');
+    AppLogger.debug('Campo id original: ${flight['id'] ?? "No disponible"}');
+    AppLogger.debug('Archived at: ${flight['archived_at']}');
+    AppLogger.debug('Status code: ${flight['status_code'] ?? "No disponible"}');
 
     // IMPORTANTE: En vuelos archivados, necesitamos usar el ID del documento original en flights
     // Buscar en este orden de prioridad para encontrar el ID correcto:
@@ -686,12 +678,11 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
       documentIdToUse = flight['doc_id'] ?? '';
     }
 
-    print('LOG: Usando Document ID para detalles: $documentIdToUse');
+    AppLogger.debug('Document ID para detalles: $documentIdToUse');
 
     // Para diagnóstico, imprimir todas las claves del objeto vuelo
-    print(
-        'LOG: Campos disponibles en el objeto flight: ${flight.keys.toList()}');
-    print('LOG: Listado de vuelos enviados: ${widget.flights.length}');
+    AppLogger.debug('Campos en flight: ${flight.keys.toList()}');
+    AppLogger.debug('Total vuelos enviados: ${widget.flights.length}');
 
     // Variable para almacenar el resultado (si se debe actualizar)
     bool? shouldRefresh;
@@ -701,11 +692,11 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
     final bool forceRefresh = !(statusCode == 'D' || statusCode == 'C');
 
     if (forceRefresh) {
-      print(
-          'LOG: El vuelo tiene status $statusCode, se forzará actualización al regresar');
+      AppLogger.debug(
+          'El vuelo tiene status $statusCode, se forzará actualización al regresar');
     } else {
-      print(
-          'LOG: El vuelo tiene status $statusCode (departed o cancelled), no se forzará actualización');
+      AppLogger.debug(
+          'El vuelo tiene status $statusCode (departed o cancelled), no se forzará actualización');
     }
 
     if (isOversize) {
@@ -742,7 +733,8 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
 
     // Si se recibió true como resultado, actualizar la lista de vuelos
     if (shouldRefresh == true && widget.onRefresh != null) {
-      print('LOG: Forzando actualización tras regresar de detalles de vuelo');
+      AppLogger.debug(
+          'Forzando actualización tras regresar de detalles de vuelo');
       await widget.onRefresh!();
     }
   }

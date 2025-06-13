@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/developer/developer_mode_service.dart';
-import '../../../services/user/user_flights_service.dart';
+import '../../../services/user/user_flights/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
 import 'notifications_screen.dart'; // Importar la pantalla de notificaciones
 import 'data_visualization_settings.dart'; // Importar la nueva pantalla de configuración

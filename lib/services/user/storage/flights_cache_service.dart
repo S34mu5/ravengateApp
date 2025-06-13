@@ -96,7 +96,7 @@ class FlightsCacheService {
           filteredFlights.add(flight);
         } else if (statusCode == 'E') {
           // Para vuelos con status 'E' (new time), verificar si la caché es reciente
-          final lastUpdated = DateTime.parse(lastUpdatedStr!);
+          final lastUpdated = DateTime.parse(lastUpdatedStr);
           final now = DateTime.now();
           final difference = now.difference(lastUpdated);
           if (difference.inMinutes <= 5) {
@@ -104,7 +104,7 @@ class FlightsCacheService {
           }
         } else if (statusCode == 'N/A') {
           // Para vuelos con status 'N/A' (pronto para saber el estado), verificar si la caché es reciente
-          final lastUpdated = DateTime.parse(lastUpdatedStr!);
+          final lastUpdated = DateTime.parse(lastUpdatedStr);
           final now = DateTime.now();
           final difference = now.difference(lastUpdated);
           if (difference.inMinutes <= 5) {
@@ -112,7 +112,7 @@ class FlightsCacheService {
           }
         } else {
           // Para otros vuelos, verificar si la caché es reciente
-          final lastUpdated = DateTime.parse(lastUpdatedStr!);
+          final lastUpdated = DateTime.parse(lastUpdatedStr);
           final now = DateTime.now();
           final difference = now.difference(lastUpdated);
           if (difference.inMinutes <= 5) {

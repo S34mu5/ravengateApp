@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import '../../../../utils/logger.dart';
 
 /// Tipos de elementos sobredimensionados
@@ -133,9 +132,9 @@ class _OversizeItemRegistrationFormState
                   });
                 },
                 style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color>(
-                    (Set<MaterialState> states) {
-                      if (states.contains(MaterialState.selected)) {
+                  backgroundColor: WidgetStateProperty.resolveWith<Color>(
+                    (Set<WidgetState> states) {
+                      if (states.contains(WidgetState.selected)) {
                         return Colors.amber;
                       }
                       return Colors.grey.shade200;

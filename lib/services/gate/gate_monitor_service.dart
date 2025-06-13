@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../notifications/notification_service.dart';
@@ -30,19 +29,16 @@ class GateMonitorService {
   final Map<String, DateTime> _flightCutoffTimes = {};
 
   // Prefix para los logs de este servicio
-  static const String _logTag = '🚪 GATE-MONITOR';
 
-  /// Método para logs específicos del monitor de cambios de puerta
+  /// Método interno de logging – ahora delega en AppLogger con tag 'GateMonitor'
   void _log(String message, {bool isError = false, String? flightId}) {
     final String flightInfo = flightId != null ? '[$flightId] ' : '';
-    final String formattedMessage = '$_logTag: $flightInfo$message';
+    final String formattedMessage = '$flightInfo$message';
 
     if (isError) {
-      developer.log(formattedMessage, name: 'GateMonitor', error: true);
-      AppLogger.error(formattedMessage, null);
+      AppLogger.error(formattedMessage, null, 'GateMonitor');
     } else {
-      developer.log(formattedMessage, name: 'GateMonitor');
-      AppLogger.info(formattedMessage);
+      AppLogger.info(formattedMessage, null, 'GateMonitor');
     }
   }
 

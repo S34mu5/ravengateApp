@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../services/location/location_service.dart';
 import '../../../services/navigation/nested_navigation_service.dart';
 import '../../../utils/flight_sort_util.dart';
-import '../flight_details/flight_details_screen.dart';
-import '../flight_details/oz_flight_details_screen.dart';
 
 /// Clase utilitaria para la pantalla de todas las salidas (All Departures)
 class AllDeparturesUtils {

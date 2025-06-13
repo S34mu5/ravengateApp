@@ -7,6 +7,7 @@ import 'all_departures_filters.dart';
 import 'all_departures_selection.dart';
 import 'all_departures_utils.dart';
 import '../base_departures_ui.dart';
+import '../../../utils/logger.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de todos los vuelos de salida
 class AllDeparturesUI extends BaseDeparturesUI {
@@ -79,11 +80,11 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
       final threePastHours = DateTime.now().subtract(const Duration(hours: 3));
       final needsHistoricalData = startDateTime.isBefore(threePastHours);
 
-      print("LOG: startDateTime: $startDateTime");
-      print("LOG: threePastHours: $threePastHours");
-      print("LOG: needsHistoricalData: $needsHistoricalData");
-      print(
-          "LOG: onCustomRangeLoad is null: ${widget.onCustomRangeLoad == null}");
+      AppLogger.debug('startDateTime: $startDateTime');
+      AppLogger.debug('threePastHours: $threePastHours');
+      AppLogger.debug('needsHistoricalData: $needsHistoricalData');
+      AppLogger.debug(
+          'onCustomRangeLoad is null: ${widget.onCustomRangeLoad == null}');
 
       if (needsHistoricalData && widget.onCustomRangeLoad != null) {
         // Crear y configurar el diálogo de progreso
@@ -136,7 +137,7 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
 
       // Verificar si el scrollController está adjunto a alguna vista
       if (!scrollController.hasClients) {
-        print('LOG: ScrollController aún no está adjunto a ninguna vista');
+        AppLogger.debug('ScrollController aún no está adjunto a ninguna vista');
         return; // Salir si el controlador no está adjunto
       }
 
@@ -152,8 +153,8 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
 
         // Verificar que el offset no sea mayor que el máximo scroll
         if (offset > scrollController.position.maxScrollExtent) {
-          print(
-              'LOG: Offset calculado excede el máximo desplazamiento disponible');
+          AppLogger.debug(
+              'Offset calculado excede el máximo desplazamiento disponible');
           scrollController.jumpTo(scrollController.position.maxScrollExtent);
           return;
         }
@@ -165,12 +166,12 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
           );
-          print('LOG: Scrolled to first active flight at index $index');
+          AppLogger.debug('Scrolled to first active flight at index $index');
         } catch (e) {
-          print('LOG: Error al desplazarse: $e');
+          AppLogger.error('Error al desplazarse', e);
         }
       } else {
-        print('LOG: No active flights found to scroll to');
+        AppLogger.debug('No active flights found to scroll to');
       }
     });
   }
@@ -305,8 +306,8 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
 
   @override
   void onFlightTap(BuildContext context, Map<String, dynamic> flight) {
-    print(
-        'LOG: User selected flight ${flight['flight_id']} to ${flight['airport']}');
+    AppLogger.debug(
+        'User selected flight ${flight['flight_id']} to ${flight['airport']}');
 
     // Navegar a la pantalla de detalles
     AllDeparturesUtils.navigateToFlightDetails(context, flight, widget.flights);

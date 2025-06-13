@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'archived_flights_ui.dart';
-import '../../../services/user/user_flights_service.dart';
+import '../../../services/user/user_flights/user_flights_service.dart';
 import '../../../services/user/models/archived_flight_date.dart';
 import '../../../utils/progress_dialog.dart';
 import '../../../utils/logger.dart';

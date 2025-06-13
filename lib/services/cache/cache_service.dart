@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para gestionar la persistencia de datos entre sesiones de la aplicación
 class CacheService {
@@ -36,10 +37,10 @@ class CacheService {
       // Guardar la fecha y hora de la última actualización
       await prefs.setString(_lastUpdatedKey, DateTime.now().toIso8601String());
 
-      print('LOG: Flights saved in cache (${flights.length} flights)');
+      AppLogger.info('Flights saved in cache (${flights.length} flights)');
       return true;
     } catch (e) {
-      print('ERROR: Could not save flights in cache: $e');
+      AppLogger.error('Could not save flights in cache', e);
       return false;
     }
   }
@@ -51,7 +52,7 @@ class CacheService {
       final jsonData = prefs.getString(_flightsKey);
 
       if (jsonData == null) {
-        print('LOG: No flights in cache');
+        AppLogger.info('No flights in cache');
         return null;
       }
 
@@ -65,10 +66,10 @@ class CacheService {
         return flight;
       }).toList();
 
-      print('LOG: Retrieved ${flights.length} flights from cache');
+      AppLogger.debug('Retrieved ${flights.length} flights from cache');
       return flights.cast<Map<String, dynamic>>();
     } catch (e) {
-      print('ERROR: Could not retrieve flights from cache: $e');
+      AppLogger.error('Could not retrieve flights from cache', e);
       return null;
     }
   }
@@ -93,10 +94,10 @@ class CacheService {
       };
 
       await prefs.setString(_filtersKey, jsonEncode(filters));
-      print('LOG: Filters saved in cache');
+      AppLogger.info('Filters saved in cache');
       return true;
     } catch (e) {
-      print('ERROR: Could not save filters in cache: $e');
+      AppLogger.error('Could not save filters in cache', e);
       return false;
     }
   }
@@ -108,7 +109,7 @@ class CacheService {
       final jsonData = prefs.getString(_filtersKey);
 
       if (jsonData == null) {
-        print('LOG: No filters in cache');
+        AppLogger.info('No filters in cache');
         return null;
       }
 
@@ -129,7 +130,7 @@ class CacheService {
         'searchQuery': filters['searchQuery'],
       };
     } catch (e) {
-      print('ERROR: Could not retrieve filters from cache: $e');
+      AppLogger.error('Could not retrieve filters from cache', e);
       return null;
     }
   }
@@ -146,7 +147,7 @@ class CacheService {
 
       return DateTime.parse(timestamp);
     } catch (e) {
-      print('ERROR: Could not get last updated date: $e');
+      AppLogger.error('Could not get last updated date', e);
       return null;
     }
   }
@@ -156,10 +157,10 @@ class CacheService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_norwegianEquivalenceKey, isEnabled);
-      print('LOG: Norwegian equivalence preference saved: $isEnabled');
+      AppLogger.info('Norwegian equivalence preference saved: $isEnabled');
       return true;
     } catch (e) {
-      print('ERROR: Could not save Norwegian preference: $e');
+      AppLogger.error('Could not save Norwegian preference', e);
       return false;
     }
   }
@@ -172,7 +173,7 @@ class CacheService {
       final isEnabled = prefs.getBool(_norwegianEquivalenceKey) ?? true;
       return isEnabled;
     } catch (e) {
-      print('ERROR: Could not retrieve Norwegian preference: $e');
+      AppLogger.error('Could not retrieve Norwegian preference', e);
       return true; // Por defecto activado
     }
   }
@@ -182,10 +183,10 @@ class CacheService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_delayNotificationsKey, isEnabled);
-      print('LOG: Delay notifications preference saved: $isEnabled');
+      AppLogger.info('Delay notifications preference saved: $isEnabled');
       return true;
     } catch (e) {
-      print('ERROR: Could not save delay notifications preference: $e');
+      AppLogger.error('Could not save delay notifications preference', e);
       return false;
     }
   }
@@ -198,7 +199,7 @@ class CacheService {
       final isEnabled = prefs.getBool(_delayNotificationsKey) ?? true;
       return isEnabled;
     } catch (e) {
-      print('ERROR: Could not retrieve delay notifications preference: $e');
+      AppLogger.error('Could not retrieve delay notifications preference', e);
       return true; // Por defecto activado
     }
   }
@@ -209,10 +210,10 @@ class CacheService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_departureNotificationsKey, isEnabled);
-      print('LOG: Departure notifications preference saved: $isEnabled');
+      AppLogger.info('Departure notifications preference saved: $isEnabled');
       return true;
     } catch (e) {
-      print('ERROR: Could not save departure notifications preference: $e');
+      AppLogger.error('Could not save departure notifications preference', e);
       return false;
     }
   }
@@ -225,7 +226,8 @@ class CacheService {
       final isEnabled = prefs.getBool(_departureNotificationsKey) ?? true;
       return isEnabled;
     } catch (e) {
-      print('ERROR: Could not retrieve departure notifications preference: $e');
+      AppLogger.error(
+          'Could not retrieve departure notifications preference', e);
       return true; // Por defecto activado
     }
   }
@@ -236,10 +238,10 @@ class CacheService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_gateChangeNotificationsKey, isEnabled);
-      print('LOG: Gate change notifications preference saved: $isEnabled');
+      AppLogger.info('Gate change notifications preference saved: $isEnabled');
       return true;
     } catch (e) {
-      print('ERROR: Could not save gate change notifications preference: $e');
+      AppLogger.error('Could not save gate change notifications preference', e);
       return false;
     }
   }
@@ -252,8 +254,8 @@ class CacheService {
       final isEnabled = prefs.getBool(_gateChangeNotificationsKey) ?? true;
       return isEnabled;
     } catch (e) {
-      print(
-          'ERROR: Could not retrieve gate change notifications preference: $e');
+      AppLogger.error(
+          'Could not retrieve gate change notifications preference', e);
       return true; // Por defecto activado
     }
   }
@@ -266,10 +268,10 @@ class CacheService {
       await prefs.remove(_filtersKey);
       await prefs.remove(_lastUpdatedKey);
       // No eliminamos _norwegianEquivalenceKey ni _delayNotificationsKey ni _departureNotificationsKey ni _gateChangeNotificationsKey ya que son preferencias de usuario
-      print('LOG: Cache cleared successfully');
+      AppLogger.info('Cache cleared successfully');
       return true;
     } catch (e) {
-      print('ERROR: Could not clear cache: $e');
+      AppLogger.error('Could not clear cache', e);
       return false;
     }
   }

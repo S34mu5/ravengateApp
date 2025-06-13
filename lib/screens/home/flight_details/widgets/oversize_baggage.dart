@@ -18,8 +18,6 @@ class OversizeBaggage extends StatefulWidget {
 }
 
 class _OversizeBaggageState extends State<OversizeBaggage> {
-  final bool _isLoading = false;
-
   @override
   Widget build(BuildContext context) {
     return Padding(

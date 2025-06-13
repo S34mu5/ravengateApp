@@ -1,9 +1,9 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/logger.dart';
 
 /// Servicio para gestionar el modo desarrollador
 class DeveloperModeService {
   static const String _developerModeKey = 'developer_mode_enabled';
-  static const String _developerPinKey = 'developer_pin';
   static const String _defaultPin = '1913';
 
   /// Verifica si el modo desarrollador está activado
@@ -12,7 +12,7 @@ class DeveloperModeService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(_developerModeKey) ?? false;
     } catch (e) {
-      print('LOG: Error al verificar modo desarrollador: $e');
+      AppLogger.error('Error al verificar modo desarrollador', e);
       return false;
     }
   }
@@ -22,10 +22,11 @@ class DeveloperModeService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_developerModeKey, enabled);
-      print('LOG: Modo desarrollador ${enabled ? 'activado' : 'desactivado'}');
+      AppLogger.info(
+          'Modo desarrollador ${enabled ? 'activado' : 'desactivado'}');
       return true;
     } catch (e) {
-      print('LOG: Error al configurar modo desarrollador: $e');
+      AppLogger.error('Error al configurar modo desarrollador', e);
       return false;
     }
   }
@@ -40,7 +41,7 @@ class DeveloperModeService {
     if (await isDeveloperModeEnabled()) {
       return await action();
     }
-    print('LOG: Acción no ejecutada, modo desarrollador desactivado');
+    AppLogger.warning('Acción no ejecutada, modo desarrollador desactivado');
     return null;
   }
 }

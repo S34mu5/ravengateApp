@@ -4,9 +4,8 @@ import '../../../services/navigation/nested_navigation_service.dart';
 import '../../../services/location/location_service.dart';
 import '../flight_details/flight_details_ui.dart';
 import '../flight_details/oz_flight_details_ui.dart';
-import '../flight_details/utils/flight_formatters.dart';
-import '../../../utils/airline_helper.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../utils/logger.dart';
 
 /// Pantalla de detalles de vuelo anidada que mantiene el BottomNavigationBar visible
 class NestedFlightDetailsScreen extends StatefulWidget {
@@ -65,8 +64,8 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
     final currentFlightData = navigationService.currentFlightData;
     if (currentFlightData != null &&
         currentFlightData['flight_id'] != widget.flight['flight_id']) {
-      print(
-          'LOG: NestedFlightDetails - Vuelo cambiado, recargando detalles...');
+      AppLogger.debug(
+          'NestedFlightDetails - Vuelo cambiado, recargando detalles');
 
       // Actualizar el estado y recargar detalles
       if (mounted) {
@@ -90,8 +89,7 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
     try {
       return DateTime.parse(scheduleTimeStr);
     } catch (e) {
-      print(
-          'LOG ERROR: NestedFlightDetails - Error parseando schedule_time: $e');
+      AppLogger.error('NestedFlightDetails - Error parseando schedule_time', e);
       return null;
     }
   }
@@ -114,7 +112,7 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
       }
       return null;
     } catch (e) {
-      print('LOG ERROR: NestedFlightDetails - Error parseando timestamp: $e');
+      AppLogger.error('NestedFlightDetails - Error parseando timestamp', e);
       return null;
     }
   }
@@ -130,9 +128,9 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
         ? (currentFlight['flight_ref'] ?? currentFlight['id'] ?? '')
         : currentFlight['id'];
 
-    print(
-        'LOG: NestedFlightDetails - Cargando detalles del vuelo: ${currentFlight['flight_id']}');
-    print('LOG: NestedFlightDetails - Document ID: $currentDocumentId');
+    AppLogger.debug(
+        'NestedFlightDetails - Cargando detalles del vuelo: ${currentFlight['flight_id']}');
+    AppLogger.debug('NestedFlightDetails - Document ID: $currentDocumentId');
 
     try {
       setState(() {
@@ -197,8 +195,8 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
           }
         }
       } catch (historyError) {
-        print(
-            'LOG ERROR: NestedFlightDetails - Error cargando historial: $historyError');
+        AppLogger.error(
+            'NestedFlightDetails - Error cargando historial', historyError);
       }
 
       setState(() {
@@ -208,11 +206,11 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
         isLoading = false;
       });
 
-      print('LOG: NestedFlightDetails - Detalles cargados exitosamente');
-      print(
-          'LOG: NestedFlightDetails - Historial de cambios de puerta: ${gateHistory.length} registros');
+      AppLogger.debug('NestedFlightDetails - Detalles cargados exitosamente');
+      AppLogger.debug(
+          'NestedFlightDetails - Gate history records: ${gateHistory.length}');
     } catch (e) {
-      print('LOG ERROR: NestedFlightDetails - Error cargando detalles: $e');
+      AppLogger.error('NestedFlightDetails - Error cargando detalles', e);
       setState(() {
         errorMessage = 'Error cargando detalles: $e';
         isLoading = false;
@@ -226,8 +224,8 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
     final bool isNext = velocity < 0; // true si es swipe de derecha a izquierda
 
     if (velocity.abs() > 500) {
-      print(
-          'LOG: NestedFlightDetails - Swipe detectado con velocidad: $velocity');
+      AppLogger.debug(
+          'NestedFlightDetails - Swipe detectado velocity=$velocity');
       navigateToAdjacentFlight(isNext);
     }
   }
@@ -246,8 +244,8 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
         : currentFlight['id'];
 
     if (currentFlightsList.isEmpty) {
-      print(
-          'LOG: NestedFlightDetails - No se puede navegar - lista de vuelos vacía');
+      AppLogger.warning(
+          'NestedFlightDetails - Lista de vuelos vacía, no se navega');
       return;
     }
 
@@ -266,8 +264,8 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
     }
 
     if (currentIndex == -1) {
-      print(
-          'LOG: NestedFlightDetails - Vuelo actual no encontrado en la lista');
+      AppLogger.warning(
+          'NestedFlightDetails - Vuelo actual no encontrado en la lista');
       return;
     }
 
@@ -283,15 +281,15 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
 
     // Verificar que el índice sea válido
     if (targetIndex < 0 || targetIndex >= currentFlightsList.length) {
-      print(
-          'LOG: NestedFlightDetails - No hay ${isNext ? "siguiente" : "anterior"} vuelo disponible');
+      AppLogger.info(
+          'NestedFlightDetails - No hay ${isNext ? "siguiente" : "anterior"} vuelo disponible');
       return;
     }
 
     // Obtener el vuelo objetivo
     final targetFlight = currentFlightsList[targetIndex];
-    print(
-        'LOG: NestedFlightDetails - Navegando a vuelo: ${targetFlight['flight_id']}');
+    AppLogger.debug(
+        'NestedFlightDetails - Navegando a vuelo: ${targetFlight['flight_id']}');
 
     // Usar el servicio de navegación anidada para cambiar al vuelo adyacente
     navigationService.navigateToAdjacentFlight(flight: targetFlight);

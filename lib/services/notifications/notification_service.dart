@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz_init;
 import 'package:timezone/timezone.dart' as tz;
 import '../developer/developer_mode_service.dart';
-import '../gate/gate_monitor_service.dart';
 import '../../utils/logger.dart';
 
 /// Servicio para manejar notificaciones locales en la aplicación
@@ -32,18 +29,13 @@ class NotificationService {
   static const String _gateChangeChannelId = 'ravengate_gate_changes';
 
   // Prefix para los logs de este servicio
-  static const String _logTag = '🔔 NOTIFICATIONS';
 
-  /// Método para logs específicos del servicio de notificaciones
+  /// Método interno de logging – ahora delega en AppLogger con tag 'Notifications'
   void _log(String message, {bool isError = false}) {
-    final String formattedMessage = '$_logTag: $message';
-
     if (isError) {
-      developer.log(formattedMessage, name: 'Notifications', error: true);
-      AppLogger.error(formattedMessage, null);
+      AppLogger.error(message, null, 'Notifications');
     } else {
-      developer.log(formattedMessage, name: 'Notifications');
-      AppLogger.info(formattedMessage);
+      AppLogger.info(message, null, 'Notifications');
     }
   }
 

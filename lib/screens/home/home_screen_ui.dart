@@ -9,6 +9,7 @@ import 'profile/profile_screen.dart';
 import 'nested_flight_details/nested_flight_details_screen.dart';
 import '../../services/navigation/nested_navigation_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/logger.dart';
 
 /// Widget que maneja la UI de la pantalla principal
 class HomeScreenUI extends StatefulWidget {
@@ -71,7 +72,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
         try {
           flightDate = DateTime.parse(scheduleTime);
         } catch (e) {
-          print('Error parseando fecha del vuelo: $e');
+          AppLogger.error('Error parseando fecha vuelo', e);
         }
 
         if (flightDate != null) {
@@ -83,7 +84,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
       // Fallback si no se puede obtener la fecha
       return '$flightId ${localizations.details}';
     } catch (e) {
-      print('Error formateando título del vuelo: $e');
+      AppLogger.error('Error formateando título vuelo', e);
       return 'Flight details';
     }
   }
@@ -96,7 +97,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
         _selectedLocation = location;
       });
     } catch (e) {
-      print('Error al cargar la ubicación: $e');
+      AppLogger.error('Error al cargar ubicación', e);
     }
   }
 
@@ -112,7 +113,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
       localizations.myDeparturesLabel,
       localizations.profileLabel
     ];
-    print('LOG: Usuario navegó a ${titles[index]}');
+    AppLogger.debug('Usuario navegó a ${titles[index]}');
     setState(() {
       _selectedIndex = index;
     });
@@ -137,9 +138,9 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
       appBarTitle = titles[_selectedIndex];
     }
 
-    print('LOG: Construyendo UI de HomeScreen, título: $appBarTitle');
-    print(
-        'LOG: Mostrando detalles de vuelo: ${_navigationService.isShowingFlightDetails}');
+    AppLogger.debug('Construyendo UI HomeScreen, título: $appBarTitle');
+    AppLogger.debug(
+        'Mostrando detalles de vuelo: ${_navigationService.isShowingFlightDetails}');
 
     return Scaffold(
       appBar: AppBar(
@@ -263,7 +264,7 @@ class _HomeScreenUIState extends State<HomeScreenUI> {
     ];
 
     // Usar los componentes modularizados según el índice seleccionado
-    print('LOG: Cargando contenido para la sección: ${titles[_selectedIndex]}');
+    AppLogger.debug('Cargando contenido sección: ${titles[_selectedIndex]}');
     switch (_selectedIndex) {
       case 0:
         return const AllDeparturesScreen();

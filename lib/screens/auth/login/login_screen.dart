@@ -9,6 +9,7 @@ import 'login_screen_ui.dart';
 import '../email_verification/email_verification_screen.dart';
 import '../../../main.dart' as app;
 import '../../location/select_location_screen.dart';
+import '../../../utils/logger.dart';
 
 /// Container widget that handles authentication state and logic
 class LoginScreen extends StatefulWidget {
@@ -26,23 +27,23 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    print('🚀 LoginScreen - Starting...');
+    AppLogger.debug('LoginScreen - Starting');
     app.initializeAuthServices(); // Asegurar servicios frescos
     _loadAvailableMethods();
   }
 
   Future<void> _loadAvailableMethods() async {
-    print('📱 Loading available authentication methods...');
+    AppLogger.debug('Loading available authentication methods');
     final methods = await app.authController.getAvailableMethods();
-    print(
-        '✅ Available methods: ${methods.map((m) => m.toString()).join(", ")}');
+    AppLogger.info(
+        'Available methods: ${methods.map((m) => m.toString()).join(", ")}');
     setState(() {
       _availableMethods = methods;
     });
   }
 
   Future<void> _authenticate(AuthMethod method) async {
-    print('🔐 Starting authentication with method: ${method.toString()}');
+    AppLogger.debug('Starting authentication with method: $method');
 
     // Reinicializar servicios para prevenir errores de estado inconsistente
     app.initializeAuthServices();
@@ -56,8 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
     String password,
     bool isLogin,
   ) async {
-    print(
-        '🔐 Starting email/password authentication (${isLogin ? 'login' : 'signup'})');
+    AppLogger.debug(
+        'Starting email/password auth (${isLogin ? 'login' : 'signup'})');
 
     try {
       // Mostrar indicador de carga
@@ -79,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Verificar que el servicio existe
       if (service == null) {
-        print('❌ Error: EmailPasswordAuthService no está disponible');
+        AppLogger.error('EmailPasswordAuthService no está disponible');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -94,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Para registro: proceso especial
       if (!isLogin) {
-        print('📝 Processing signup...');
+        AppLogger.info('Processing signup');
         final result = await emailPasswordService.signUp(email, password);
 
         // No usamos _handleAuthResult para registros
@@ -103,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Si hay un error real (no el mensaje de verificación de email)
         if (result.error != null &&
             !result.error!.contains('We have sent you a verification email')) {
-          print('❌ Error in registration: ${result.error}');
+          AppLogger.error('Error in registration: ${result.error}');
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -115,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
 
-        print('📧 Showing email verification screen');
+        AppLogger.debug('Showing email verification screen');
 
         // Aquí navegar a la pantalla de verificación en lugar de mostrar SnackBar
         Navigator.of(context).pushReplacement(
@@ -147,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       _handleAuthResult(result);
     } catch (e) {
-      print('❌ Error in email/password auth: $e');
+      AppLogger.error('Error in email/password auth', e);
       if (!mounted) return;
 
       final localizations = AppLocalizations.of(context)!;
@@ -162,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _checkEmailVerification(String email) async {
     try {
-      print('🔍 Checking verification status for email: $email');
+      AppLogger.debug('Checking verification status for email: $email');
 
       // Reinicializar servicios para prevenir errores de estado inconsistente
       app.initializeAuthServices();
@@ -172,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Verificar que el servicio existe
       if (service == null) {
-        print('❌ Error: EmailPasswordAuthService no está disponible');
+        AppLogger.error('EmailPasswordAuthService no está disponible');
         if (!mounted) return;
         final localizations = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -202,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } catch (e) {
-      print('❌ Error checking email verification: $e');
+      AppLogger.error('Error checking email verification', e);
       if (!mounted) return;
 
       final localizations = AppLocalizations.of(context)!;
@@ -226,8 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
         result.user != null &&
         result.additionalData != null &&
         result.additionalData!['needs_verification'] == true) {
-      print(
-          '📧 Manejando caso especial: usuario necesita verificación de email');
+      AppLogger.debug('Usuario necesita verificación de email');
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -253,10 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Si tenemos un usuario exitoso y está verificado (o no es email/password)
     if (result.success && result.user != null) {
-      print('✅ Login successful:');
-      print('  - User: ${result.user?.displayName}');
-      print('  - Email: ${result.user?.email}');
-      print('  - Photo: ${result.user?.photoURL ?? "Not available"}');
+      AppLogger.info('Login successful user=${result.user?.email}');
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -274,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Verificar si hay usuario de Firebase a pesar del error
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
-        print('🔄 Detectado login exitoso a pesar del error PigeonUserDetails');
+        AppLogger.warning('Login successful despite PigeonUserDetails error');
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -286,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     // Para cualquier otro error
-    print('❌ Login error: ${result.error ?? "Unknown"}');
+    AppLogger.error('Login error: ${result.error ?? "Unknown"}');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.error ?? 'Unknown error'),
@@ -297,8 +294,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-        '🎨 Building LoginScreen UI with ${_availableMethods.length} methods');
+    AppLogger.debug(
+        'Building LoginScreen UI with ${_availableMethods.length} methods');
     return LoginScreenUI(
       availableMethods: _availableMethods,
       onAuthenticate: _authenticate,

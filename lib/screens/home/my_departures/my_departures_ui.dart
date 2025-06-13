@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../archived_flights/archived_flights_screen.dart';
-import '../flight_details/flight_details_screen.dart';
-import '../flight_details/oz_flight_details_screen.dart';
-import '../../../utils/flight_filter_util.dart';
-import '../../../common/widgets/flight_card.dart';
 import '../../../common/widgets/flight_search_bar.dart';
 import '../../../common/widgets/flights_counter_display.dart';
-import '../../../common/widgets/flight_selection_controls.dart';
 import '../../../common/widgets/time_ago_widget.dart';
 import '../../../utils/progress_dialog.dart';
-import '../../../services/user/user_flights_service.dart';
-import '../../../services/location/location_service.dart';
+import '../../../services/user/user_flights/user_flights_service.dart';
 import 'dart:async';
-import '../../../utils/flight_sort_util.dart';
 import '../base_departures_ui.dart';
 import '../../../services/navigation/nested_navigation_service.dart';
+import '../../../utils/logger.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
 class MyDeparturesUI extends BaseDeparturesUI {
@@ -225,15 +218,12 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
             final success = await UserFlightsService.archiveFlight(docId);
             if (success) {
               archivedCount++;
-              print(
-                  'LOG: Vuelo con ID de documento $docId archivado correctamente');
+              AppLogger.info('Vuelo archivado docId=$docId');
             } else {
-              print(
-                  'LOG: No se pudo archivar el vuelo con ID de documento $docId');
+              AppLogger.warning('No se pudo archivar vuelo docId=$docId');
             }
           } else {
-            print(
-                'LOG: Error - el vuelo no tiene doc_id: ${flight['flight_id']}');
+            AppLogger.error('Vuelo sin doc_id: ${flight['flight_id']}');
           }
         }
       }
@@ -287,39 +277,11 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
     }
   }
 
-  /// Muestra un diálogo de confirmación antes de eliminar un vuelo
-  void _confirmRemoveFlight(String docId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('¿Eliminar vuelo?'),
-        content: const Text('Este vuelo se eliminará de tu lista. ¿Continuar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Eliminar el vuelo si el usuario confirma
-              if (widget.onRemoveFlight != null) {
-                widget.onRemoveFlight!(docId);
-              }
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Navega a la pantalla de detalles del vuelo seleccionado usando navegación anidada
   void _navigateToFlightDetails(
       BuildContext context, Map<String, dynamic> flight) {
+    AppLogger.debug(
+        'MyDeparturesUI - Navegando a detalles de vuelo (flight ${flight['flight_id']}) con lista ${widget.flights.length}');
     print(
         'LOG: MyDeparturesUI - Navegando a detalles de vuelo usando navegación anidada');
     print('LOG: MyDeparturesUI - Vuelo seleccionado: ${flight['flight_id']}');

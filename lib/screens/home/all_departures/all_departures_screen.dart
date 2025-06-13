@@ -7,6 +7,7 @@ import '../../../services/cache/cache_service.dart';
 import '../../../utils/airline_helper.dart'; // Importar la nueva clase utilitaria
 import '../base_departures_screen.dart';
 import '../../../utils/flight_sort_util.dart';
+import '../../../utils/logger.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de todos los vuelos de salida
 /// Obtiene los datos desde Firestore en la colección 'flights'
@@ -29,17 +30,17 @@ class _AllDeparturesScreenState
     loadFlights();
     // Configurar actualización automática cada 3 minutos (180000 ms)
     _refreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
-      print('LOG: Actualizando datos automáticamente cada 3 minutos');
+      AppLogger.debug('Auto-refresh cada 3 minutos');
       loadFlights(forceRefresh: true);
     });
   }
 
   @override
   Future<void> loadFlights({bool forceRefresh = false}) async {
-    print('LOG: Cargando vuelos desde Firestore - usando colección existente');
+    AppLogger.debug('Cargando vuelos desde Firestore');
     try {
       if (!mounted) {
-        print('LOG: Widget no montado, cancelando carga de vuelos');
+        AppLogger.warning('Widget no montado, cancelando carga de vuelos');
         return;
       }
 
@@ -51,8 +52,8 @@ class _AllDeparturesScreenState
       final DateTime cutoffTime = now.subtract(const Duration(hours: 3));
       final String cutoffTimeString = cutoffTime.toIso8601String();
 
-      print(
-          'LOG: Filtrando vuelos a partir de: ${DateFormat('yyyy-MM-dd HH:mm').format(cutoffTime)}');
+      AppLogger.debug(
+          'Filtrando vuelos a partir de: ${DateFormat('yyyy-MM-dd HH:mm').format(cutoffTime)}');
 
       // Realizar la consulta a Firestore
       final QuerySnapshot snapshot = await _firestore
@@ -104,7 +105,7 @@ class _AllDeparturesScreenState
       // Guardar en caché
       await CacheService.saveFlights(_flights);
     } catch (e) {
-      print('LOG: ERROR al cargar vuelos desde Firestore: $e');
+      AppLogger.error('Error al cargar vuelos desde Firestore', e);
       if (!mounted) return;
       setError('Error al cargar vuelos: $e');
       setLoading(false);
@@ -114,8 +115,8 @@ class _AllDeparturesScreenState
   /// Carga vuelos históricos desde Firestore para un rango de fechas específico
   Future<void> _loadHistoricalFlights(
       DateTime startDateTime, DateTime endDateTime) async {
-    print(
-        'LOG: Cargando vuelos históricos desde: ${DateFormat('yyyy-MM-dd HH:mm').format(startDateTime)} hasta: ${DateFormat('yyyy-MM-dd HH:mm').format(endDateTime)}');
+    AppLogger.debug(
+        'Cargando vuelos históricos desde: ${DateFormat('yyyy-MM-dd HH:mm').format(startDateTime)} hasta: ${DateFormat('yyyy-MM-dd HH:mm').format(endDateTime)}');
 
     try {
       if (!mounted) return;
@@ -138,8 +139,8 @@ class _AllDeparturesScreenState
       if (!mounted) return;
 
       if (snapshot.docs.isEmpty) {
-        print(
-            'LOG: No se encontraron vuelos históricos en el rango seleccionado');
+        AppLogger.info(
+            'No se encontraron vuelos históricos en el rango seleccionado');
         // No establecer error, simplemente mostrar vuelos vacíos
         setState(() {
           _flights = [];
@@ -177,12 +178,12 @@ class _AllDeparturesScreenState
         _flights = sortedFlights;
       });
 
-      print('LOG: Cargados ${sortedFlights.length} vuelos históricos');
+      AppLogger.info('Cargados ${sortedFlights.length} vuelos históricos');
       setLoading(false);
       setUsingCachedData(false);
       setLastUpdated(DateTime.now());
     } catch (e) {
-      print('LOG: ERROR al cargar vuelos históricos: $e');
+      AppLogger.error('Error al cargar vuelos históricos', e);
       if (!mounted) return;
       setError('Error al cargar vuelos históricos: $e');
       setLoading(false);
@@ -204,7 +205,7 @@ class _AllDeparturesScreenState
   void dispose() {
     // Cancelar el timer cuando se destruye el widget para evitar memory leaks
     _refreshTimer?.cancel();
-    print('LOG: Disposing AllDeparturesScreen and cancelling refresh timer');
+    AppLogger.debug('Disposing AllDeparturesScreen y cancelando timer');
     super.dispose();
   }
 }

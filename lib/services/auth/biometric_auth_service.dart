@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 import 'auth_service.dart';
@@ -40,11 +39,11 @@ class BiometricAuthService implements AuthService {
       }
 
       // Obtener lista de biometrías disponibles
-      final List<BiometricType> _availableBiometrics =
+      final List<BiometricType> availableBiometrics =
           await _localAuth.getAvailableBiometrics();
-      AppLogger.debug('📋 Biometrías disponibles: $_availableBiometrics');
+      AppLogger.debug('📋 Biometrías disponibles: $availableBiometrics');
 
-      final bool hasAvailableBiometrics = _availableBiometrics.isNotEmpty;
+      final bool hasAvailableBiometrics = availableBiometrics.isNotEmpty;
       AppLogger.debug(hasAvailableBiometrics
           ? '✅ Biometrías disponibles'
           : '❌ No hay biometrías configuradas');
@@ -132,26 +131,5 @@ class BiometricAuthService implements AuthService {
       return 'reconocimiento de iris';
     }
     return 'biometría';
-  }
-
-  String _getErrorMessage(PlatformException e) {
-    switch (e.code) {
-      case 'LockedOut':
-        return 'Demasiados intentos fallidos. Por favor, espera antes de intentar de nuevo.';
-      case 'PermanentlyLockedOut':
-        return 'El dispositivo está bloqueado permanentemente. Por favor, configura la biometría de nuevo en los ajustes del sistema.';
-      case 'PasscodeNotSet':
-        return 'No hay un código de acceso configurado en el dispositivo. Por favor, configura uno en los ajustes del sistema.';
-      case 'NotEnrolled':
-        return 'No hay datos biométricos registrados. Por favor, configura la biometría en los ajustes del sistema.';
-      case 'NotAvailable':
-        return 'La autenticación biométrica no está disponible en este momento.';
-      case 'OtherOperatingSystem':
-        return 'La autenticación biométrica no está soportada en este sistema operativo.';
-      case 'SecurityUpdate':
-        return 'Se requiere una actualización de seguridad.';
-      default:
-        return 'Error en la autenticación biométrica: ${e.message}';
-    }
   }
 }

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_service.dart';
 import 'auth_methods.dart';
 import 'auth_result.dart';
+import '../../utils/logger.dart';
 
 /// Implementation of AuthService for email/password authentication
 class EmailPasswordAuthService implements AuthService {
@@ -39,8 +40,8 @@ class EmailPasswordAuthService implements AuthService {
 
       // Verificar si el email está verificado
       if (!userCredential.user!.emailVerified) {
-        print(
-            '📧 Usuario no verificado pero manteniendo sesión activa: ${userCredential.user!.email}');
+        AppLogger.info(
+            'Usuario no verificado pero manteniendo sesión activa: ${userCredential.user!.email}');
         return AuthResult(
           success: true, // Cambiado a true para no gatillar logout
           method: method,
@@ -90,36 +91,35 @@ class EmailPasswordAuthService implements AuthService {
   /// Intenta registrar un nuevo usuario con email y password
   Future<AuthResult> signUp(String email, String password) async {
     try {
-      print('📝 Creating new user account for email: $email');
+      AppLogger.info('Creating new user account for email: $email');
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      print('✅ User account created successfully: ${userCredential.user?.uid}');
+      AppLogger.info(
+          'User account created successfully: ${userCredential.user?.uid}');
 
       // Enviar email de verificación
-      print(
-          '📧 Attempting to send verification email to: ${userCredential.user?.email}');
+      AppLogger.debug(
+          'Attempting to send verification email to: ${userCredential.user?.email}');
       bool emailSent = false;
       try {
         if (userCredential.user != null) {
-          print('🌐 Setting language code to English');
-          final settings = await _auth.setLanguageCode("en");
-          print('📤 About to call sendEmailVerification()');
+          AppLogger.debug('Setting language code to English');
+          AppLogger.debug('Calling sendEmailVerification');
           await userCredential.user!.sendEmailVerification();
           emailSent = true;
-          print('📨 Verification email request sent successfully 🎉');
-          print('📬 Check spam folder if email not received');
+          AppLogger.info('Verification email sent successfully');
+          AppLogger.debug('Check spam folder if email not received');
         } else {
-          print('❌ Cannot send verification email: user is null');
+          AppLogger.error('Cannot send verification email: user is null');
         }
       } catch (verificationError) {
-        print('❌ Error sending verification email: $verificationError');
+        AppLogger.error('Error sending verification email', verificationError);
       }
 
       // Ya no cerramos sesión automáticamente después del registro
-      print(
-          '🚫 No longer signing out user after registration - verification screen will handle this');
+      AppLogger.debug('No longer signing out user after registration');
 
       // Devolvemos un resultado especial para manejo del registro
       final message = emailSent
@@ -135,8 +135,7 @@ class EmailPasswordAuthService implements AuthService {
         additionalData: {'is_new_registration': true}, // Indicador especial
       );
     } on FirebaseAuthException catch (e) {
-      print(
-          '❌ Firebase Auth Exception during signup: ${e.code} - ${e.message}');
+      AppLogger.error('Firebase Auth Exception during signup: ${e.code}', e);
       String errorMessage;
       switch (e.code) {
         case 'weak-password':
@@ -161,7 +160,7 @@ class EmailPasswordAuthService implements AuthService {
         error: errorMessage,
       );
     } catch (e) {
-      print('❌ Unexpected error during signup: $e');
+      AppLogger.error('Unexpected error during signup', e);
       return AuthResult(
         success: false,
         method: method,
@@ -173,10 +172,10 @@ class EmailPasswordAuthService implements AuthService {
   /// Reenvía el email de verificación al usuario actual
   Future<AuthResult> resendVerificationEmail() async {
     try {
-      print('🔄 Attempting to resend verification email');
+      AppLogger.debug('Attempting to resend verification email');
       final user = _auth.currentUser;
       if (user == null) {
-        print('❌ No user is signed in to resend verification email');
+        AppLogger.warning('No user is signed in to resend verification email');
         return AuthResult(
           success: false,
           method: method,
@@ -184,12 +183,12 @@ class EmailPasswordAuthService implements AuthService {
         );
       }
 
-      print('📧 Resending verification email to: ${user.email}');
+      AppLogger.debug('Resending verification email to: ${user.email}');
       try {
         await user.sendEmailVerification();
-        print('✅ Verification email resent successfully');
+        AppLogger.info('Verification email resent successfully');
       } catch (e) {
-        print('❌ Error resending verification email: $e');
+        AppLogger.error('Error resending verification email', e);
         return AuthResult(
           success: false,
           method: method,
@@ -205,7 +204,7 @@ class EmailPasswordAuthService implements AuthService {
             'We have sent you a new verification email. Please check your inbox.',
       );
     } catch (e) {
-      print('❌ Unexpected error in resendVerificationEmail: $e');
+      AppLogger.error('Unexpected error in resendVerificationEmail', e);
       return AuthResult(
         success: false,
         method: method,
@@ -217,35 +216,37 @@ class EmailPasswordAuthService implements AuthService {
   /// Verifica manualmente si el email del usuario está verificado
   Future<bool> checkEmailVerification(String email) async {
     try {
-      print('🔍 Checking email verification status for: $email');
+      AppLogger.debug('Checking email verification status for: $email');
 
       // Esta es una mejor forma de verificar - no depende de iniciar sesión con el enlace
       try {
         // Si hay un usuario actual con el mismo email, usamos ese
         final currentUser = _auth.currentUser;
         if (currentUser != null && currentUser.email == email) {
-          print('📋 Using current user to check verification status');
+          AppLogger.debug('Using current user to check verification status');
           // Recargar para obtener el estado más reciente
           await currentUser.reload();
           final isVerified = currentUser.emailVerified;
-          print(
-              '📋 Current user verification status: ${isVerified ? "Verified ✓" : "Not Verified ✗"}');
+          AppLogger.debug(
+              'Current user verification status: ${isVerified ? "Verified" : "Not Verified"}');
           return isVerified;
         }
       } catch (e) {
-        print('⚠️ Error checking current user: $e');
+        AppLogger.warning('Error checking current user: $e');
         // Continuamos con los otros métodos
       }
 
       // El método fetchSignInMethodsForEmail no nos dice si está verificado
       // Simplemente nos dice qué métodos de inicio de sesión están disponibles
 
-      print('⚠️ Cannot determine verification status without signing in');
-      print('⚠️ Please try signing in first, then use the verification button');
+      AppLogger.warning(
+          'Cannot determine verification status without signing in');
+      AppLogger.warning(
+          'Please try signing in first, then use the verification button');
 
       return false;
     } catch (e) {
-      print('❌ Error checking email verification: $e');
+      AppLogger.error('Error checking email verification', e);
       return false;
     }
   }

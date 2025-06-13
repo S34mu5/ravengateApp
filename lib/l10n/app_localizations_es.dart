@@ -214,7 +214,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get cancelled => 'Cancelado';
 
-  @override
   String get boarding => 'Embarcando';
 
   @override

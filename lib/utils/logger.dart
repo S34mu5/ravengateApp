@@ -25,34 +25,36 @@ class AppLogger {
   static LogLevel get currentLevel => _currentLevel;
 
   /// Log de nivel DEBUG - solo información de desarrollo
-  static void debug(String message, [Object? error]) {
-    _log(LogLevel.debug, message, error);
+  static void debug(String message, [Object? error, String? tag]) {
+    _log(LogLevel.debug, message, error, tag);
   }
 
   /// Log de nivel INFO - información general del flujo de la app
-  static void info(String message, [Object? error]) {
-    _log(LogLevel.info, message, error);
+  static void info(String message, [Object? error, String? tag]) {
+    _log(LogLevel.info, message, error, tag);
   }
 
   /// Log de nivel WARNING - situaciones que requieren atención
-  static void warning(String message, [Object? error]) {
-    _log(LogLevel.warning, message, error);
+  static void warning(String message, [Object? error, String? tag]) {
+    _log(LogLevel.warning, message, error, tag);
   }
 
   /// Log de nivel ERROR - errores que afectan la funcionalidad
-  static void error(String message, [Object? error]) {
-    _log(LogLevel.error, message, error);
+  static void error(String message, [Object? error, String? tag]) {
+    _log(LogLevel.error, message, error, tag);
   }
 
   /// Método interno para procesar los logs
-  static void _log(LogLevel level, String message, [Object? error]) {
+  static void _log(LogLevel level, String message,
+      [Object? error, String? tag]) {
     // Solo mostrar logs si el nivel es mayor o igual al configurado
     if (level.priority < _currentLevel.priority) return;
 
     final timestamp = DateTime.now().toIso8601String().substring(11, 19);
     final levelStr = level.name.toUpperCase().padRight(7);
+    final tagStr = tag != null ? '[$tag] ' : '';
 
-    String fullMessage = '[$timestamp] $levelStr: $message';
+    String fullMessage = '[$timestamp] $levelStr $tagStr$message';
 
     if (error != null) {
       fullMessage += '\nError: $error';

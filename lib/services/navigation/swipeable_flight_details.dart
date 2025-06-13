@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../user/user_flights_service.dart';
 import '../../utils/logger.dart';
 
 /// Mixin para añadir la funcionalidad de swipe entre vuelos en la pantalla de detalles

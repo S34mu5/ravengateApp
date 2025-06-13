@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../services/user/user_flights_service.dart';
+import '../../../services/user/user_flights/user_flights_service.dart';
 import '../../../utils/progress_dialog.dart';
 
 /// Clase para manejar todo lo relacionado con la selección de vuelos

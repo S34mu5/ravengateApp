@@ -229,29 +229,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
     }
   }
 
-  /// Restores a deleted trolley delivery
-  Future<void> _restoreDelivery(String docId) async {
-    try {
-      await _firestore
-          .collection('flights')
-          .doc(widget.documentId)
-          .collection('trolleys')
-          .doc(docId)
-          .update({
-        'deleted': false,
-        'deleted_at': null,
-      });
-
-      // Recargar el historial y el conteo actual
-      await _loadCurrentTrolleyCount();
-      if (_showHistory) {
-        await _loadTrolleyHistory();
-      }
-    } catch (e) {
-      AppLogger.error('Error restoring trolley delivery', e);
-    }
-  }
-
   /// Shows confirmation dialog before saving
   Future<bool> _showSaveConfirmation(int count) async {
     final localizations = AppLocalizations.of(context)!;

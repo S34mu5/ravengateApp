@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_service.dart';
 import 'auth_methods.dart';
 import 'auth_result.dart';
+import '../../utils/logger.dart';
 
 /// Servicio de autenticación con Google, siguiendo buenas prácticas:
 /// - Inyección de dependencias para facilitar pruebas.
@@ -44,7 +45,7 @@ class GoogleAuthService implements AuthService {
       try {
         googleUser = await _googleSignIn.signInSilently();
       } catch (e) {
-        print('⚠️ Error en signInSilently (ignorado): $e');
+        AppLogger.warning('Error en signInSilently (ignorado): $e');
         // Continuamos con el flujo aunque falle el silencioso
       }
 
@@ -53,10 +54,10 @@ class GoogleAuthService implements AuthService {
         try {
           googleUser = await _googleSignIn.signIn();
         } catch (e) {
-          print('⚠️ Error en signIn interactivo: $e');
+          AppLogger.warning('Error en signIn interactivo: $e');
           if (e.toString().contains('PigeonUserDetails')) {
             // Ignoramos este error específico ya que no impide el funcionamiento
-            print('ℹ️ Ignorando error de PigeonUserDetails');
+            AppLogger.info('Ignorando error de PigeonUserDetails');
           } else {
             // Para otros errores, retornamos el resultado de error
             return AuthResult(
@@ -92,13 +93,14 @@ class GoogleAuthService implements AuthService {
         user: result.user,
       );
     } catch (e) {
-      print('❌ Error en authenticate de GoogleAuthService: $e');
+      AppLogger.error('Error en authenticate de GoogleAuthService', e);
       // Para el error específico de PigeonUserDetails, ignoramos
       if (e.toString().contains('PigeonUserDetails')) {
         // Si tenemos usuario en Firebase a pesar del error, consideramos exitoso
         final currentUser = _firebaseAuth.currentUser;
         if (currentUser != null) {
-          print('ℹ️ Usuario autenticado a pesar del error PigeonUserDetails');
+          AppLogger.info(
+              'Usuario autenticado a pesar del error PigeonUserDetails');
           return AuthResult(
             success: true,
             method: method,
@@ -116,7 +118,6 @@ class GoogleAuthService implements AuthService {
     }
   }
 
-  @override
   Future<void> signOut() async {
     // Cerramos sesión en Firebase y Google secuencialmente
     await _firebaseAuth.signOut();

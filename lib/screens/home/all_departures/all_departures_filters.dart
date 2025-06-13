@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/cache/cache_service.dart';
 import '../../../utils/flight_filter_util.dart';
+import '../../../utils/logger.dart';
 
 /// Clase para manejar todo lo relacionado con filtros de vuelos
 class DeparturesFilters {
@@ -40,9 +41,9 @@ class DeparturesFilters {
         endTime: endTime,
         searchQuery: searchQuery,
       );
-      print('LOG: Filters saved to cache');
+      AppLogger.info('Filters saved to cache');
     } catch (e) {
-      print('ERROR: Could not save filters to cache: $e');
+      AppLogger.error('Could not save filters to cache', e);
     }
   }
 
@@ -51,7 +52,7 @@ class DeparturesFilters {
     try {
       final savedFilters = await CacheService.getFilters();
       if (savedFilters != null) {
-        print('LOG: Filters loaded from cache');
+        AppLogger.info('Filters loaded from cache');
         return DeparturesFilters(
           startDate: savedFilters['startDate'] as DateTime,
           startTime: savedFilters['startTime'] as TimeOfDay,
@@ -61,7 +62,7 @@ class DeparturesFilters {
         );
       }
     } catch (e) {
-      print('ERROR: Could not load filters from cache: $e');
+      AppLogger.error('Could not load filters from cache', e);
     }
 
     // Si no hay filtros guardados, devolver valores predeterminados
@@ -72,8 +73,8 @@ class DeparturesFilters {
   Future<void> loadNorwegianPreference() async {
     final isEnabled = await FlightFilterUtil.loadNorwegianPreference();
     norwegianEquivalenceEnabled = isEnabled;
-    print(
-        'LOG: Norwegian equivalence preference loaded: $norwegianEquivalenceEnabled');
+    AppLogger.info(
+        'Norwegian equivalence preference loaded: $norwegianEquivalenceEnabled');
   }
 
   // Convertir TimeOfDay a DateTime
@@ -111,8 +112,8 @@ class DeparturesFilters {
     final startDateTime = timeOfDayToDateTime(startDate, startTime);
     final endDateTime = timeOfDayToDateTime(endDate, endTime);
 
-    print(
-        'LOG: Applying date filter: ${FlightFilterUtil.dateFormatter.format(startDateTime)} ${FlightFilterUtil.timeFormatter.format(startDateTime)} - ${FlightFilterUtil.dateFormatter.format(endDateTime)} ${FlightFilterUtil.timeFormatter.format(endDateTime)}');
+    AppLogger.debug(
+        'Applying date filter: ${FlightFilterUtil.dateFormatter.format(startDateTime)} ${FlightFilterUtil.timeFormatter.format(startDateTime)} - ${FlightFilterUtil.dateFormatter.format(endDateTime)} ${FlightFilterUtil.timeFormatter.format(endDateTime)}');
 
     final filteredFlights = FlightFilterUtil.filterFlightsByDateRange(
       flights: flights,
@@ -120,7 +121,8 @@ class DeparturesFilters {
       endDateTime: endDateTime,
     );
 
-    print('LOG: Filtered ${filteredFlights.length} flights within date range');
+    AppLogger.debug(
+        'Filtered \\${filteredFlights.length} flights within date range');
     return filteredFlights;
   }
 
@@ -207,11 +209,11 @@ class DeparturesFilters {
         if (flightDateTime.isAfter(latestFlightDate)) {
           latestFlightDate = flightDateTime;
           foundValidDate = true;
-          print(
-              'LOG: Found later flight: ${flight['flight_id']} at $flightDateTime');
+          AppLogger.debug(
+              'Found later flight: \\${flight['flight_id']} at \\$flightDateTime');
         }
       } catch (e) {
-        print('LOG: Error parsing date for flight: $e');
+        AppLogger.error('Error parsing date for flight', e);
       }
     }
 
@@ -226,14 +228,14 @@ class DeparturesFilters {
       );
       endTime = const TimeOfDay(hour: 23, minute: 59);
 
-      print(
-          'LOG: End date filter updated to: ${FlightFilterUtil.dateFormatter.format(endDate)} ${FlightFilterUtil.timeFormatter.format(DateTime(2022, 1, 1, endTime.hour, endTime.minute))}');
+      AppLogger.info(
+          'End date filter updated to: ${FlightFilterUtil.dateFormatter.format(endDate)} ${FlightFilterUtil.timeFormatter.format(DateTime(2022, 1, 1, endTime.hour, endTime.minute))}');
     } else {
       // Si no encontramos ninguna fecha válida, usar 7 días como valor predeterminado
       endDate = DateTime.now().add(const Duration(days: 7));
       endTime = const TimeOfDay(hour: 23, minute: 59);
-      print(
-          'LOG: No valid flight dates found, using default end date (7 days from now)');
+      AppLogger.warning(
+          'No valid flight dates found, using default end date (7 days from now)');
     }
   }
 

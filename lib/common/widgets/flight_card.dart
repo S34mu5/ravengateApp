@@ -134,15 +134,8 @@ class _FlightCardState extends State<FlightCard> {
         : null;
 
     // Verificar si el vuelo está retrasado
-    final bool isDelayed = statusTime != null &&
-        statusTime != formattedTime &&
-        FlightFilterUtil.isLaterTime(statusTime, formattedTime);
 
     // Verificar si el vuelo despegó antes de tiempo o a su hora programada
-    final bool isOnTimeOrEarly = widget.flight['status_code'] == 'D' &&
-        statusTime != null &&
-        (!FlightFilterUtil.isLaterTime(statusTime, formattedTime) ||
-            statusTime == formattedTime);
 
     // Verificar estados especiales
     final bool isDeparted = widget.flight['status_code'] == 'D';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/navigation/swipeable_flight_details.dart';
 import '../../../utils/flight_sort_util.dart';
+import '../../../utils/logger.dart';
 
 /// Clase base abstracta que contiene la lógica común para las pantallas de detalles de vuelo
 abstract class BaseFlightDetailsScreen extends StatefulWidget {
@@ -55,20 +56,21 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
 
   /// Imprime información de debug sobre la navegación entre vuelos
   void debugSwipeInfo() {
-    print('LOG: SwipeInfo - Current Flight ID: ${widget.flightId}');
-    print('LOG: SwipeInfo - Document ID: ${widget.documentId}');
-    print('LOG: SwipeInfo - Source: ${widget.flightsSource}');
-    print('LOG: SwipeInfo - Has Flights List: ${widget.flightsList != null}');
+    AppLogger.debug('SwipeInfo - Current Flight ID: ${widget.flightId}');
+    AppLogger.debug('SwipeInfo - Document ID: ${widget.documentId}');
+    AppLogger.debug('SwipeInfo - Source: ${widget.flightsSource}');
+    AppLogger.debug(
+        'SwipeInfo - Has Flights List: ${widget.flightsList != null}');
 
     if (widget.flightsList != null) {
       final int flightsCount = widget.flightsList!.length;
-      print('LOG: SwipeInfo - Flights Count: $flightsCount');
+      AppLogger.debug('SwipeInfo - Flights Count: $flightsCount');
 
       // Verificar si el vuelo actual está en la lista
       final int index = widget.flightsList!
           .indexWhere((flight) => flight['id'] == widget.documentId);
       if (index != -1) {
-        print('LOG: SwipeInfo - Current Flight Index: $index');
+        AppLogger.debug('SwipeInfo - Current Flight Index: $index');
       } else {
         // Intentar encontrar por flight_ref (para MyDepartures)
         final int refIndex = widget.flightsList!.indexWhere((flight) =>
@@ -78,9 +80,11 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
                 flight['doc_id'] == widget.documentId));
 
         if (refIndex != -1) {
-          print('LOG: SwipeInfo - Current Flight Index (by ref): $refIndex');
+          AppLogger.debug(
+              'SwipeInfo - Current Flight Index (by ref): $refIndex');
         } else {
-          print('LOG: SwipeInfo - WARNING: Current flight not found in list!');
+          AppLogger.warning(
+              'SwipeInfo - WARNING: Current flight not found in list');
         }
       }
     }
@@ -136,7 +140,8 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
   /// Loads the complete flight details from Firestore
   Future<void> loadFlightDetails() async {
     final String screenName = getScreenName();
-    print('LOG: $screenName: Loading flight details for ${widget.flightId}...');
+    AppLogger.debug(
+        '$screenName: Loading flight details for ${widget.flightId}');
 
     try {
       setState(() {
@@ -149,8 +154,8 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
           await firestore.collection('flights').doc(widget.documentId).get();
 
       if (!flightDoc.exists) {
-        print(
-            'LOG: $screenName: Flight with ID ${widget.documentId} not found');
+        AppLogger.warning(
+            '$screenName: Flight with ID ${widget.documentId} not found');
         setState(() {
           errorMessage = 'No data found for this flight';
           isLoading = false;
@@ -162,8 +167,8 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
       final Map<String, dynamic> flightData =
           flightDoc.data() as Map<String, dynamic>;
 
-      print(
-          'LOG: $screenName: Flight data loaded: ${flightData.keys.toList()}');
+      AppLogger.debug(
+          '$screenName: Flight data loaded: ${flightData.keys.toList()}');
 
       // Calculate the cutoff time (2 hours before scheduled flight time)
       DateTime? cutoffTime;
@@ -194,11 +199,12 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
           // Calculate 2 hours before the schedule time
           cutoffTime = scheduleDateTime.subtract(const Duration(hours: 2));
 
-          print(
-              'LOG: $screenName: Schedule time: $scheduleDateTime, Cutoff time: $cutoffTime');
+          AppLogger.debug(
+              '$screenName: Schedule=$scheduleDateTime, Cutoff=$cutoffTime');
         }
       } catch (timeError) {
-        print('LOG: $screenName: Error calculating cutoff time: $timeError');
+        AppLogger.error(
+            '$screenName: Error calculating cutoff time', timeError);
         // If there's an error, we'll continue without filtering
       }
 
@@ -207,8 +213,8 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
       List<Map<String, dynamic>> fullHistoryTemp = [];
 
       try {
-        print(
-            'LOG: $screenName: Checking for history subcollection at path: flights/${widget.documentId}/history');
+        AppLogger.debug(
+            '$screenName: Checking history subcollection flights/${widget.documentId}/history');
 
         // Primero verificar si la colección history existe
         final collectionRef = firestore
@@ -220,20 +226,19 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
         final testQuery = await collectionRef.limit(1).get();
 
         if (testQuery.docs.isEmpty) {
-          print(
-              'LOG: $screenName: History subcollection is empty or does not exist');
+          AppLogger.info('$screenName: History subcollection empty or missing');
           // No hay historial, dejar las listas vacías
         } else {
-          print(
-              'LOG: $screenName: History subcollection exists, retrieving all documents');
+          AppLogger.debug(
+              '$screenName: History subcollection exists, retrieving');
 
           // La subcolección existe, obtener todos los documentos
           final QuerySnapshot historySnapshot = await collectionRef
               .orderBy('change_time', descending: true)
               .get();
 
-          print(
-              'LOG: $screenName: Retrieved ${historySnapshot.docs.length} history documents from Firestore');
+          AppLogger.debug(
+              '$screenName: Retrieved ${historySnapshot.docs.length} history documents');
 
           // Process each history document - extract full history first
           if (historySnapshot.docs.isNotEmpty) {
@@ -250,8 +255,8 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
               };
             }).toList();
 
-            print(
-                'LOG: $screenName: Loaded ${fullHistoryTemp.length} complete history records with fields');
+            AppLogger.debug(
+                '$screenName: Loaded ${fullHistoryTemp.length} full history records');
 
             // Procesar historial de cambios de puerta (compatible con el código existente)
             gateHistoryTemp = historySnapshot.docs.map((historyDoc) {
@@ -280,12 +285,12 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
                   } else if (timestamp is String) {
                     changeTime = DateTime.parse(timestamp);
                   } else if (timestamp != null) {
-                    print(
-                        'LOG: $screenName: Unexpected timestamp type: ${timestamp.runtimeType}');
+                    AppLogger.debug(
+                        '$screenName: Unexpected timestamp type: ${timestamp.runtimeType}');
                   }
                 } catch (e) {
-                  print(
-                      'LOG ERROR: $screenName: Failed to convert timestamp: $e');
+                  AppLogger.error(
+                      '$screenName: Failed to convert timestamp', e);
                   return false;
                 }
 
@@ -296,14 +301,14 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
                 return changeTime.isAfter(cutoffTime!);
               }).toList();
 
-              print(
-                  'LOG: $screenName: Filtered to ${gateHistoryTemp.length} gate history records after cutoff time');
+              AppLogger.debug(
+                  '$screenName: Filtered to ${gateHistoryTemp.length} gate history records after cutoff');
             }
           }
         }
       } catch (historyError) {
-        print(
-            'LOG ERROR: $screenName: Error loading history subcollection: $historyError');
+        AppLogger.error(
+            '$screenName: Error loading history subcollection', historyError);
         // Continue with main data even if history fails to load
       }
 
@@ -315,15 +320,15 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
         isLoading = false;
       });
 
-      print('LOG: $screenName: Flight details loaded successfully');
-      print(
-          'LOG: $screenName: Gate change history: ${gateHistory.length} records');
-      print('LOG: $screenName: Full history: ${fullHistory.length} records');
+      AppLogger.debug('$screenName: Flight details loaded');
+      AppLogger.debug(
+          '$screenName: Gate change history: ${gateHistory.length}');
+      AppLogger.debug('$screenName: Full history: ${fullHistory.length}');
 
       // Hook para procesamiento específico por subclase después de cargar datos
       onFlightDetailsLoaded();
     } catch (e) {
-      print('LOG ERROR: $screenName: Error loading flight details: $e');
+      AppLogger.error('$screenName: Error loading flight details', e);
       setState(() {
         errorMessage = 'Error loading details: $e';
         isLoading = false;
@@ -338,7 +343,7 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
 
     // Only process swipe if velocity is sufficient
     if (velocity.abs() > 500) {
-      print('LOG: Swipe detected with velocity: $velocity');
+      AppLogger.debug('Swipe detected velocity=$velocity');
       navigateToAdjacentFlight(isNext);
     }
   }
@@ -395,7 +400,7 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
         ? (adjacentFlight['flight_ref'] ?? adjacentFlight['id'] ?? '')
         : adjacentFlight['id'];
 
-    print('LOG: Precargando detalles del vuelo (ID: $docId)');
+    AppLogger.debug('Precargando detalles vuelo ID=$docId');
 
     setState(() {
       loadingAdjacentFlight = true;
@@ -407,7 +412,7 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
           await firestore.collection('flights').doc(docId).get();
 
       if (!flightDoc.exists) {
-        print('LOG: Vuelo adyacente no encontrado');
+        AppLogger.info('Vuelo adyacente no encontrado');
         if (mounted) {
           setState(() {
             loadingAdjacentFlight = false;
@@ -423,7 +428,7 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
         });
       }
     } catch (e) {
-      print('LOG: Error precargando vuelo adyacente: $e');
+      AppLogger.error('Error precargando vuelo adyacente', e);
       if (mounted) {
         setState(() {
           loadingAdjacentFlight = false;
@@ -474,7 +479,7 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
   /// Navigate to adjacent flight
   void navigateToAdjacentFlight(bool isNext) {
     if (flightsList.isEmpty) {
-      print('LOG: No se puede navegar - lista de vuelos vacía');
+      AppLogger.warning('No se puede navegar - lista de vuelos vacía');
       return;
     }
 
@@ -487,8 +492,8 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
         : getPreviousFlight(currentFlightDocId);
 
     if (targetDocId == null) {
-      print(
-          'LOG: No hay ${isNext ? "siguiente" : "anterior"} vuelo disponible');
+      AppLogger.info(
+          'No hay ${isNext ? "siguiente" : "anterior"} vuelo disponible');
       return;
     }
 
@@ -537,7 +542,7 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
             widget.forceRefreshOnReturn || widget.flightsSource == 'my';
 
         if (shouldForceRefresh) {
-          print('LOG: Forzando actualización de datos al volver');
+          AppLogger.debug('Forzando actualización de datos al volver');
           Navigator.of(context)
               .pop(true); // Retornar true para forzar actualización
           return false; // No ejecutar el pop nativo ya que lo hicimos manualmente

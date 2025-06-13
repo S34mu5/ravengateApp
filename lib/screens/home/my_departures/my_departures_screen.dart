@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'my_departures_ui.dart';
-import '../../../services/user/user_flights_service.dart';
+import '../../../services/user/user_flights/user_flights_service.dart';
+// ignore: unused_import
 import '../../../services/notifications/notification_service.dart';
 import '../../../services/flights/flight_delay_detector.dart';
 import '../base_departures_screen.dart';
@@ -17,16 +18,7 @@ class _MyDeparturesScreenState
     extends BaseDeparturesScreenState<MyDeparturesScreen> {
   List<Map<String, dynamic>> _userFlights = [];
   List<Map<String, dynamic>> _previousUserFlights = [];
-  final NotificationService _notificationService = NotificationService();
   final FlightDelayDetector _delayDetector = FlightDelayDetector();
-
-  @override
-  Future<void> _initializeServices() async {
-    await _notificationService.init();
-    final bool hasPermission = await _notificationService.requestPermissions();
-    print(
-        'LOG: Permisos de notificaciones ${hasPermission ? 'concedidos' : 'denegados'}');
-  }
 
   @override
   Future<void> loadFlights({bool forceRefresh = false}) async {
