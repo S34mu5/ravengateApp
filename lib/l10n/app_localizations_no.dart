@@ -578,4 +578,38 @@ class AppLocalizationsNo extends AppLocalizations {
   @override
   String get norwegianDyD8EquivalenceSubtitle =>
       'Vis fly med DY-kode når du søker etter D8 og omvendt';
+
+  // Oversize item registration form
+  @override
+  String get itemTypeLabel => 'Artikkeltype:';
+
+  @override
+  String get referenceLabel => 'Referanse';
+
+  @override
+  String get avihReferenceLabel => 'AVIH-referanse';
+
+  @override
+  String get descriptionLabel => 'Beskrivelse';
+
+  @override
+  String get passengerNameLabel => 'Passasjernavn';
+
+  @override
+  String get fragileLabel => 'Skjør';
+
+  @override
+  String get requiresSpecialHandlingLabel => 'Krever spesiell håndtering';
+
+  @override
+  String get spareItem => 'Kolli';
+
+  @override
+  String get avih => 'AVIH';
+
+  @override
+  String get pleaseEnterAvihReference => 'Vennligst skriv inn AVIH-referanse';
+
+  @override
+  String get pleaseEnterPassengerName => 'Vennligst skriv inn passasjernavn';
 }

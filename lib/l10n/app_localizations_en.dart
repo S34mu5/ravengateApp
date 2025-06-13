@@ -576,4 +576,38 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get norwegianDyD8EquivalenceSubtitle =>
       'Show flights with DY code when searching for D8 and vice versa';
+
+  // Oversize item registration form
+  @override
+  String get itemTypeLabel => 'Item type:';
+
+  @override
+  String get referenceLabel => 'Reference';
+
+  @override
+  String get avihReferenceLabel => 'AVIH Reference';
+
+  @override
+  String get descriptionLabel => 'Description';
+
+  @override
+  String get passengerNameLabel => 'Passenger name';
+
+  @override
+  String get fragileLabel => 'Fragile';
+
+  @override
+  String get requiresSpecialHandlingLabel => 'Requires special handling';
+
+  @override
+  String get spareItem => 'Spare Item';
+
+  @override
+  String get avih => 'AVIH';
+
+  @override
+  String get pleaseEnterAvihReference => 'Please enter AVIH reference';
+
+  @override
+  String get pleaseEnterPassengerName => 'Please enter passenger name';
 }

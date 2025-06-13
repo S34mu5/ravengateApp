@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../../../../utils/logger.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Tipos de elementos sobredimensionados
 enum OversizeItemType {
@@ -93,7 +94,7 @@ class _OversizeItemRegistrationFormState
                   Icon(_selectedType.icon, color: Colors.amber),
                   const SizedBox(width: 8),
                   Text(
-                    'Registrar ${_selectedType.label}',
+                    '${AppLocalizations.of(context)!.register} ${_getTypeLabel(_selectedType, AppLocalizations.of(context)!)}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -109,9 +110,9 @@ class _OversizeItemRegistrationFormState
               const SizedBox(height: 16),
 
               // Selección de tipo de elemento
-              const Text(
-                'Tipo de artículo:',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context)!.itemTypeLabel,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -121,7 +122,8 @@ class _OversizeItemRegistrationFormState
                 segments: OversizeItemType.values.map((type) {
                   return ButtonSegment<OversizeItemType>(
                     value: type,
-                    label: Text(type.label),
+                    label: Text(
+                        _getTypeLabel(type, AppLocalizations.of(context)!)),
                     icon: Icon(type.icon),
                   );
                 }).toList(),
@@ -148,20 +150,21 @@ class _OversizeItemRegistrationFormState
               if (_selectedType != OversizeItemType.avih) ...[
                 TextFormField(
                   controller: _countController,
-                  decoration: const InputDecoration(
-                    labelText: 'Cantidad',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.numbers),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.enterQuantity,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.numbers),
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Por favor ingrese la cantidad';
+                      return AppLocalizations.of(context)!.pleaseEnterNumber;
                     }
                     final count = int.tryParse(value);
                     if (count == null || count <= 0) {
-                      return 'La cantidad debe ser un número positivo';
+                      return AppLocalizations.of(context)!
+                          .pleaseEnterValidNumber;
                     }
                     return null;
                   },
@@ -174,15 +177,16 @@ class _OversizeItemRegistrationFormState
                 controller: _referenceController,
                 decoration: InputDecoration(
                   labelText: _selectedType == OversizeItemType.avih
-                      ? 'Referencia AVIH'
-                      : 'Referencia',
+                      ? AppLocalizations.of(context)!.avihReferenceLabel
+                      : AppLocalizations.of(context)!.referenceLabel,
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.tag),
                 ),
                 validator: (value) {
                   if (_selectedType == OversizeItemType.avih &&
                       (value == null || value.isEmpty)) {
-                    return 'Por favor ingrese la referencia AVIH';
+                    return AppLocalizations.of(context)!
+                        .pleaseEnterAvihReference;
                   }
                   return null;
                 },
@@ -192,10 +196,10 @@ class _OversizeItemRegistrationFormState
               // Descripción
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Descripción',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.description),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.descriptionLabel,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.description),
                 ),
                 maxLines: 2,
               ),
@@ -205,14 +209,15 @@ class _OversizeItemRegistrationFormState
               if (_selectedType == OversizeItemType.avih) ...[
                 TextFormField(
                   controller: _passengerNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre del pasajero',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.passengerNameLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.person),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Por favor ingrese el nombre del pasajero';
+                      return AppLocalizations.of(context)!
+                          .pleaseEnterPassengerName;
                     }
                     return null;
                   },
@@ -222,7 +227,7 @@ class _OversizeItemRegistrationFormState
 
               // Opciones adicionales
               CheckboxListTile(
-                title: const Text('Frágil'),
+                title: Text(AppLocalizations.of(context)!.fragileLabel),
                 value: _isFragile,
                 onChanged: (bool? value) {
                   setState(() {
@@ -235,7 +240,8 @@ class _OversizeItemRegistrationFormState
               ),
 
               CheckboxListTile(
-                title: const Text('Requiere manejo especial'),
+                title: Text(
+                    AppLocalizations.of(context)!.requiresSpecialHandlingLabel),
                 value: _requiresSpecialHandling,
                 onChanged: (bool? value) {
                   setState(() {
@@ -288,9 +294,9 @@ class _OversizeItemRegistrationFormState
                           valueColor:
                               AlwaysStoppedAnimation<Color>(Colors.white),
                         )
-                      : const Text(
-                          'REGISTRAR',
-                          style: TextStyle(
+                      : Text(
+                          AppLocalizations.of(context)!.register.toUpperCase(),
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -357,10 +363,21 @@ class _OversizeItemRegistrationFormState
     } catch (e) {
       // Manejar errores
       setState(() {
-        _errorMessage = 'Error al registrar: $e';
+        _errorMessage = '${AppLocalizations.of(context)!.errorSaving} $e';
         _isLoading = false;
       });
       AppLogger.error('Error registrando elemento sobredimensionado', e);
+    }
+  }
+
+  String _getTypeLabel(OversizeItemType type, AppLocalizations l10n) {
+    switch (type) {
+      case OversizeItemType.trolley:
+        return l10n.trolley;
+      case OversizeItemType.spare:
+        return l10n.spareItem;
+      case OversizeItemType.avih:
+        return l10n.avih;
     }
   }
 }

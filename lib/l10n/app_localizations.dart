@@ -268,6 +268,19 @@ abstract class AppLocalizations {
   // Data visualization screen
   String get norwegianDyD8Equivalence;
   String get norwegianDyD8EquivalenceSubtitle;
+
+  // Oversize item registration form
+  String get itemTypeLabel;
+  String get referenceLabel;
+  String get avihReferenceLabel;
+  String get descriptionLabel;
+  String get passengerNameLabel;
+  String get fragileLabel;
+  String get requiresSpecialHandlingLabel;
+  String get spareItem;
+  String get avih;
+  String get pleaseEnterAvihReference;
+  String get pleaseEnterPassengerName;
 }
 
 class _AppLocalizationsDelegate
