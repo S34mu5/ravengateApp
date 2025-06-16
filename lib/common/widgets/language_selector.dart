@@ -114,7 +114,7 @@ class LanguageSelector extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Theme.of(context).primaryColor.withOpacity(0.1)
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
                         : null,
                   ),
                   child: Row(

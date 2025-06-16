@@ -66,8 +66,9 @@ class ProgressDialog {
         barrierDismissible: _barrierDismissible,
         builder: (BuildContext buildContext) {
           _dismissingContext = buildContext;
-          return WillPopScope(
-            onWillPop: () async => isDismissible,
+          return PopScope(
+            canPop: isDismissible,
+            onPopInvoked: (_) {},
             child: Dialog(
               elevation: _dialogElevation,
               shape: RoundedRectangleBorder(

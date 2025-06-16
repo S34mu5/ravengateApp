@@ -162,8 +162,8 @@ class _FlightCardState extends State<FlightCard> {
     final Color cardColor = isCancelled
         ? Colors.grey.shade200
         : widget.isSelectionMode && widget.isSelected
-            ? const Color(0xFF4285F4)
-                .withOpacity(0.05) // Google Blue con muy baja opacidad
+            ? const Color(0xFF4285F4).withValues(
+                alpha: 0.05) // Ajuste usando withValues para opacidad
             : Colors.white;
     final Color textColor =
         isCancelled || isDeparted ? Colors.grey.shade700 : Colors.black87;

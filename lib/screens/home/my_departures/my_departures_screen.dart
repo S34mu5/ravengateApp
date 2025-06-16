@@ -5,6 +5,7 @@ import '../../../services/user/user_flights/user_flights_service.dart';
 import '../../../services/notifications/notification_service.dart';
 import '../../../services/flights/flight_delay_detector.dart';
 import '../base_departures_screen.dart';
+import '../../../utils/logger.dart';
 
 /// Componente que maneja la lógica y los datos para la pantalla de vuelos del usuario
 class MyDeparturesScreen extends BaseDeparturesScreen {
@@ -22,8 +23,8 @@ class _MyDeparturesScreenState
 
   @override
   Future<void> loadFlights({bool forceRefresh = false}) async {
-    print(
-        'LOG: Cargando datos de vuelos del usuario en MyDeparturesScreen ${forceRefresh ? "(FORZANDO ACTUALIZACIÓN)" : ""}');
+    AppLogger.info(
+        'MyDeparturesScreen - Cargando datos de vuelos del usuario ${forceRefresh ? "(FORZANDO ACTUALIZACIÓN)" : ""}');
 
     try {
       if (!mounted) return;
@@ -56,10 +57,11 @@ class _MyDeparturesScreenState
       // Actualizar la lista de vuelos anteriores para futuras comparaciones
       _previousUserFlights = List.from(newFlights);
 
-      print(
-          'LOG: Se cargaron ${_userFlights.length} vuelos del usuario (Actualización forzada: $forceRefresh)');
+      AppLogger.info(
+          'MyDeparturesScreen - Se cargaron ${_userFlights.length} vuelos del usuario (Actualización forzada: $forceRefresh)');
     } catch (e) {
-      print('LOG: Error al cargar vuelos del usuario: $e');
+      AppLogger.error(
+          'MyDeparturesScreen - Error al cargar vuelos del usuario', e);
       if (!mounted) return;
       setError('Error loading flights: $e');
       setLoading(false);
@@ -96,7 +98,7 @@ class _MyDeparturesScreenState
         ),
       );
     } catch (e) {
-      print('LOG: Error removing flight: $e');
+      AppLogger.error('MyDeparturesScreen - Error removing flight', e);
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(

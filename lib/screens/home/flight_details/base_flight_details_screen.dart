@@ -534,20 +534,20 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      // Devolver true al salir para indicar que es necesario actualizar datos
-      onWillPop: () async {
-        // Forzar actualización solo si es necesario
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) async {
+        if (!didPop) return;
+
+        // Determinar si debemos forzar actualización
         final bool shouldForceRefresh =
             widget.forceRefreshOnReturn || widget.flightsSource == 'my';
 
         if (shouldForceRefresh) {
           AppLogger.debug('Forzando actualización de datos al volver');
-          Navigator.of(context)
-              .pop(true); // Retornar true para forzar actualización
-          return false; // No ejecutar el pop nativo ya que lo hicimos manualmente
+          // Ya se invocó el pop, pero enviamos resultado para indicar refresco
+          Navigator.of(context).pop(true);
         }
-        return true; // Ejecutar pop normal
       },
       child: buildContent(),
     );

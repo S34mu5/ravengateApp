@@ -205,8 +205,7 @@ class _MyAppState extends State<MyApp> {
           // Colores de superficie
           surface: Colors.white,
           onSurface: const Color(0xFF202124), // Google Gray 900
-          surfaceVariant: const Color(0xFFF1F3F4), // Google Gray 100
-          onSurfaceVariant: const Color(0xFF5F6368), // Google Gray 500
+          surfaceContainerHighest: const Color(0xFFF1F3F4), // Google Gray 100
           outline: const Color(0xFFDADCE0), // Google Gray 200
         ),
         // Tipografía de Google Sans
@@ -289,8 +288,7 @@ class _MyAppState extends State<MyApp> {
           // Colores de superficie
           surface: const Color(0xFF202124), // Google Gray 900
           onSurface: const Color(0xFFE8EAED), // Google Gray 200
-          surfaceVariant: const Color(0xFF3C4043), // Google Gray 800
-          onSurfaceVariant: const Color(0xFFDADCE0), // Google Gray 300
+          surfaceContainerHighest: const Color(0xFF3C4043), // Google Gray 800
           outline: const Color(0xFF5F6368), // Google Gray 500
         ),
         // Tipografía de Google Sans para tema oscuro
@@ -352,15 +350,16 @@ class _MyAppState extends State<MyApp> {
             if (user.providerData
                     .any((info) => info.providerId == 'password') &&
                 !user.emailVerified) {
-              print('⚠️ User not verified in main.dart: ${user.email}');
+              AppLogger.warning(
+                  'User not verified in main.dart: ${user.email}');
 
               // Verificar si es un registro reciente (menos de 30 segundos)
               final creationTime = user.metadata.creationTime;
               final now = DateTime.now();
               if (creationTime != null &&
                   now.difference(creationTime).inSeconds < 30) {
-                print(
-                    '👤 Usuario recién creado, mostrando pantalla de verificación con estilo de registro nuevo');
+                AppLogger.info(
+                    'Usuario recién creado, mostrando pantalla de verificación con estilo de registro nuevo');
 
                 // Mostrar la pantalla con el icono verde para usuarios recién registrados
                 return EmailVerificationScreen(

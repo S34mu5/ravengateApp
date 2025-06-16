@@ -60,7 +60,7 @@ class _FlightHeaderState extends State<FlightHeader> {
         _isLocationLoaded = true; // Marcamos como cargado
       });
     } catch (e) {
-      print('Error al cargar la ubicación: $e');
+      AppLogger.error('FlightHeader - Error al cargar la ubicación', e);
       setState(() {
         _isLocationLoaded = true; // Marcamos como cargado incluso con error
       });

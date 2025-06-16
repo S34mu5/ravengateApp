@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../utils/airline_helper.dart';
 import '../../../services/developer/developer_mode_service.dart';
 import 'utils/flight_formatters.dart';
+import '../../../../utils/logger.dart';
 
 /// Clase base abstracta que contiene la lógica común para las pantallas de detalles de vuelo
 abstract class BaseFlightDetailsUI extends StatefulWidget {
@@ -238,11 +239,12 @@ abstract class BaseFlightDetailsUIState<T extends BaseFlightDetailsUI>
     final Future<void> Function() onRefresh = widget.onRefresh;
 
     // Imprimir logs de diagnóstico
-    print('LOG: ${widget.runtimeType}.build - canSwipe: ${widget.canSwipe}');
-    print(
-        'LOG: ${widget.runtimeType}.build - developerMode: $_developerModeEnabled');
-    print(
-        'LOG: ${widget.runtimeType}.build - adjacentFlightDetails: ${widget.adjacentFlightDetails != null}');
+    AppLogger.debug(
+        '${widget.runtimeType}.build - canSwipe: ${widget.canSwipe}');
+    AppLogger.debug(
+        '${widget.runtimeType}.build - developerMode: $_developerModeEnabled');
+    AppLogger.debug(
+        '${widget.runtimeType}.build - adjacentFlightDetails: ${widget.adjacentFlightDetails != null}');
 
     // Format scheduled time
     final String formattedScheduleTime =

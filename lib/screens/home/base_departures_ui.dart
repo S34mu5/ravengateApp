@@ -4,6 +4,7 @@ import '../../common/widgets/flight_card.dart';
 import '../../common/widgets/flight_selection_controls.dart';
 import '../../utils/flight_filter_util.dart';
 import '../../utils/flight_sort_util.dart';
+import '../../utils/logger.dart';
 
 /// Widget base para la interfaz de usuario de pantallas de vuelos
 abstract class BaseDeparturesUI extends StatefulWidget {
@@ -105,8 +106,8 @@ abstract class BaseDeparturesUIState<T extends BaseDeparturesUI>
     setState(() {
       norwegianEquivalenceEnabled = isEnabled;
     });
-    print(
-        'LOG: Norwegian equivalence preference loaded: $norwegianEquivalenceEnabled');
+    AppLogger.debug(
+        'BaseDeparturesUI - Norwegian equivalence preference loaded: $norwegianEquivalenceEnabled');
   }
 
   /// Activar o desactivar el modo de selección múltiple

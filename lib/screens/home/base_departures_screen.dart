@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../../utils/logger.dart';
 
 /// Clase base abstracta para las pantallas de vuelos
 abstract class BaseDeparturesScreen extends StatefulWidget {
@@ -38,14 +39,15 @@ abstract class BaseDeparturesScreenState<T extends BaseDeparturesScreen>
   /// Configura el timer de actualización automática
   void _setupRefreshTimer() {
     _refreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
-      print('LOG: Actualizando datos automáticamente cada 3 minutos');
+      AppLogger.debug(
+          'BaseDeparturesScreen - Actualizando datos automáticamente cada 3 minutos');
       _onRefreshTimer(timer);
     });
   }
 
   /// Método principal para cargar datos
   Future<void> _loadData() async {
-    print('LOG: Iniciando carga de datos...');
+    AppLogger.debug('BaseDeparturesScreen - Iniciando carga de datos...');
     await loadFlights();
   }
 
@@ -135,7 +137,8 @@ abstract class BaseDeparturesScreenState<T extends BaseDeparturesScreen>
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    print('LOG: Disposing $runtimeType and canceling refresh timer');
+    AppLogger.debug(
+        'BaseDeparturesScreen - Disposing $runtimeType y cancelando refresh timer');
     super.dispose();
   }
 }

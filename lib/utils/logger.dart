@@ -64,7 +64,7 @@ class AppLogger {
     if (kDebugMode) {
       debugPrint(fullMessage);
     } else {
-      print(fullMessage);
+      debugPrint(fullMessage);
     }
   }
 

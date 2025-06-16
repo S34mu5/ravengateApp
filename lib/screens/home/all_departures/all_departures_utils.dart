@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/navigation/nested_navigation_service.dart';
 import '../../../utils/flight_sort_util.dart';
+import '../../../utils/logger.dart';
 
 /// Clase utilitaria para la pantalla de todas las salidas (All Departures)
 class AllDeparturesUtils {
@@ -33,13 +34,13 @@ class AllDeparturesUtils {
   /// Navega a la pantalla de detalles del vuelo seleccionado usando navegación anidada
   static void navigateToFlightDetails(BuildContext context,
       Map<String, dynamic> flight, List<Map<String, dynamic>> flightsList) {
-    // Añadir logs para depuración
-    print(
-        'LOG: AllDeparturesUtils - Navegando a detalles de vuelo usando navegación anidada');
-    print(
-        'LOG: AllDeparturesUtils - Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
-    print(
-        'LOG: AllDeparturesUtils - Pasando lista de ${flightsList.length} vuelos');
+    // Añadir logs para depuración usando el sistema centralizado
+    AppLogger.debug(
+        'AllDeparturesUtils - Navegando a detalles de vuelo usando navegación anidada');
+    AppLogger.debug(
+        'AllDeparturesUtils - Vuelo seleccionado: ${flight['flight_id']} (ID: ${flight['id']})');
+    AppLogger.debug(
+        'AllDeparturesUtils - Pasando lista de ${flightsList.length} vuelos');
 
     // Usar el servicio de navegación anidada
     final navigationService = NestedNavigationService();

@@ -282,11 +282,12 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
       BuildContext context, Map<String, dynamic> flight) {
     AppLogger.debug(
         'MyDeparturesUI - Navegando a detalles de vuelo (flight ${flight['flight_id']}) con lista ${widget.flights.length}');
-    print(
-        'LOG: MyDeparturesUI - Navegando a detalles de vuelo usando navegación anidada');
-    print('LOG: MyDeparturesUI - Vuelo seleccionado: ${flight['flight_id']}');
-    print(
-        'LOG: MyDeparturesUI - Pasando lista de ${widget.flights.length} vuelos');
+    AppLogger.debug(
+        'MyDeparturesUI - Navegando a detalles de vuelo usando navegación anidada');
+    AppLogger.debug(
+        'MyDeparturesUI - Vuelo seleccionado: ${flight['flight_id']}');
+    AppLogger.debug(
+        'MyDeparturesUI - Pasando lista de ${widget.flights.length} vuelos');
 
     // Usar el servicio de navegación anidada
     final navigationService = NestedNavigationService();

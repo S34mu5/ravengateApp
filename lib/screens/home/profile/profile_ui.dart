@@ -46,6 +46,8 @@ class _ProfileUIState extends State<ProfileUI> {
     setState(() {
       _developerModeEnabled = isEnabled;
     });
+
+    if (!mounted) return;
   }
 
   Future<bool> _showPinDialog() async {

@@ -5,6 +5,7 @@ import '../../screens/home/home_screen.dart';
 import '../../screens/auth/login/login_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart' as app;
+import '../../utils/logger.dart';
 
 class SelectLocationScreen extends StatefulWidget {
   final User user;
@@ -40,7 +41,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         ),
       );
     } catch (e) {
-      print('Error al guardar la ubicación: $e');
+      AppLogger.error(
+          'SelectLocationScreen - Error al guardar la ubicación', e);
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -79,7 +81,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         ),
       );
     } catch (e) {
-      print('Error al cerrar sesión: $e');
+      AppLogger.error('SelectLocationScreen - Error al cerrar sesión', e);
       if (mounted) {
         setState(() {
           _isLoading = false;

@@ -642,6 +642,10 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
       BuildContext context, Map<String, dynamic> flight) async {
+    if (!mounted) {
+      return; // Asegurar que el widget siga montado antes de usar context
+    }
+
     // Verificar la ubicación actual
     final bool isOversize = await LocationService.isOversizeLocation();
 
@@ -732,6 +736,8 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         ),
       );
     }
+
+    if (!mounted) return; // Evitar usar context después de Navigator.push
 
     // Si se recibió true como resultado, actualizar la lista de vuelos
     if (shouldRefresh == true && widget.onRefresh != null) {

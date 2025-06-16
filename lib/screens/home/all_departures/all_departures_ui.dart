@@ -73,6 +73,10 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
   Future<void> _showDateTimeRangePicker(BuildContext context) async {
     final filtersChanged = await _filters.showDateTimeRangePicker(context);
 
+    if (!mounted || !context.mounted) {
+      return; // Evita usar context/estado o un BuildContext desmontado tras el picker
+    }
+
     if (filtersChanged) {
       // Determinar si necesitamos cargar datos históricos
       final startDateTime =
@@ -112,6 +116,8 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
           final endDateTime =
               _filters.timeOfDayToDateTime(_filters.endDate, _filters.endTime);
           await widget.onCustomRangeLoad!(startDateTime, endDateTime);
+
+          if (!mounted) return; // Evitar uso de context después de dispose
         } finally {
           // Asegurarse de ocultar el diálogo cuando termine la carga
           if (progressDialog.isShowing) {
@@ -256,16 +262,13 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
           Expanded(
             child: filteredFlights.isEmpty
                 ? _buildEmptyListMessage()
-                : RefreshIndicator(
-                    onRefresh: widget.onRefresh ?? () async {},
-                    child: ListView.builder(
-                      controller: scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: filteredFlights.length,
-                      itemBuilder: (context, index) {
-                        return buildFlightItem(filteredFlights[index], index);
-                      },
-                    ),
+                : ListView.builder(
+                    controller: scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: filteredFlights.length,
+                    itemBuilder: (context, index) {
+                      return buildFlightItem(filteredFlights[index], index);
+                    },
                   ),
           ),
         ],
