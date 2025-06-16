@@ -25,7 +25,7 @@ class FlightDetailsUI extends BaseFlightDetailsUI {
   });
 
   @override
-  _FlightDetailsUIState createState() => _FlightDetailsUIState();
+  State<FlightDetailsUI> createState() => _FlightDetailsUIState();
 }
 
 class _FlightDetailsUIState extends BaseFlightDetailsUIState<FlightDetailsUI> {

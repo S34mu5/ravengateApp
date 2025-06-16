@@ -18,6 +18,15 @@ class FlightsCacheService {
   static const String _userArchivedFlightsLastUpdatedKey =
       'user_archived_flights_last_updated';
 
+  // Conversión segura de Color a int ARGB evitando miembros deprecados
+  static int _colorToInt(Color color) {
+    final int a = (color.a * 255).round();
+    final int r = (color.r * 255).round();
+    final int g = (color.g * 255).round();
+    final int b = (color.b * 255).round();
+    return (a << 24) | (r << 16) | (g << 8) | b;
+  }
+
   /// Guardar vuelos del usuario en caché
   static Future<bool> saveFlightsToCache(
       List<Map<String, dynamic>> flights) async {
@@ -29,7 +38,7 @@ class FlightsCacheService {
           flights.map((flight) {
         final Map<String, dynamic> copy = Map.from(flight);
         if (copy['color'] is Color) {
-          copy['color'] = (copy['color'] as Color).value;
+          copy['color'] = _colorToInt(copy['color'] as Color);
         }
         return copy;
       }).toList();
@@ -220,7 +229,7 @@ class FlightsCacheService {
           flights.map((flight) {
         final Map<String, dynamic> copy = Map.from(flight);
         if (copy['color'] is Color) {
-          copy['color'] = (copy['color'] as Color).value;
+          copy['color'] = _colorToInt(copy['color'] as Color);
         }
         return copy;
       }).toList();

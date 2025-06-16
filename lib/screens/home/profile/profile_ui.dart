@@ -189,6 +189,9 @@ class _ProfileUIState extends State<ProfileUI> {
 
     if (shouldRunDiagnostic != true) return;
 
+    // Comprobar que el widget siga montado antes de crear el ProgressDialog
+    if (!mounted || !context.mounted) return;
+
     // Mostrar indicador de progreso
     final progressDialog = ProgressDialog(
       context,

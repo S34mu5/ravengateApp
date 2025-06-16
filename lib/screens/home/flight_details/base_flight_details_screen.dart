@@ -534,9 +534,9 @@ abstract class BaseFlightDetailsScreenState<T extends BaseFlightDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return PopScope<Object?>(
       canPop: true,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (!didPop) return;
 
         // Determinar si debemos forzar actualización

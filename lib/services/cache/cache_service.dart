@@ -16,6 +16,15 @@ class CacheService {
   static const String _gateChangeNotificationsKey =
       'gate_change_notifications_enabled';
 
+  // Conversión segura de Color a int ARGB evitando miembros deprecados
+  static int _colorToInt(Color color) {
+    final int a = (color.a * 255).round();
+    final int r = (color.r * 255).round();
+    final int g = (color.g * 255).round();
+    final int b = (color.b * 255).round();
+    return (a << 24) | (r << 16) | (g << 8) | b;
+  }
+
   /// Almacena los vuelos en la caché persistente
   static Future<bool> saveFlights(List<Map<String, dynamic>> flights) async {
     try {
@@ -25,7 +34,7 @@ class CacheService {
       final serializableFlights = flights.map((flight) {
         final Map<String, dynamic> copy = Map.from(flight);
         if (copy['color'] is Color) {
-          copy['color'] = (copy['color'] as Color).value;
+          copy['color'] = _colorToInt(copy['color'] as Color);
         }
         return copy;
       }).toList();
