@@ -164,6 +164,9 @@ class _ProfileUIState extends State<ProfileUI> {
       return;
     }
 
+    // Verificar si el widget sigue montado antes de mostrar diálogos
+    if (!mounted || !context.mounted) return;
+
     // Mostrar un diálogo confirmando la acción
     final shouldRunDiagnostic = await showDialog<bool>(
       context: context,
@@ -220,7 +223,7 @@ class _ProfileUIState extends State<ProfileUI> {
         await progressDialog.hide();
       }
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       // Mostrar resultado
       ScaffoldMessenger.of(context).showSnackBar(
@@ -236,7 +239,7 @@ class _ProfileUIState extends State<ProfileUI> {
         await progressDialog.hide();
       }
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       // Mostrar error
       ScaffoldMessenger.of(context).showSnackBar(

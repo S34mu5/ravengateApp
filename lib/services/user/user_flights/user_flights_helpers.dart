@@ -15,7 +15,7 @@ class UserFlightsHelpers {
     final Map<String, dynamic> processed = {};
     flight.forEach((key, value) {
       if (value is Color) {
-        processed[key] = value.value;
+        processed[key] = _colorToInt(value);
       } else {
         processed[key] = value;
       }
@@ -70,8 +70,8 @@ class UserFlightsHelpers {
             'doc_id': ref['doc_id'] ?? '',
           };
           if (!merged.containsKey('color')) {
-            merged['color'] =
-                AirlineHelper.getAirlineColor(merged['airline'] ?? '').value;
+            merged['color'] = _colorToInt(
+                AirlineHelper.getAirlineColor(merged['airline'] ?? ''));
           }
           complete.add(merged);
         } else {
@@ -113,8 +113,8 @@ class UserFlightsHelpers {
             'doc_id': ref['doc_id'],
           };
           if (!merged.containsKey('color')) {
-            merged['color'] =
-                AirlineHelper.getAirlineColor(merged['airline'] ?? '').value;
+            merged['color'] = _colorToInt(
+                AirlineHelper.getAirlineColor(merged['airline'] ?? ''));
           }
           complete.add(merged);
         } else {
@@ -188,5 +188,14 @@ class UserFlightsHelpers {
       AppLogger.error('Helpers local flights error', e);
       return [];
     }
+  }
+
+  // Conversión segura de Color a int ARGB sin usar la propiedad deprecada .value
+  static int _colorToInt(Color color) {
+    final int a = (color.a * 255).round();
+    final int r = (color.r * 255).round();
+    final int g = (color.g * 255).round();
+    final int b = (color.b * 255).round();
+    return (a << 24) | (r << 16) | (g << 8) | b;
   }
 }

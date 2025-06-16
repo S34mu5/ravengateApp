@@ -87,7 +87,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   Future<void> _loadNorwegianPreference() async {
     final isEnabled = await CacheService.getNorwegianEquivalencePreference();
 
-    if (!mounted) {
+    if (!mounted || !context.mounted) {
       return; // Evitar usar context/setState si el widget ya no está
     }
 
@@ -186,7 +186,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         await progressDialog.hide();
       }
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
@@ -214,7 +214,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         await progressDialog.hide();
       }
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
@@ -257,7 +257,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
       ),
     );
 
-    if (!mounted) {
+    if (!mounted || !context.mounted) {
       return; // El widget pudo haber sido removido mientras el diálogo estaba abierto
     }
 
@@ -305,7 +305,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         await progressDialog.hide();
       }
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
@@ -333,7 +333,7 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
         await progressDialog.hide();
       }
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
@@ -642,14 +642,16 @@ class _ArchivedFlightsUIState extends State<ArchivedFlightsUI> {
   /// Navega a la pantalla de detalles del vuelo seleccionado
   void _navigateToFlightDetails(
       BuildContext context, Map<String, dynamic> flight) async {
-    if (!mounted) {
+    if (!mounted || !context.mounted) {
       return; // Asegurar que el widget siga montado antes de usar context
     }
 
     // Verificar la ubicación actual
     final bool isOversize = await LocationService.isOversizeLocation();
 
-    if (!mounted) return; // Evitar usar context después del await
+    if (!mounted || !context.mounted) {
+      return; // Evitar usar context después del await
+    }
 
     AppLogger.debug('Ubicación actual: ${isOversize ? "Oversize" : "Bins"}');
 
