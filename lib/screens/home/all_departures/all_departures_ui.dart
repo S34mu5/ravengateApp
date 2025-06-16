@@ -8,6 +8,7 @@ import 'all_departures_selection.dart';
 import 'all_departures_utils.dart';
 import '../base_departures_ui.dart';
 import '../../../utils/logger.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de todos los vuelos de salida
 class AllDeparturesUI extends BaseDeparturesUI {
@@ -187,7 +188,7 @@ class _AllDeparturesUIState extends BaseDeparturesUIState<AllDeparturesUI> {
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: buildSelectionControls(
-        actionLabel: 'Add to My Departures',
+        actionLabel: AppLocalizations.of(context)!.addToMyDepartures,
         actionIcon: Icons.save,
       ),
       body: Column(

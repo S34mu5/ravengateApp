@@ -612,4 +612,11 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get pleaseEnterPassengerName => 'Vennligst skriv inn passasjernavn';
+
+  // Nye etiketter
+  @override
+  String get addToMyDepartures => 'Legg til Mine Avganger';
+
+  @override
+  String get archiveDepartures => 'Arkiver Avganger';
 }

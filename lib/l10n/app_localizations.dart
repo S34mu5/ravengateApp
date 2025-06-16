@@ -108,6 +108,8 @@ abstract class AppLocalizations {
   String get myDepartures;
   String get flightDetails;
   String get archived;
+  String get addToMyDepartures;
+  String get archiveDepartures;
   String get save;
   String get delete;
   String get restore;

@@ -610,4 +610,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pleaseEnterPassengerName => 'Please enter passenger name';
+
+  // New labels
+  @override
+  String get addToMyDepartures => 'Add to My Departures';
+
+  @override
+  String get archiveDepartures => 'Archive Departures';
 }

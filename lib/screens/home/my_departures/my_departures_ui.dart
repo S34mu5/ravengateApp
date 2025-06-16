@@ -9,6 +9,7 @@ import 'dart:async';
 import '../base_departures_ui.dart';
 import '../../../services/navigation/nested_navigation_service.dart';
 import '../../../utils/logger.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Widget que muestra la interfaz de usuario para la lista de vuelos del usuario
 class MyDeparturesUI extends BaseDeparturesUI {
@@ -38,7 +39,7 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
       backgroundColor: Colors.white,
       appBar: null,
       floatingActionButton: buildSelectionControls(
-        actionLabel: 'Archive Departures',
+        actionLabel: AppLocalizations.of(context)!.archiveDepartures,
         actionIcon: Icons.archive,
       ),
       body: SafeArea(
@@ -83,7 +84,7 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
                     );
                   },
                   icon: const Icon(Icons.archive_outlined, size: 16),
-                  label: const Text('Archived'),
+                  label: Text(AppLocalizations.of(context)!.archived),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     visualDensity: VisualDensity.compact,
@@ -150,7 +151,7 @@ class _MyDeparturesUIState extends BaseDeparturesUIState<MyDeparturesUI> {
                     );
                   },
                   icon: const Icon(Icons.archive_outlined, size: 16),
-                  label: const Text('Archived'),
+                  label: Text(AppLocalizations.of(context)!.archived),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     visualDensity: VisualDensity.compact,
