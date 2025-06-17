@@ -627,4 +627,52 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get weap => 'WEAP';
+
+  // Oversize baggage management
+  @override
+  String get oversizeBaggageManagement => 'Gestión de Equipaje Especial';
+
+  @override
+  String get registeredLabel => 'Registrado';
+
+  @override
+  String get deletedLabel => 'Eliminado';
+
+  @override
+  String get byLabel => 'Por';
+
+  @override
+  String get deleteAllRegistries => 'Eliminar Todos los Registros';
+
+  @override
+  String get deleteAllRecords => 'Eliminar Todos los Registros';
+
+  @override
+  String get noRegistriesToDelete => 'No hay registros para eliminar';
+
+  @override
+  String get registriesDeleted => 'registros eliminados';
+
+  @override
+  String get userNotAuthenticated => 'Usuario no autenticado';
+
+  @override
+  String get deleteRegistryConfirmation =>
+      '¿Estás seguro de que quieres eliminar el registro de';
+
+  @override
+  String get deleteAllRegistriesConfirmation =>
+      '¿Estás seguro de que quieres eliminar TODOS los registros? Esta acción no se puede deshacer.';
+
+  // Special handling details
+  @override
+  String get specialHandlingDetails => 'Detalles de Manejo Especial';
+
+  @override
+  String get enterSpecialHandlingDetails =>
+      'Ingrese detalles de manejo especial';
+
+  @override
+  String get specialHandlingPlaceholder =>
+      'ej., Muy pesado, manejo frágil, sensible a temperatura...';
 }

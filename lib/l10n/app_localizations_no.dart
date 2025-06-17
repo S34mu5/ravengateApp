@@ -622,4 +622,52 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get weap => 'WEAP';
+
+  // Oversize baggage management
+  @override
+  String get oversizeBaggageManagement => 'Håndtering av Overstørrelse Bagasje';
+
+  @override
+  String get registeredLabel => 'Registrert';
+
+  @override
+  String get deletedLabel => 'Slettet';
+
+  @override
+  String get byLabel => 'Av';
+
+  @override
+  String get deleteAllRegistries => 'Slett Alle Registre';
+
+  @override
+  String get deleteAllRecords => 'Slett Alle Registre';
+
+  @override
+  String get noRegistriesToDelete => 'Ingen registre å slette';
+
+  @override
+  String get registriesDeleted => 'registre slettet';
+
+  @override
+  String get userNotAuthenticated => 'Bruker ikke autentisert';
+
+  @override
+  String get deleteRegistryConfirmation =>
+      'Er du sikker på at du vil slette registret av';
+
+  @override
+  String get deleteAllRegistriesConfirmation =>
+      'Er du sikker på at du vil slette ALLE registre? Denne handlingen kan ikke angres.';
+
+  // Special handling details
+  @override
+  String get specialHandlingDetails => 'Spesiell Håndtering Detaljer';
+
+  @override
+  String get enterSpecialHandlingDetails =>
+      'Skriv inn detaljer for spesiell håndtering';
+
+  @override
+  String get specialHandlingPlaceholder =>
+      'f.eks., Veldig tung, skjør håndtering, temperatur sensitiv...';
 }

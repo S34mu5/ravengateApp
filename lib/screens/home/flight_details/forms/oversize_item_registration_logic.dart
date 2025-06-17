@@ -6,10 +6,10 @@ import '../../../../utils/logger.dart';
 
 /// Enumeración para los tipos de elementos sobredimensionados
 enum OversizeItemType {
+  spare(Icons.inventory),
   trolley(Icons.shopping_cart),
   avih(Icons.pets),
-  weap(Icons.security),
-  spare(Icons.inventory);
+  weap(Icons.security);
 
   const OversizeItemType(this.icon);
   final IconData icon;
@@ -27,12 +27,17 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   OversizeItemType selectedType = OversizeItemType.spare;
   bool isFragile = false;
   bool requiresSpecialHandling = false;
+  String specialHandlingDetails = '';
 
   // Estado del historial
   bool showHistory = false;
   bool isLoadingHistory = false;
   List<Map<String, dynamic>> itemHistory = [];
   bool isDeleting = false;
+
+  // Estado del conteo actual
+  int? currentCount;
+  bool isLoadingCurrentCount = false;
 
   // Getters que deben ser implementados por la clase que usa este mixin
   String get flightId;
@@ -97,6 +102,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       if (showHistory) {
         loadItemHistory();
       }
+      // Cargar conteo actual para el nuevo tipo
+      loadCurrentCount();
     });
   }
 
@@ -110,7 +117,10 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   /// Cambia el estado de manejo especial
   void changeSpecialHandlingState(bool value) {
     setState(() {
-      requiresSpecialHandling = value;
+      if (!value) {
+        requiresSpecialHandling = false;
+        specialHandlingDetails = '';
+      }
     });
   }
 
@@ -132,7 +142,12 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       final int count = int.parse(countController.text);
       final String collectionName = collectionNameForType(selectedType);
 
-      await firestore.collection(collectionName).add({
+      // Usar subcolección dentro del documento de vuelo
+      await firestore
+          .collection('flights')
+          .doc(documentId)
+          .collection(collectionName)
+          .add({
         'timestamp': FieldValue.serverTimestamp(),
         'count': count,
         'flight_id': flightId,
@@ -143,6 +158,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         'type': selectedType.name,
         'is_fragile': isFragile,
         'requires_special_handling': requiresSpecialHandling,
+        'special_handling_details': specialHandlingDetails,
       });
 
       if (!mounted) return;
@@ -152,12 +168,16 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         countController.clear();
         isFragile = false;
         requiresSpecialHandling = false;
+        specialHandlingDetails = '';
       });
 
       // Recargar historial si está visible
       if (showHistory) {
         loadItemHistory();
       }
+
+      // Recargar conteo actual
+      loadCurrentCount();
 
       // Callback de éxito
       onSuccess();
@@ -184,6 +204,48 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Carga el conteo actual para el tipo seleccionado
+  Future<void> loadCurrentCount() async {
+    if (isLoadingCurrentCount || !mounted) return;
+
+    setState(() {
+      isLoadingCurrentCount = true;
+    });
+
+    try {
+      final String collectionName = collectionNameForType(selectedType);
+
+      final QuerySnapshot snapshot = await firestore
+          .collection('flights')
+          .doc(documentId)
+          .collection(collectionName)
+          .get();
+
+      int totalCount = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        // Solo sumamos si no está eliminado
+        if (!(data['deleted'] ?? false)) {
+          totalCount += (data['count'] as int? ?? 0);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          currentCount = totalCount;
+          isLoadingCurrentCount = false;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error cargando conteo actual de elementos', e);
+      if (mounted) {
+        setState(() {
+          isLoadingCurrentCount = false;
+        });
+      }
+    }
+  }
+
   /// Cargar historial de elementos
   Future<void> loadItemHistory() async {
     if (isLoadingHistory || !mounted) return;
@@ -195,9 +257,11 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     try {
       final String collectionName = collectionNameForType(selectedType);
 
+      // Buscar en la subcolección dentro del documento de vuelo
       final QuerySnapshot snapshot = await firestore
+          .collection('flights')
+          .doc(documentId)
           .collection(collectionName)
-          .where('document_id', isEqualTo: documentId)
           .orderBy('timestamp', descending: true)
           .limit(50)
           .get();
@@ -244,20 +308,34 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
+      final User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
       final String collectionName = collectionNameForType(selectedType);
 
-      await firestore.collection(collectionName).doc(docId).set(
+      // Usar subcolección dentro del documento de vuelo
+      await firestore
+          .collection('flights')
+          .doc(documentId)
+          .collection(collectionName)
+          .doc(docId)
+          .set(
         {
           'deleted': true,
           'deleted_at': FieldValue.serverTimestamp(),
+          'deleted_by_user_id': user.uid,
+          'deleted_by_user_email': user.email,
         },
         SetOptions(merge: true),
       );
 
       if (!mounted) return;
 
-      // Recargar historial
+      // Recargar historial y conteo actual
       await loadItemHistory();
+      await loadCurrentCount();
 
       setState(() {
         isDeleting = false;
@@ -295,11 +373,18 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
+      final User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
       final String collectionName = collectionNameForType(selectedType);
 
+      // Buscar en la subcolección dentro del documento de vuelo
       final QuerySnapshot snapshot = await firestore
+          .collection('flights')
+          .doc(documentId)
           .collection(collectionName)
-          .where('document_id', isEqualTo: documentId)
           .get();
 
       final docsToDelete = snapshot.docs.where((doc) {
@@ -310,8 +395,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       if (docsToDelete.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No hay registros para eliminar'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.noRegistriesToDelete),
               backgroundColor: Colors.orange,
             ),
           );
@@ -328,6 +413,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         batch.update(doc.reference, {
           'deleted': true,
           'deleted_at': FieldValue.serverTimestamp(),
+          'deleted_by_user_id': user.uid,
+          'deleted_by_user_email': user.email,
         });
       }
 
@@ -335,8 +422,9 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
       if (!mounted) return;
 
-      // Recargar historial
+      // Recargar historial y conteo actual
       await loadItemHistory();
+      await loadCurrentCount();
 
       setState(() {
         isDeleting = false;
@@ -345,7 +433,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${docsToDelete.length} registros eliminados'),
+            content: Text(
+                '${docsToDelete.length} ${AppLocalizations.of(context)!.registriesDeleted}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -376,7 +465,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       builder: (context) => AlertDialog(
         title: Text(l10n.confirmDeletion),
         content: Text(
-            'Are you sure you want to delete the registry of $count ${getTypeLabel(selectedType, l10n).toLowerCase()}?'),
+            '${l10n.deleteRegistryConfirmation} $count ${getTypeLabel(selectedType, l10n).toLowerCase()}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -401,9 +490,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete All Records'),
-        content: const Text(
-            'Are you sure you want to delete ALL registries? This action cannot be undone.'),
+        title: Text(l10n.deleteAllRecords),
+        content: Text(l10n.deleteAllRegistriesConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -412,7 +500,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete All Registries'),
+            child: Text(l10n.deleteAllRegistries),
           ),
         ],
       ),

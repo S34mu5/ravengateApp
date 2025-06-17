@@ -620,4 +620,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get weap => 'WEAP';
+
+  // Oversize baggage management
+  @override
+  String get oversizeBaggageManagement => 'Oversize Baggage Management';
+
+  @override
+  String get registeredLabel => 'Registered';
+
+  @override
+  String get deletedLabel => 'Deleted';
+
+  @override
+  String get byLabel => 'By';
+
+  @override
+  String get deleteAllRegistries => 'Delete All Registries';
+
+  @override
+  String get deleteAllRecords => 'Delete All Records';
+
+  @override
+  String get noRegistriesToDelete => 'No registries to delete';
+
+  @override
+  String get registriesDeleted => 'registries deleted';
+
+  @override
+  String get userNotAuthenticated => 'User not authenticated';
+
+  @override
+  String get deleteRegistryConfirmation =>
+      'Are you sure you want to delete the registry of';
+
+  @override
+  String get deleteAllRegistriesConfirmation =>
+      'Are you sure you want to delete ALL registries? This action cannot be undone.';
+
+  // Special handling details
+  @override
+  String get specialHandlingDetails => 'Special Handling Details';
+
+  @override
+  String get enterSpecialHandlingDetails => 'Enter special handling details';
+
+  @override
+  String get specialHandlingPlaceholder =>
+      'e.g., Very heavy, fragile handle, temperature sensitive...';
 }

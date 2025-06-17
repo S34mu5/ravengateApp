@@ -45,6 +45,15 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
   VoidCallback get onSuccess => widget.onSuccess;
 
   @override
+  void initState() {
+    super.initState();
+    // Cargar el conteo inicial para el tipo por defecto
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadCurrentCount();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -94,7 +103,7 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
       children: [
         Expanded(
           child: Text(
-            'Oversize Baggage Management',
+            AppLocalizations.of(context)!.oversizeBaggageManagement,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -134,12 +143,20 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
               value: type,
               label: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(
-                  type == OversizeItemType.spare
-                      ? labelText.replaceFirst(' ', '\n')
-                      : labelText,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    type == OversizeItemType.spare
+                        ? labelText.replaceFirst(' ', '\n')
+                        : labelText,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.1,
+                    ),
+                  ),
                 ),
               ),
               icon: Icon(type.icon, size: 16),
@@ -159,8 +176,8 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
               },
             ),
             padding: WidgetStateProperty.all(
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
-            visualDensity: VisualDensity.compact,
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 10)),
+            visualDensity: VisualDensity.standard,
           ),
         ),
       ],
@@ -175,7 +192,9 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
           child: TextFormField(
             controller: countController,
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.enterQuantity,
+              hintText: isLoadingCurrentCount
+                  ? AppLocalizations.of(context)!.loading
+                  : 'Current: ${currentCount ?? 0}',
               prefixIcon: Icon(
                 selectedType == OversizeItemType.weap
                     ? Icons.security
@@ -233,28 +252,99 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
 
   /// Construye las opciones adicionales (frágil, manejo especial)
   Widget _buildAdditionalOptions() {
-    return Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CheckboxListTile(
-          title: Text(AppLocalizations.of(context)!.fragileLabel),
-          value: isFragile,
-          onChanged: (bool? value) {
-            changeFragileState(value ?? false);
-          },
-          activeColor: Colors.amber,
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
+        Flexible(
+          flex: 1,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: isFragile,
+                onChanged: (bool? value) {
+                  changeFragileState(value ?? false);
+                },
+                activeColor: Colors.amber,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => changeFragileState(!isFragile),
+                  child: Text(
+                    AppLocalizations.of(context)!.fragileLabel,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        CheckboxListTile(
-          title:
-              Text(AppLocalizations.of(context)!.requiresSpecialHandlingLabel),
-          value: requiresSpecialHandling,
-          onChanged: (bool? value) {
-            changeSpecialHandlingState(value ?? false);
-          },
-          activeColor: Colors.amber,
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
+        Flexible(
+          flex: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Checkbox(
+                    value: requiresSpecialHandling,
+                    onChanged: (bool? value) {
+                      if (value == true) {
+                        _showSpecialHandlingModal();
+                      } else {
+                        changeSpecialHandlingState(false);
+                      }
+                    },
+                    activeColor: Colors.amber,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (!requiresSpecialHandling) {
+                          _showSpecialHandlingModal();
+                        } else {
+                          changeSpecialHandlingState(false);
+                        }
+                      },
+                      child: Text(
+                        AppLocalizations.of(context)!
+                            .requiresSpecialHandlingLabel,
+                        style: TextStyle(
+                          color: requiresSpecialHandling
+                              ? Colors.amber.shade700
+                              : null,
+                          fontWeight:
+                              requiresSpecialHandling ? FontWeight.w500 : null,
+                          fontSize: 14,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (requiresSpecialHandling && specialHandlingDetails.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 24),
+                  child: Text(
+                    specialHandlingDetails,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -355,8 +445,16 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
         ? (item['timestamp'] as Timestamp).toDate()
         : DateTime.now();
 
+    final bool isDeleted = item['deleted'] ?? false;
+    final DateTime? deletedAt = item['deleted_at'] is Timestamp
+        ? (item['deleted_at'] as Timestamp).toDate()
+        : null;
+    final String? deletedByEmail = item['deleted_by_user_email'];
+
     final String typeStr = item['type'] ?? '';
     IconData icon;
+    Color iconColor;
+
     switch (typeStr) {
       case 'trolley':
         icon = Icons.shopping_cart;
@@ -374,22 +472,59 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
         icon = Icons.local_shipping;
     }
 
+    // Color del icono dependiendo del estado
+    if (isDeleted) {
+      iconColor = Colors.grey;
+    } else {
+      iconColor = Colors.amber;
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
-        leading: Icon(icon, size: 20, color: Colors.amber),
+        leading: Icon(icon, size: 20, color: iconColor),
         title: Text(
           '${item['count'] ?? 1} ${getTypeLabel(stringToType(item['type']), AppLocalizations.of(context)!)}',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            decoration:
-                (item['deleted'] ?? false) ? TextDecoration.lineThrough : null,
-            color: (item['deleted'] ?? false) ? Colors.grey : null,
+            decoration: isDeleted ? TextDecoration.lineThrough : null,
+            color: isDeleted ? Colors.grey : null,
           ),
         ),
-        subtitle: Text(FlightFormatters.formatDateTime(ts)),
-        trailing: (item['deleted'] ?? false)
-            ? null
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${AppLocalizations.of(context)!.registeredLabel}: ${FlightFormatters.formatDateTime(ts)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDeleted ? Colors.grey : Colors.grey.shade600,
+              ),
+            ),
+            if (isDeleted && deletedAt != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${AppLocalizations.of(context)!.deletedLabel}: ${FlightFormatters.formatDateTime(deletedAt)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.red,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              if (deletedByEmail != null)
+                Text(
+                  '${AppLocalizations.of(context)!.byLabel}: $deletedByEmail',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.red,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+            ],
+          ],
+        ),
+        trailing: isDeleted
+            ? Icon(Icons.delete, color: Colors.grey.shade400, size: 20)
             : IconButton(
                 icon: const Icon(Icons.delete_outline,
                     color: Colors.red, size: 20),
@@ -408,11 +543,65 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
       child: TextButton.icon(
         onPressed: showDeleteAllConfirmation,
         icon: const Icon(Icons.delete_forever, color: Colors.red),
-        label: const Text(
-          'Delete All Registries',
-          style: TextStyle(color: Colors.red),
+        label: Text(
+          AppLocalizations.of(context)!.deleteAllRegistries,
+          style: const TextStyle(color: Colors.red),
         ),
       ),
     );
+  }
+
+  /// Muestra el modal para ingresar detalles de manejo especial
+  Future<void> _showSpecialHandlingModal() async {
+    final TextEditingController detailsController =
+        TextEditingController(text: specialHandlingDetails);
+
+    final String? result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.specialHandlingDetails),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: detailsController,
+              decoration: InputDecoration(
+                labelText:
+                    AppLocalizations.of(context)!.enterSpecialHandlingDetails,
+                hintText:
+                    AppLocalizations.of(context)!.specialHandlingPlaceholder,
+                border: const OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.of(context).pop(detailsController.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(AppLocalizations.of(context)!.save),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        requiresSpecialHandling = true;
+        specialHandlingDetails = result;
+      });
+    }
+
+    detailsController.dispose();
   }
 }

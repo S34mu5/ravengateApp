@@ -284,6 +284,24 @@ abstract class AppLocalizations {
   String get weap;
   String get pleaseEnterAvihReference;
   String get pleaseEnterPassengerName;
+
+  // Oversize baggage management
+  String get oversizeBaggageManagement;
+  String get registeredLabel;
+  String get deletedLabel;
+  String get byLabel;
+  String get deleteAllRegistries;
+  String get deleteAllRecords;
+  String get noRegistriesToDelete;
+  String get registriesDeleted;
+  String get userNotAuthenticated;
+  String get deleteRegistryConfirmation;
+  String get deleteAllRegistriesConfirmation;
+
+  // Special handling details
+  String get specialHandlingDetails;
+  String get enterSpecialHandlingDetails;
+  String get specialHandlingPlaceholder;
 }
 
 class _AppLocalizationsDelegate
