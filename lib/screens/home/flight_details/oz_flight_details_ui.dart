@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'widgets/flight_header.dart';
 import 'widgets/gate_history.dart';
-import 'widgets/oz_baggage_management.dart';
+import 'forms/oversize_item_registration_form.dart';
 import 'widgets/oversize_baggage.dart';
 import 'widgets/debug_information.dart';
 import 'base_flight_details_ui.dart';
@@ -65,12 +65,13 @@ class _OzFlightDetailsUIState
             formattedScheduleTime: formattedScheduleTime,
           ),
 
-          // Área para la gestión de equipaje sobredimensionado
-          OzBaggageManagement(
+          // Formulario embebido de gestión de equipaje sobredimensionado
+          OversizeItemRegistrationForm(
             flightId: flightDetails['flight_id'] ?? '',
             documentId: documentId,
             currentGate: currentGate,
-            onRegisterSuccess: onRefresh,
+            onSuccess: onRefresh,
+            showCloseIcon: false,
           ),
 
           // Panel informativo/placeholder de Oversize en vez de la lista
