@@ -281,6 +281,7 @@ abstract class AppLocalizations {
   String get requiresSpecialHandlingLabel;
   String get spareItem;
   String get avih;
+  String get weap;
   String get pleaseEnterAvihReference;
   String get pleaseEnterPassengerName;
 }

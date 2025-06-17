@@ -6,9 +6,10 @@ import '../../../../l10n/app_localizations.dart';
 
 /// Tipos de elementos sobredimensionados
 enum OversizeItemType {
-  trolley('Trolley', Icons.shopping_cart),
   spare('Spare Item', Icons.inventory),
-  avih('AVIH', Icons.pets);
+  trolley('Trolley', Icons.shopping_cart),
+  avih('AVIH', Icons.pets),
+  weap('WEAP', Icons.security);
 
   final String label;
   final IconData icon;
@@ -46,19 +47,12 @@ class _OversizeItemRegistrationFormState
   OversizeItemType _selectedType = OversizeItemType.trolley;
   final TextEditingController _countController =
       TextEditingController(text: '1');
-  final TextEditingController _referenceController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _passengerNameController =
-      TextEditingController();
   bool _isFragile = false;
   bool _requiresSpecialHandling = false;
 
   @override
   void dispose() {
     _countController.dispose();
-    _referenceController.dispose();
-    _descriptionController.dispose();
-    _passengerNameController.dispose();
     super.dispose();
   }
 
@@ -120,10 +114,25 @@ class _OversizeItemRegistrationFormState
               const SizedBox(height: 8),
               SegmentedButton<OversizeItemType>(
                 segments: OversizeItemType.values.map((type) {
+                  final labelText = _getTypeLabel(
+                    type,
+                    AppLocalizations.of(context)!,
+                  );
+
                   return ButtonSegment<OversizeItemType>(
                     value: type,
-                    label: Text(
-                        _getTypeLabel(type, AppLocalizations.of(context)!)),
+                    label: type == OversizeItemType.spare
+                        ? Text(
+                            labelText,
+                            textAlign: TextAlign.center,
+                          )
+                        : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              labelText,
+                              maxLines: 1,
+                            ),
+                          ),
                     icon: Icon(type.icon),
                   );
                 }).toList(),
@@ -146,84 +155,73 @@ class _OversizeItemRegistrationFormState
               ),
               const SizedBox(height: 16),
 
-              // Cantidad (solo para trolleys y spare items)
-              if (_selectedType != OversizeItemType.avih) ...[
-                TextFormField(
-                  controller: _countController,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context)!.enterQuantity,
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.numbers),
+              // Fila cantidad + botón registrar para todos los tipos
+              Row(
+                children: [
+                  // Campo de cantidad
+                  Expanded(
+                    child: TextFormField(
+                      controller: _countController,
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.enterQuantity,
+                        prefixIcon: Icon(
+                          _selectedType == OversizeItemType.weap
+                              ? Icons.security
+                              : Icons.shopping_cart,
+                          color: Colors.amber,
+                        ),
+                        border: const OutlineInputBorder(),
+                        enabledBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.amber),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.amber, width: 2),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return AppLocalizations.of(context)!
+                              .pleaseEnterNumber;
+                        }
+                        final count = int.tryParse(value);
+                        if (count == null || count <= 0) {
+                          return AppLocalizations.of(context)!
+                              .pleaseEnterValidNumber;
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppLocalizations.of(context)!.pleaseEnterNumber;
-                    }
-                    final count = int.tryParse(value);
-                    if (count == null || count <= 0) {
-                      return AppLocalizations.of(context)!
-                          .pleaseEnterValidNumber;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Referencia
-              TextFormField(
-                controller: _referenceController,
-                decoration: InputDecoration(
-                  labelText: _selectedType == OversizeItemType.avih
-                      ? AppLocalizations.of(context)!.avihReferenceLabel
-                      : AppLocalizations.of(context)!.referenceLabel,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.tag),
-                ),
-                validator: (value) {
-                  if (_selectedType == OversizeItemType.avih &&
-                      (value == null || value.isEmpty)) {
-                    return AppLocalizations.of(context)!
-                        .pleaseEnterAvihReference;
-                  }
-                  return null;
-                },
+                  const SizedBox(width: 16),
+                  // Botón registrar
+                  ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _submitForm,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.local_shipping, size: 16),
+                    label: Text(
+                      AppLocalizations.of(context)!.register,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-
-              // Descripción
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.descriptionLabel,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.description),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-
-              // Nombre del pasajero (solo para AVIH)
-              if (_selectedType == OversizeItemType.avih) ...[
-                TextFormField(
-                  controller: _passengerNameController,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context)!.passengerNameLabel,
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.person),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppLocalizations.of(context)!
-                          .pleaseEnterPassengerName;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
 
               // Opciones adicionales
               CheckboxListTile(
@@ -275,34 +273,6 @@ class _OversizeItemRegistrationFormState
                 ),
                 const SizedBox(height: 16),
               ],
-
-              // Botón de registro
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        )
-                      : Text(
-                          AppLocalizations.of(context)!.register.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ),
             ],
           ),
         ),
@@ -335,20 +305,19 @@ class _OversizeItemRegistrationFormState
         'created_at': FieldValue.serverTimestamp(),
         'gate': widget.currentGate,
         'flight_id': widget.flightId,
-        'description': _descriptionController.text.trim(),
         'is_fragile': _isFragile,
         'requires_special_handling': _requiresSpecialHandling,
-        'reference': _referenceController.text.trim(),
       };
 
       // Datos específicos según el tipo
       switch (_selectedType) {
         case OversizeItemType.trolley:
         case OversizeItemType.spare:
+        case OversizeItemType.weap:
           itemData['count'] = int.parse(_countController.text);
           break;
         case OversizeItemType.avih:
-          itemData['passenger_name'] = _passengerNameController.text.trim();
+          itemData['count'] = int.parse(_countController.text);
           break;
       }
 
@@ -372,12 +341,14 @@ class _OversizeItemRegistrationFormState
 
   String _getTypeLabel(OversizeItemType type, AppLocalizations l10n) {
     switch (type) {
-      case OversizeItemType.trolley:
-        return l10n.trolley;
       case OversizeItemType.spare:
         return l10n.spareItem;
+      case OversizeItemType.trolley:
+        return l10n.trolley;
       case OversizeItemType.avih:
         return l10n.avih;
+      case OversizeItemType.weap:
+        return l10n.weap;
     }
   }
 }

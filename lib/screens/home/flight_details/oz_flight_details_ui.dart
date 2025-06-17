@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'widgets/flight_header.dart';
 import 'widgets/gate_history.dart';
 import 'widgets/oz_baggage_management.dart';
-import 'widgets/oz_oversize_items_list.dart';
+import 'widgets/oversize_baggage.dart';
 import 'widgets/debug_information.dart';
 import 'base_flight_details_ui.dart';
 
@@ -73,10 +73,11 @@ class _OzFlightDetailsUIState
             onRegisterSuccess: onRefresh,
           ),
 
-          // Lista de elementos sobredimensionados registrados
-          OzOversizeItemsList(
+          // Panel informativo/placeholder de Oversize en vez de la lista
+          OversizeBaggage(
             documentId: documentId,
-            onRefresh: onRefresh,
+            flightId: flightDetails['flight_id'] ?? '',
+            currentGate: currentGate,
           ),
 
           // Debug Information - solo visible en modo desarrollador

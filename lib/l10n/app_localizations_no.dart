@@ -619,4 +619,7 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get archiveDepartures => 'Arkiver Avganger';
+
+  @override
+  String get weap => 'WEAP';
 }

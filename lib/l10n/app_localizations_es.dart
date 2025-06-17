@@ -624,4 +624,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get archiveDepartures => 'Archivar Salidas';
+
+  @override
+  String get weap => 'WEAP';
 }
