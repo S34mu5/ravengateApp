@@ -117,9 +117,19 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   /// Cambia el estado de manejo especial
   void changeSpecialHandlingState(bool value) {
     setState(() {
+      requiresSpecialHandling = value;
       if (!value) {
-        requiresSpecialHandling = false;
         specialHandlingDetails = '';
+      }
+    });
+  }
+
+  /// Actualiza los detalles del manejo especial
+  void updateSpecialHandlingDetails(String details) {
+    setState(() {
+      specialHandlingDetails = details;
+      if (details.isNotEmpty) {
+        requiresSpecialHandling = true;
       }
     });
   }
@@ -154,7 +164,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         'document_id': documentId,
         'user_id': user.uid,
         'user_email': user.email,
-        'action': 'registro',
+        'action': 'registry',
         'type': selectedType.name,
         'is_fragile': isFragile,
         'requires_special_handling': requiresSpecialHandling,

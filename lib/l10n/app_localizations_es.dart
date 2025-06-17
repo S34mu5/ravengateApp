@@ -675,4 +675,37 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get specialHandlingPlaceholder =>
       'ej., Muy pesado, manejo frágil, sensible a temperatura...';
+
+  // Etiqueta convertido
+  @override
+  String get convertedLabel => 'Convertido';
+
+  @override
+  String get currentLabel => 'Actual';
+
+  // Diálogos de conversión de oversize
+  @override
+  String get convertToTrolleyTitle => 'Convertir a trolley';
+
+  @override
+  String get convertConfirmationMessage =>
+      '¿Desea convertir {count} piezas de equipaje en 1 trolley?';
+
+  @override
+  String get convertAction => 'Convertir';
+
+  @override
+  String get noSpareItemsToConvert =>
+      'No hay artículos de repuesto para convertir';
+
+  @override
+  String get noSpareItemsAvailable =>
+      'No hay artículos de repuesto disponibles';
+
+  @override
+  String get spareItemsConverted =>
+      'Artículos de repuesto convertidos en trolley';
+
+  @override
+  String get currentOversizeInfo => 'Información Actual de Equipaje Especial';
 }

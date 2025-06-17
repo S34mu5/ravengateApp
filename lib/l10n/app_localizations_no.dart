@@ -646,7 +646,7 @@ class AppLocalizationsNo extends AppLocalizations {
   String get noRegistriesToDelete => 'Ingen registre å slette';
 
   @override
-  String get registriesDeleted => 'registre slettet';
+  String get registriesDeleted => 'registreringer slettet';
 
   @override
   String get userNotAuthenticated => 'Bruker ikke autentisert';
@@ -670,4 +670,34 @@ class AppLocalizationsNo extends AppLocalizations {
   @override
   String get specialHandlingPlaceholder =>
       'f.eks., Veldig tung, skjør håndtering, temperatur sensitiv...';
+
+  // Converted label
+  @override
+  String get convertedLabel => 'Konvertert';
+
+  @override
+  String get currentLabel => 'Nåværende';
+
+  // Oversize conversion dialogs
+  @override
+  String get convertToTrolleyTitle => 'Convert to trolley';
+
+  @override
+  String get convertConfirmationMessage =>
+      'Do you want to convert {count} spare item(s) into 1 trolley?';
+
+  @override
+  String get convertAction => 'Convert';
+
+  @override
+  String get noSpareItemsToConvert => 'No spare items to convert';
+
+  @override
+  String get noSpareItemsAvailable => 'No spare items available';
+
+  @override
+  String get spareItemsConverted => 'Spare items converted to trolley';
+
+  @override
+  String get currentOversizeInfo => 'Nåværende Oversize-info';
 }

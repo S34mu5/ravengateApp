@@ -194,7 +194,7 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
             decoration: InputDecoration(
               hintText: isLoadingCurrentCount
                   ? AppLocalizations.of(context)!.loading
-                  : 'Current: ${currentCount ?? 0}',
+                  : '${AppLocalizations.of(context)!.currentLabel}: ${currentCount ?? 0}',
               prefixIcon: Icon(
                 selectedType == OversizeItemType.weap
                     ? Icons.security
@@ -445,13 +445,16 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
         ? (item['timestamp'] as Timestamp).toDate()
         : DateTime.now();
 
-    final bool isDeleted = item['deleted'] ?? false;
+    final bool isConverted = item['converted'] ?? false;
+    final bool isDeleted = (item['deleted'] ?? false) && !isConverted;
     final DateTime? deletedAt = item['deleted_at'] is Timestamp
         ? (item['deleted_at'] as Timestamp).toDate()
         : null;
     final String? deletedByEmail = item['deleted_by_user_email'];
 
-    final String typeStr = item['type'] ?? '';
+    final String typeStr = (item['type'] as String?)?.isNotEmpty == true
+        ? item['type'] as String
+        : selectedType.name;
     IconData icon;
     Color iconColor;
 
@@ -472,8 +475,10 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
         icon = Icons.local_shipping;
     }
 
-    // Color del icono dependiendo del estado
-    if (isDeleted) {
+    // Color del icono dependiendo del estado o conversión
+    if (isConverted) {
+      iconColor = Colors.green;
+    } else if (isDeleted) {
       iconColor = Colors.grey;
     } else {
       iconColor = Colors.amber;
@@ -484,7 +489,9 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
       child: ListTile(
         leading: Icon(icon, size: 20, color: iconColor),
         title: Text(
-          '${item['count'] ?? 1} ${getTypeLabel(stringToType(item['type']), AppLocalizations.of(context)!)}',
+          isConverted
+              ? '${item['count'] ?? 1} ${AppLocalizations.of(context)!.spareItem} → 1 ${AppLocalizations.of(context)!.trolley}'
+              : '${item['count'] ?? 1} ${getTypeLabel(stringToType(typeStr), AppLocalizations.of(context)!)}',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             decoration: isDeleted ? TextDecoration.lineThrough : null,
@@ -495,12 +502,69 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${AppLocalizations.of(context)!.registeredLabel}: ${FlightFormatters.formatDateTime(ts)}',
+              isConverted
+                  ? '${AppLocalizations.of(context)!.registeredLabel}: ${FlightFormatters.formatDateTime(ts)}\n${AppLocalizations.of(context)!.convertedLabel} → 1 ${AppLocalizations.of(context)!.trolley}'
+                  : '${AppLocalizations.of(context)!.registeredLabel}: ${FlightFormatters.formatDateTime(ts)}',
               style: TextStyle(
                 fontSize: 12,
                 color: isDeleted ? Colors.grey : Colors.grey.shade600,
               ),
             ),
+            // Mostrar información adicional si existe
+            if (item['is_fragile'] == true) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(
+                    Icons.warning,
+                    size: 14,
+                    color: isDeleted ? Colors.grey : Colors.orange,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    AppLocalizations.of(context)!.fragileLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDeleted ? Colors.grey : Colors.orange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (item['requires_special_handling'] == true) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(
+                    Icons.priority_high,
+                    size: 14,
+                    color: isDeleted ? Colors.grey : Colors.red,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    AppLocalizations.of(context)!.requiresSpecialHandlingLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDeleted ? Colors.grey : Colors.red,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (item['special_handling_details'] != null &&
+                (item['special_handling_details'] as String).isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${AppLocalizations.of(context)!.details}: ${item['special_handling_details']}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDeleted ? Colors.grey : Colors.grey.shade700,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
             if (isDeleted && deletedAt != null) ...[
               const SizedBox(height: 2),
               Text(

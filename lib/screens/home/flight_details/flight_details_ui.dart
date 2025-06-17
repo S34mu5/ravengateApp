@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'widgets/flight_header.dart';
 import 'widgets/gate_history.dart';
 import 'widgets/gate_trolleys.dart';
-import 'widgets/oversize_baggage.dart';
+import 'widgets/oversize_baggage_info.dart';
 import 'widgets/debug_information.dart';
 import 'utils/flight_formatters.dart';
 import 'base_flight_details_ui.dart';

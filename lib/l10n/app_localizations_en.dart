@@ -667,4 +667,34 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get specialHandlingPlaceholder =>
       'e.g., Very heavy, fragile handle, temperature sensitive...';
+
+  // Converted label
+  @override
+  String get convertedLabel => 'Converted';
+
+  @override
+  String get currentLabel => 'Current';
+
+  // Oversize conversion dialogs
+  @override
+  String get convertToTrolleyTitle => 'Convert to trolley';
+
+  @override
+  String get convertConfirmationMessage =>
+      'Do you want to convert {count} spare item(s) into 1 trolley?';
+
+  @override
+  String get convertAction => 'Convert';
+
+  @override
+  String get noSpareItemsToConvert => 'No spare items to convert';
+
+  @override
+  String get noSpareItemsAvailable => 'No spare items available';
+
+  @override
+  String get spareItemsConverted => 'Spare items converted to trolley';
+
+  @override
+  String get currentOversizeInfo => 'Current Oversize Info';
 }

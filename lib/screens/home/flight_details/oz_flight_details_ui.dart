@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'widgets/flight_header.dart';
 import 'widgets/gate_history.dart';
 import 'forms/oversize_item_registration_form.dart';
-import 'widgets/oversize_baggage.dart';
+import 'widgets/oversize_baggage_info.dart';
 import 'widgets/debug_information.dart';
 import 'base_flight_details_ui.dart';
 

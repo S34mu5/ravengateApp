@@ -298,10 +298,27 @@ abstract class AppLocalizations {
   String get deleteRegistryConfirmation;
   String get deleteAllRegistriesConfirmation;
 
+  // Converted label
+  String get convertedLabel;
+
   // Special handling details
   String get specialHandlingDetails;
   String get enterSpecialHandlingDetails;
   String get specialHandlingPlaceholder;
+
+  // Generic labels
+  String get currentLabel;
+
+  // Oversize conversion dialogs
+  String get convertToTrolleyTitle;
+  String get convertConfirmationMessage; // expects placeholder {count}
+  String get convertAction;
+  String get noSpareItemsToConvert;
+  String get noSpareItemsAvailable;
+  String get spareItemsConverted;
+
+  // Oversize info panel
+  String get currentOversizeInfo;
 }
 
 class _AppLocalizationsDelegate
