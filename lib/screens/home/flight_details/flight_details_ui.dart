@@ -65,19 +65,19 @@ class _FlightDetailsUIState extends BaseFlightDetailsUIState<FlightDetailsUI> {
           formattedScheduleTime: formattedScheduleTime,
         ),
 
+        // Gestión de equipaje de gran tamaño
+        OversizeBaggage(
+          documentId: documentId,
+          flightId: flightDetails['flight_id'] ?? '',
+          currentGate: currentGate,
+        ),
+
         // Gestión de trolleys en la puerta
         GateTrolleys(
           documentId: documentId,
           flightId: flightDetails['flight_id'] ?? '',
           currentGate: currentGate,
           onUpdateSuccess: onRefresh,
-        ),
-
-        // Gestión de equipaje de gran tamaño
-        OversizeBaggage(
-          documentId: documentId,
-          flightId: flightDetails['flight_id'] ?? '',
-          currentGate: currentGate,
         ),
 
         const SizedBox(height: 16),

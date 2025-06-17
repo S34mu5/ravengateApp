@@ -59,13 +59,20 @@ class _OzFlightDetailsUIState
             documentId: documentId,
           ),
 
-          // Historial de cambios de puerta/gate
+          // Historial de cambios de puerta/gate (primero)
           GateHistory(
             gateHistory: gateHistory,
             formattedScheduleTime: formattedScheduleTime,
           ),
 
-          // Formulario embebido de gestión de equipaje sobredimensionado
+          // Current OZ Info - Panel informativo de Oversize (segundo)
+          OversizeBaggage(
+            documentId: documentId,
+            flightId: flightDetails['flight_id'] ?? '',
+            currentGate: currentGate,
+          ),
+
+          // OZ Baggage Management - Formulario de gestión (tercero)
           OversizeItemRegistrationForm(
             flightId: flightDetails['flight_id'] ?? '',
             documentId: documentId,
@@ -74,12 +81,7 @@ class _OzFlightDetailsUIState
             showCloseIcon: false,
           ),
 
-          // Panel informativo/placeholder de Oversize en vez de la lista
-          OversizeBaggage(
-            documentId: documentId,
-            flightId: flightDetails['flight_id'] ?? '',
-            currentGate: currentGate,
-          ),
+          // Nota: GateTrolleys NO se muestra en la pantalla oversize
 
           // Debug Information - solo visible en modo desarrollador
           if (developerModeEnabled)

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/flight_formatters.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'oversize_item_registration_logic.dart';
+import 'models/oversize_item_types.dart';
 
 /// UI para registrar elementos sobredimensionados
 class OversizeItemRegistrationUI extends StatefulWidget {
@@ -51,6 +51,15 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       loadCurrentCount();
     });
+  }
+
+  /// Maneja el toggle del checkbox de manejo especial
+  Future<void> _handleSpecialHandlingToggle() async {
+    final result =
+        await showSpecialHandlingModal(context, specialHandlingDetails);
+    if (result != null) {
+      updateSpecialHandlingDetails(result);
+    }
   }
 
   @override
@@ -211,16 +220,8 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
             ),
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return AppLocalizations.of(context)!.pleaseEnterNumber;
-              }
-              final count = int.tryParse(value);
-              if (count == null || count <= 0) {
-                return AppLocalizations.of(context)!.pleaseEnterValidNumber;
-              }
-              return null;
-            },
+            validator: (value) =>
+                validateCountField(value, AppLocalizations.of(context)!),
           ),
         ),
         const SizedBox(width: 16),
@@ -293,7 +294,7 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
                     value: requiresSpecialHandling,
                     onChanged: (bool? value) {
                       if (value == true) {
-                        _showSpecialHandlingModal();
+                        _handleSpecialHandlingToggle();
                       } else {
                         changeSpecialHandlingState(false);
                       }
@@ -306,7 +307,7 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
                     child: GestureDetector(
                       onTap: () {
                         if (!requiresSpecialHandling) {
-                          _showSpecialHandlingModal();
+                          _handleSpecialHandlingToggle();
                         } else {
                           changeSpecialHandlingState(false);
                         }
@@ -433,65 +434,36 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
 
   /// Construye la lista del historial
   Widget _buildHistoryList() {
+    final groupedHistory = groupItemHistory(itemHistory);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: itemHistory.map((item) => _buildHistoryItem(item)).toList(),
+      children: groupedHistory.map((item) => _buildHistoryItem(item)).toList(),
     );
   }
 
   /// Construye un elemento del historial
   Widget _buildHistoryItem(Map<String, dynamic> item) {
-    final ts = item['timestamp'] is Timestamp
-        ? (item['timestamp'] as Timestamp).toDate()
-        : DateTime.now();
-
+    final ts = processTimestamp(item['timestamp']);
     final bool isConverted = item['converted'] ?? false;
     final bool isDeleted = (item['deleted'] ?? false) && !isConverted;
-    final DateTime? deletedAt = item['deleted_at'] is Timestamp
-        ? (item['deleted_at'] as Timestamp).toDate()
+    final DateTime? deletedAt = item['deleted_at'] != null
+        ? processTimestamp(item['deleted_at'])
         : null;
     final String? deletedByEmail = item['deleted_by_user_email'];
 
     final String typeStr = (item['type'] as String?)?.isNotEmpty == true
         ? item['type'] as String
         : selectedType.name;
-    IconData icon;
-    Color iconColor;
 
-    switch (typeStr) {
-      case 'trolley':
-        icon = Icons.shopping_cart;
-        break;
-      case 'spare':
-        icon = Icons.inventory;
-        break;
-      case 'avih':
-        icon = Icons.pets;
-        break;
-      case 'weap':
-        icon = Icons.security;
-        break;
-      default:
-        icon = Icons.local_shipping;
-    }
-
-    // Color del icono dependiendo del estado o conversión
-    if (isConverted) {
-      iconColor = Colors.green;
-    } else if (isDeleted) {
-      iconColor = Colors.grey;
-    } else {
-      iconColor = Colors.amber;
-    }
+    final IconData icon = getIconForType(typeStr);
+    final Color iconColor = getIconColor(isConverted, isDeleted);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         leading: Icon(icon, size: 20, color: iconColor),
         title: Text(
-          isConverted
-              ? '${item['count'] ?? 1} ${AppLocalizations.of(context)!.spareItem} → 1 ${AppLocalizations.of(context)!.trolley}'
-              : '${item['count'] ?? 1} ${getTypeLabel(stringToType(typeStr), AppLocalizations.of(context)!)}',
+          buildItemTitle(item, typeStr, AppLocalizations.of(context)!),
           style: TextStyle(
             fontWeight: FontWeight.bold,
             decoration: isDeleted ? TextDecoration.lineThrough : null,
@@ -502,9 +474,7 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isConverted
-                  ? '${AppLocalizations.of(context)!.registeredLabel}: ${FlightFormatters.formatDateTime(ts)}\n${AppLocalizations.of(context)!.convertedLabel} → 1 ${AppLocalizations.of(context)!.trolley}'
-                  : '${AppLocalizations.of(context)!.registeredLabel}: ${FlightFormatters.formatDateTime(ts)}',
+              buildItemSubtitle(item, ts, AppLocalizations.of(context)!),
               style: TextStyle(
                 fontSize: 12,
                 color: isDeleted ? Colors.grey : Colors.grey.shade600,
@@ -613,59 +583,5 @@ class _OversizeItemRegistrationUIState extends State<OversizeItemRegistrationUI>
         ),
       ),
     );
-  }
-
-  /// Muestra el modal para ingresar detalles de manejo especial
-  Future<void> _showSpecialHandlingModal() async {
-    final TextEditingController detailsController =
-        TextEditingController(text: specialHandlingDetails);
-
-    final String? result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.specialHandlingDetails),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: detailsController,
-              decoration: InputDecoration(
-                labelText:
-                    AppLocalizations.of(context)!.enterSpecialHandlingDetails,
-                hintText:
-                    AppLocalizations.of(context)!.specialHandlingPlaceholder,
-                border: const OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(context).pop(detailsController.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(AppLocalizations.of(context)!.save),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        requiresSpecialHandling = true;
-        specialHandlingDetails = result;
-      });
-    }
-
-    detailsController.dispose();
   }
 }

@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../utils/logger.dart';
+import '../../../../services/location/location_service.dart';
+import 'models/oversize_item_types.dart';
+import 'services/oversize_firebase_service.dart';
+import 'services/oversize_photo_service.dart';
+import 'utils/oversize_history_utils.dart';
+import 'utils/oversize_validation_utils.dart';
 
-/// Enumeración para los tipos de elementos sobredimensionados
-enum OversizeItemType {
-  spare(Icons.inventory),
-  trolley(Icons.shopping_cart),
-  avih(Icons.pets),
-  weap(Icons.security);
-
-  const OversizeItemType(this.icon);
-  final IconData icon;
-}
-
-/// Mixin que contiene toda la lógica de negocio para el registro de elementos sobredimensionados
+/// Mixin que contiene la lógica de negocio para el registro de elementos sobredimensionados
+/// Ahora modularizado y mucho más pequeño
 mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
-  // Controladores y servicios
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  // Controladores
   final TextEditingController countController = TextEditingController();
 
   // Estado del formulario
@@ -45,54 +38,23 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   String get currentGate;
   VoidCallback get onSuccess;
 
+  // Método para verificar si estamos en ubicación Oversize
+  Future<bool> _isOversizeLocation() async {
+    try {
+      return await LocationService.isOversizeLocation();
+    } catch (e) {
+      AppLogger.error('Error verificando ubicación oversize', e);
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     countController.dispose();
     super.dispose();
   }
 
-  /// Obtiene el nombre de la colección correspondiente a un tipo
-  String collectionNameForType(OversizeItemType type) {
-    switch (type) {
-      case OversizeItemType.trolley:
-        return 'oversize_trolleys';
-      case OversizeItemType.avih:
-        return 'oversize_avihs';
-      case OversizeItemType.weap:
-        return 'oversize_weaps';
-      case OversizeItemType.spare:
-        return 'oversize_items';
-    }
-  }
-
-  /// Convert string to OversizeItemType
-  OversizeItemType stringToType(String? str) {
-    switch (str) {
-      case 'trolley':
-        return OversizeItemType.trolley;
-      case 'avih':
-        return OversizeItemType.avih;
-      case 'weap':
-        return OversizeItemType.weap;
-      case 'spare':
-      default:
-        return OversizeItemType.spare;
-    }
-  }
-
-  /// Obtiene la etiqueta localizada para un tipo
-  String getTypeLabel(OversizeItemType type, AppLocalizations l10n) {
-    switch (type) {
-      case OversizeItemType.trolley:
-        return 'Trolley';
-      case OversizeItemType.avih:
-        return 'AVIH';
-      case OversizeItemType.weap:
-        return 'WEAP';
-      case OversizeItemType.spare:
-        return 'Spare Item';
-    }
-  }
+  // ========== MÉTODOS DE CAMBIO DE ESTADO ==========
 
   /// Cambia el tipo seleccionado
   void changeSelectedType(OversizeItemType type) {
@@ -134,9 +96,15 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
   }
 
+  // ========== OPERACIONES PRINCIPALES ==========
+
   /// Enviar formulario
   Future<void> submitForm(GlobalKey<FormState> formKey) async {
     if (!formKey.currentState!.validate()) return;
+
+    // PRIMER PROMPT: Confirmación antes de registrar
+    final bool? shouldRegister = await _showRegistrationConfirmationDialog();
+    if (shouldRegister != true) return;
 
     setState(() {
       isLoading = true;
@@ -144,32 +112,18 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
-      final User? user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Usuario no autenticado');
-      }
-
       final int count = int.parse(countController.text);
-      final String collectionName = collectionNameForType(selectedType);
 
-      // Usar subcolección dentro del documento de vuelo
-      await firestore
-          .collection('flights')
-          .doc(documentId)
-          .collection(collectionName)
-          .add({
-        'timestamp': FieldValue.serverTimestamp(),
-        'count': count,
-        'flight_id': flightId,
-        'document_id': documentId,
-        'user_id': user.uid,
-        'user_email': user.email,
-        'action': 'registry',
-        'type': selectedType.name,
-        'is_fragile': isFragile,
-        'requires_special_handling': requiresSpecialHandling,
-        'special_handling_details': specialHandlingDetails,
-      });
+      final List<String> registeredItemIds =
+          await OversizeFirebaseService.registerItems(
+        documentId: documentId,
+        flightId: flightId,
+        type: selectedType,
+        count: count,
+        isFragile: isFragile,
+        requiresSpecialHandling: requiresSpecialHandling,
+        specialHandlingDetails: specialHandlingDetails,
+      );
 
       if (!mounted) return;
 
@@ -181,27 +135,38 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         specialHandlingDetails = '';
       });
 
-      // Recargar historial si está visible
+      // Recargar datos
       if (showHistory) {
         loadItemHistory();
       }
-
-      // Recargar conteo actual
       loadCurrentCount();
-
-      // Callback de éxito
       onSuccess();
 
-      // Mostrar mensaje de éxito
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${AppLocalizations.of(context)!.register} completado: $count ${getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
+      // El mensaje de éxito ahora se maneja en el diálogo de confirmación de foto
+
+      // Si estamos en ubicación Oversize, preguntar por foto
+      final bool isOversize = await _isOversizeLocation();
+      AppLogger.info(
+          'Debug foto - mounted: $mounted, isOversize: $isOversize, registeredItemIds: ${registeredItemIds.length}');
+
+      if (mounted && isOversize && registeredItemIds.isNotEmpty) {
+        AppLogger.info('Iniciando prompt de foto...');
+        await _promptForPhotoIfOversizeScreen(registeredItemIds, count);
+      } else {
+        AppLogger.info(
+            'No se cumplieron condiciones para foto - mounted: $mounted, isOversize: $isOversize, items: ${registeredItemIds.length}');
+
+        // Si no está en Oversize, mostrar mensaje de éxito simple
+        if (mounted && !isOversize) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${AppLocalizations.of(context)!.register} completado: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
+              ),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       AppLogger.error('Error registrando elemento sobredimensionado', e);
@@ -214,6 +179,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     }
   }
 
+  // ========== OPERACIONES DE CARGA DE DATOS ==========
+
   /// Carga el conteo actual para el tipo seleccionado
   Future<void> loadCurrentCount() async {
     if (isLoadingCurrentCount || !mounted) return;
@@ -223,26 +190,14 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
-      final String collectionName = collectionNameForType(selectedType);
-
-      final QuerySnapshot snapshot = await firestore
-          .collection('flights')
-          .doc(documentId)
-          .collection(collectionName)
-          .get();
-
-      int totalCount = 0;
-      for (final doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        // Solo sumamos si no está eliminado
-        if (!(data['deleted'] ?? false)) {
-          totalCount += (data['count'] as int? ?? 0);
-        }
-      }
+      final int count = await OversizeFirebaseService.getCurrentCount(
+        documentId: documentId,
+        type: selectedType,
+      );
 
       if (mounted) {
         setState(() {
-          currentCount = totalCount;
+          currentCount = count;
           isLoadingCurrentCount = false;
         });
       }
@@ -265,26 +220,13 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
-      final String collectionName = collectionNameForType(selectedType);
-
-      // Buscar en la subcolección dentro del documento de vuelo
-      final QuerySnapshot snapshot = await firestore
-          .collection('flights')
-          .doc(documentId)
-          .collection(collectionName)
-          .orderBy('timestamp', descending: true)
-          .limit(50)
-          .get();
+      final List<Map<String, dynamic>> history =
+          await OversizeFirebaseService.getItemHistory(
+        documentId: documentId,
+        type: selectedType,
+      );
 
       if (!mounted) return;
-
-      final List<Map<String, dynamic>> history = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          ...data,
-        };
-      }).toList();
 
       setState(() {
         itemHistory = history;
@@ -311,6 +253,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     }
   }
 
+  // ========== OPERACIONES DE ELIMINACIÓN ==========
+
   /// Marcar elemento como eliminado
   Future<void> markItemAsDeleted(String docId) async {
     setState(() {
@@ -318,32 +262,15 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
-      final User? user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Usuario no autenticado');
-      }
-
-      final String collectionName = collectionNameForType(selectedType);
-
-      // Usar subcolección dentro del documento de vuelo
-      await firestore
-          .collection('flights')
-          .doc(documentId)
-          .collection(collectionName)
-          .doc(docId)
-          .set(
-        {
-          'deleted': true,
-          'deleted_at': FieldValue.serverTimestamp(),
-          'deleted_by_user_id': user.uid,
-          'deleted_by_user_email': user.email,
-        },
-        SetOptions(merge: true),
+      await OversizeFirebaseService.markItemAsDeleted(
+        documentId: documentId,
+        type: selectedType,
+        docId: docId,
       );
 
       if (!mounted) return;
 
-      // Recargar historial y conteo actual
+      // Recargar datos
       await loadItemHistory();
       await loadCurrentCount();
 
@@ -383,26 +310,12 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
-      final User? user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Usuario no autenticado');
-      }
+      final int deletedCount = await OversizeFirebaseService.deleteAllItems(
+        documentId: documentId,
+        type: selectedType,
+      );
 
-      final String collectionName = collectionNameForType(selectedType);
-
-      // Buscar en la subcolección dentro del documento de vuelo
-      final QuerySnapshot snapshot = await firestore
-          .collection('flights')
-          .doc(documentId)
-          .collection(collectionName)
-          .get();
-
-      final docsToDelete = snapshot.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return data['deleted'] != true;
-      }).toList();
-
-      if (docsToDelete.isEmpty) {
+      if (deletedCount == 0) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -417,22 +330,9 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         return;
       }
 
-      // Marcar todos como eliminados usando batch
-      WriteBatch batch = firestore.batch();
-      for (final doc in docsToDelete) {
-        batch.update(doc.reference, {
-          'deleted': true,
-          'deleted_at': FieldValue.serverTimestamp(),
-          'deleted_by_user_id': user.uid,
-          'deleted_by_user_email': user.email,
-        });
-      }
-
-      await batch.commit();
-
       if (!mounted) return;
 
-      // Recargar historial y conteo actual
+      // Recargar datos
       await loadItemHistory();
       await loadCurrentCount();
 
@@ -444,7 +344,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                '${docsToDelete.length} ${AppLocalizations.of(context)!.registriesDeleted}'),
+                '$deletedCount ${AppLocalizations.of(context)!.registriesDeleted}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -466,58 +366,205 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// Diálogo de confirmación para borrar individual
-  Future<void> showDeleteConfirmation(String docId, int count) async {
-    final l10n = AppLocalizations.of(context)!;
+  // ========== FUNCIONALIDAD DE FOTO ==========
 
-    showDialog<void>(
+  /// Solicita foto si estamos en ubicación oversize (SEGUNDO PROMPT)
+  Future<void> _promptForPhotoIfOversizeScreen(
+      List<String> itemDocumentIds, int itemCount) async {
+    try {
+      // SEGUNDO PROMPT: Mostrar confirmación de registro exitoso y preguntar por foto
+      final bool? shouldProceedToPhoto =
+          await _showRegistrationSuccessDialog(itemCount);
+
+      if (shouldProceedToPhoto == true) {
+        // TERCER PASO: Mostrar prompt de foto específico
+        await OversizePhotoService.promptForPhoto(
+          context: context,
+          flightId: flightId,
+          documentId: documentId,
+          itemDocumentIds: itemDocumentIds,
+          itemType: selectedType.name,
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error en proceso de foto', e);
+      // No interrumpir el flujo principal por errores de foto
+    }
+  }
+
+  /// PRIMER PROMPT: Confirmación antes de registrar el elemento
+  Future<bool?> _showRegistrationConfirmationDialog() async {
+    final int count = int.tryParse(countController.text) ?? 0;
+    final String itemTypeLabel = OversizeItemTypeUtils.getTypeLabel(
+        selectedType, AppLocalizations.of(context)!);
+
+    return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.confirmDeletion),
+        title: const Row(
+          children: [
+            Icon(Icons.assignment_add, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Confirmar Registro'),
+          ],
+        ),
         content: Text(
-            '${l10n.deleteRegistryConfirmation} $count ${getTypeLabel(selectedType, l10n).toLowerCase()}?'),
+          'Estás a punto de registrar:\n\n'
+          '📦 $count ${itemTypeLabel.toLowerCase()}(s)\n'
+          '${isFragile ? '⚠️ Frágil\n' : ''}'
+          '${requiresSpecialHandling ? '🔧 Manejo especial\n' : ''}'
+          '\n¿Deseas proceder con el registro?',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.cancel),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
           ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await markItemAsDeleted(docId);
-            },
-            child: Text(l10n.delete),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.white,
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.save, size: 18),
+                SizedBox(width: 4),
+                Text('Registrar'),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Confirmación antes de borrar todos
-  Future<void> showDeleteAllConfirmation() async {
-    final l10n = AppLocalizations.of(context)!;
-    final bool? confirm = await showDialog<bool>(
+  /// SEGUNDO PROMPT: Pregunta por foto después del registro exitoso
+  Future<bool?> _showRegistrationSuccessDialog(int itemCount) async {
+    final String itemTypeLabel = OversizeItemTypeUtils.getTypeLabel(
+        selectedType, AppLocalizations.of(context)!);
+
+    return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.deleteAllRecords),
-        content: Text(l10n.deleteAllRegistriesConfirmation),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Registro Exitoso'),
+          ],
+        ),
+        content: Text(
+          '✅ Se han registrado $itemCount ${itemTypeLabel.toLowerCase()}(s) correctamente.\n\n'
+          '¿Deseas tomar una foto de los elementos registrados?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.cancel),
+            child: const Text('No, continuar'),
           ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.deleteAllRegistries),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.camera_alt, size: 18),
+                SizedBox(width: 4),
+                Text('Sí, tomar foto'),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
 
-    if (confirm == true) {
+  // ========== MÉTODOS DE DIÁLOGOS ==========
+
+  /// Diálogo de confirmación para borrar individual
+  Future<void> showDeleteConfirmation(String docId, int count) async {
+    await OversizeValidationUtils.showDeleteConfirmation(
+      context,
+      docId: docId,
+      count: count,
+      selectedType: selectedType,
+      onConfirm: markItemAsDeleted,
+    );
+  }
+
+  /// Confirmación antes de borrar todos
+  Future<void> showDeleteAllConfirmation() async {
+    final bool confirm =
+        await OversizeValidationUtils.showDeleteAllConfirmation(context);
+    if (confirm) {
       await deleteAllItems();
     }
+  }
+
+  /// Muestra modal para detalles de manejo especial
+  Future<String?> showSpecialHandlingModal(
+      BuildContext context, String currentDetails) async {
+    return await OversizeValidationUtils.showSpecialHandlingModal(
+        context, currentDetails);
+  }
+
+  // ========== MÉTODOS DE UTILIDAD (DELEGADOS) ==========
+
+  /// Agrupa las conversiones y registros múltiples
+  List<Map<String, dynamic>> groupItemHistory(
+      List<Map<String, dynamic>> history) {
+    return OversizeHistoryUtils.groupItemHistory(history);
+  }
+
+  /// Construye el título para un item del historial
+  String buildItemTitle(
+      Map<String, dynamic> item, String typeStr, AppLocalizations l10n) {
+    return OversizeHistoryUtils.buildItemTitle(item, typeStr, l10n);
+  }
+
+  /// Construye el subtítulo para un item del historial
+  String buildItemSubtitle(
+      Map<String, dynamic> item, DateTime ts, AppLocalizations l10n) {
+    return OversizeHistoryUtils.buildItemSubtitle(item, ts, l10n);
+  }
+
+  /// Validador para el campo de cantidad
+  String? validateCountField(String? value, AppLocalizations l10n) {
+    return OversizeValidationUtils.validateCountField(value, l10n);
+  }
+
+  /// Obtiene el icono correspondiente al tipo de elemento
+  IconData getIconForType(String typeStr) {
+    return OversizeItemTypeUtils.getIconForType(typeStr);
+  }
+
+  /// Obtiene el color del icono según el estado del elemento
+  Color getIconColor(bool isConverted, bool isDeleted) {
+    return OversizeItemTypeUtils.getIconColor(isConverted, isDeleted);
+  }
+
+  /// Procesa los datos del timestamp desde Firestore
+  DateTime processTimestamp(dynamic timestamp) {
+    return OversizeHistoryUtils.processTimestamp(timestamp);
+  }
+
+  /// Obtiene la etiqueta localizada para un tipo
+  String getTypeLabel(OversizeItemType type, AppLocalizations l10n) {
+    return OversizeItemTypeUtils.getTypeLabel(type, l10n);
+  }
+
+  /// Convierte string a OversizeItemType
+  OversizeItemType stringToType(String? str) {
+    return OversizeItemTypeUtils.stringToType(str);
+  }
+
+  /// Obtiene el nombre de la colección correspondiente a un tipo
+  String collectionNameForType(OversizeItemType type) {
+    return OversizeItemTypeUtils.collectionNameForType(type);
   }
 }
