@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../utils/logger.dart';
-import '../../../../services/location/location_service.dart';
 import 'models/oversize_item_types.dart';
 import 'services/oversize_firebase_service.dart';
-import 'services/oversize_photo_service.dart';
 import 'utils/oversize_history_utils.dart';
 import 'utils/oversize_validation_utils.dart';
 
@@ -37,16 +35,6 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   String get documentId;
   String get currentGate;
   VoidCallback get onSuccess;
-
-  // Método para verificar si estamos en ubicación Oversize
-  Future<bool> _isOversizeLocation() async {
-    try {
-      return await LocationService.isOversizeLocation();
-    } catch (e) {
-      AppLogger.error('Error verificando ubicación oversize', e);
-      return false;
-    }
-  }
 
   @override
   void dispose() {
@@ -102,10 +90,6 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   Future<void> submitForm(GlobalKey<FormState> formKey) async {
     if (!formKey.currentState!.validate()) return;
 
-    // PRIMER PROMPT: Confirmación antes de registrar
-    final bool? shouldRegister = await _showRegistrationConfirmationDialog();
-    if (shouldRegister != true) return;
-
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -114,8 +98,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     try {
       final int count = int.parse(countController.text);
 
-      final List<String> registeredItemIds =
-          await OversizeFirebaseService.registerItems(
+      await OversizeFirebaseService.registerItems(
         documentId: documentId,
         flightId: flightId,
         type: selectedType,
@@ -142,31 +125,16 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       loadCurrentCount();
       onSuccess();
 
-      // El mensaje de éxito ahora se maneja en el diálogo de confirmación de foto
-
-      // Si estamos en ubicación Oversize, preguntar por foto
-      final bool isOversize = await _isOversizeLocation();
-      AppLogger.info(
-          'Debug foto - mounted: $mounted, isOversize: $isOversize, registeredItemIds: ${registeredItemIds.length}');
-
-      if (mounted && isOversize && registeredItemIds.isNotEmpty) {
-        AppLogger.info('Iniciando prompt de foto...');
-        await _promptForPhotoIfOversizeScreen(registeredItemIds, count);
-      } else {
-        AppLogger.info(
-            'No se cumplieron condiciones para foto - mounted: $mounted, isOversize: $isOversize, items: ${registeredItemIds.length}');
-
-        // Si no está en Oversize, mostrar mensaje de éxito simple
-        if (mounted && !isOversize) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${AppLocalizations.of(context)!.register} completado: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
-              ),
-              backgroundColor: Colors.green,
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context)!.register} completado: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
             ),
-          );
-        }
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       AppLogger.error('Error registrando elemento sobredimensionado', e);
@@ -364,124 +332,6 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         );
       }
     }
-  }
-
-  // ========== FUNCIONALIDAD DE FOTO ==========
-
-  /// Solicita foto si estamos en ubicación oversize (SEGUNDO PROMPT)
-  Future<void> _promptForPhotoIfOversizeScreen(
-      List<String> itemDocumentIds, int itemCount) async {
-    try {
-      // SEGUNDO PROMPT: Mostrar confirmación de registro exitoso y preguntar por foto
-      final bool? shouldProceedToPhoto =
-          await _showRegistrationSuccessDialog(itemCount);
-
-      if (shouldProceedToPhoto == true) {
-        // TERCER PASO: Mostrar prompt de foto específico
-        await OversizePhotoService.promptForPhoto(
-          context: context,
-          flightId: flightId,
-          documentId: documentId,
-          itemDocumentIds: itemDocumentIds,
-          itemType: selectedType.name,
-        );
-      }
-    } catch (e) {
-      AppLogger.error('Error en proceso de foto', e);
-      // No interrumpir el flujo principal por errores de foto
-    }
-  }
-
-  /// PRIMER PROMPT: Confirmación antes de registrar el elemento
-  Future<bool?> _showRegistrationConfirmationDialog() async {
-    final int count = int.tryParse(countController.text) ?? 0;
-    final String itemTypeLabel = OversizeItemTypeUtils.getTypeLabel(
-        selectedType, AppLocalizations.of(context)!);
-
-    return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.assignment_add, color: Colors.amber),
-            SizedBox(width: 8),
-            Text('Confirmar Registro'),
-          ],
-        ),
-        content: Text(
-          'Estás a punto de registrar:\n\n'
-          '📦 $count ${itemTypeLabel.toLowerCase()}(s)\n'
-          '${isFragile ? '⚠️ Frágil\n' : ''}'
-          '${requiresSpecialHandling ? '🔧 Manejo especial\n' : ''}'
-          '\n¿Deseas proceder con el registro?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.white,
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.save, size: 18),
-                SizedBox(width: 4),
-                Text('Registrar'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// SEGUNDO PROMPT: Pregunta por foto después del registro exitoso
-  Future<bool?> _showRegistrationSuccessDialog(int itemCount) async {
-    final String itemTypeLabel = OversizeItemTypeUtils.getTypeLabel(
-        selectedType, AppLocalizations.of(context)!);
-
-    return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Registro Exitoso'),
-          ],
-        ),
-        content: Text(
-          '✅ Se han registrado $itemCount ${itemTypeLabel.toLowerCase()}(s) correctamente.\n\n'
-          '¿Deseas tomar una foto de los elementos registrados?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('No, continuar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.camera_alt, size: 18),
-                SizedBox(width: 4),
-                Text('Sí, tomar foto'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // ========== MÉTODOS DE DIÁLOGOS ==========
