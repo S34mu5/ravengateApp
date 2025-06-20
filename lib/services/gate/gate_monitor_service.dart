@@ -32,8 +32,6 @@ class GateMonitorService {
   final Map<String, DateTime> _flightCutoffTimes = {};
 
   // Streams de suscripción para cada vuelo que está siendo monitoreado
-  final Map<String, StreamSubscription<DocumentSnapshot>>
-      _flightMonitorSubscriptions = {};
 
   // Prefix para los logs de este servicio
 
@@ -175,6 +173,20 @@ class GateMonitorService {
           .get();
 
       _log('Encontrados ${userFlights.docs.length} vuelos para monitorear');
+
+      // Primero, listar TODOS los vuelos encontrados por GateMonitor
+      for (int i = 0; i < userFlights.docs.length; i++) {
+        final DocumentSnapshot flightDoc = userFlights.docs[i];
+        final Map<String, dynamic> flightData =
+            flightDoc.data() as Map<String, dynamic>;
+        final String flightId = flightData['flight_id']?.toString() ?? '';
+        final String flightRef = flightData['flight_ref']?.toString() ?? '';
+        final String statusCode = flightData['status_code']?.toString() ?? '';
+        final String archived = flightData['archived']?.toString() ?? '';
+
+        _log(
+            '[GATE] DEBUG - Flight ${i + 1}/${userFlights.docs.length}: ID=$flightId, Ref=$flightRef, Status=$statusCode, Archived=$archived');
+      }
 
       // Iniciar el monitoreo de registros oversize en paralelo
       try {
@@ -494,6 +506,14 @@ class GateMonitorService {
       _flightCutoffTimes.remove(flightRef);
       _log('Monitoreo detenido para vuelo con flight_ref: $flightRef');
     }
+  }
+
+  /// Reinicia el monitoreo (detiene y vuelve a iniciar)
+  Future<void> restartMonitoring() async {
+    _log('Reiniciando monitoreo de cambios de puerta y oversize...');
+    stopMonitoring();
+    await startMonitoring();
+    _log('Monitoreo reiniciado correctamente');
   }
 
   /// Detiene todo el monitoreo de vuelos

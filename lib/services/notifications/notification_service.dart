@@ -383,7 +383,7 @@ class NotificationService {
 
     // Crear el mensaje de la notificación
     final String formattedDate =
-        FlightFormatters.formatDateTime(changeDateTime);
+        FlightFormatters.formatNotificationDateTime(changeDateTime);
 
     // Obtener el locale actual desde LanguageService
     final Locale currentLocale = await LanguageService.getSavedLanguage();
@@ -415,11 +415,11 @@ class NotificationService {
   /// Muestra una notificación de registro de oversize
   Future<void> notifyOversizeRegistration({
     required String itemType,
+    required int count,
     required String flightId,
-    required String airline,
     required String destination,
     required String gate,
-    required DateTime registrationDateTime,
+    required Map<String, dynamic> flightData,
   }) async {
     _log('Preparando notificación de registro oversize para vuelo $flightId');
 
@@ -457,15 +457,24 @@ class NotificationService {
     final AppLocalizations localizations =
         lookupAppLocalizations(currentLocale);
 
-    // Formatear la fecha del registro
-    final String formattedDate =
-        FlightFormatters.formatDateTime(registrationDateTime);
+    // Obtener la hora de salida en formato HH:mm
+    String departureTime;
+
+    // Si hay status_time diferente a schedule_time, usar status_time (hora actualizada)
+    if (flightData['status_time'] != null &&
+        flightData['status_time'] != flightData['schedule_time']) {
+      // Usar la hora actualizada (new_time)
+      departureTime = FlightFormatters.formatTime(flightData['status_time']);
+    } else {
+      // Usar la hora programada (STD)
+      departureTime = FlightFormatters.formatTime(flightData['schedule_time']);
+    }
 
     final String notificationTitle =
-        localizations.oversizeRegistrationNotificationTitle;
+        localizations.oversizeRegistrationNotificationTitle(itemType);
     final String notificationBody =
         localizations.oversizeRegistrationNotificationBody(
-            itemType, flightId, airline, destination, gate, formattedDate);
+            itemType, count, flightId, destination, gate, departureTime);
 
     try {
       // Mostrar la notificación

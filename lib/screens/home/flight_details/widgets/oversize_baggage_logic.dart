@@ -226,6 +226,21 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Método público para forzar un refresh desde componentes externos
+  Future<void> forceRefresh() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    await refreshData();
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
   /// Obtiene el nombre localizado para un tipo
   String getTypeDisplayName(OversizeItemType type) {
     final l10n = AppLocalizations.of(context)!;

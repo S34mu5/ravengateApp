@@ -724,11 +724,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   // Oversize registration notifications
   @override
-  String get oversizeRegistrationNotificationTitle =>
-      'New Oversize Registration';
+  String oversizeRegistrationNotificationTitle(String itemType) =>
+      'New ${itemType.toUpperCase()} Registration';
 
   @override
-  String oversizeRegistrationNotificationBody(String itemType, String flightId,
-          String airline, String destination, String gate, String date) =>
-      'A new $itemType was registered for flight $flightId ($airline) to $destination at gate $gate on $date';
+  String oversizeRegistrationNotificationBody(
+          String itemType,
+          int count,
+          String flightId,
+          String destination,
+          String gate,
+          String departureTime) =>
+      '${count > 1 ? count : 'A'} ${itemType.toUpperCase()}${count > 1 ? 's' : ''} ${count > 1 ? 'were' : 'was'} registered for flight $flightId $departureTime to $destination. Gate $gate';
 }

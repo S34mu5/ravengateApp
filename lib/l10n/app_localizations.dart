@@ -331,9 +331,9 @@ abstract class AppLocalizations {
       String destination, String oldGate, String newGate, String date);
 
   // Oversize registration notifications
-  String get oversizeRegistrationNotificationTitle;
-  String oversizeRegistrationNotificationBody(String itemType, String flightId,
-      String airline, String destination, String gate, String date);
+  String oversizeRegistrationNotificationTitle(String itemType);
+  String oversizeRegistrationNotificationBody(String itemType, int count,
+      String flightId, String destination, String gate, String departureTime);
 }
 
 class _AppLocalizationsDelegate

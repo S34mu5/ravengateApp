@@ -28,6 +28,9 @@ class OzFlightDetailsUI extends BaseFlightDetailsUI {
 
 class _OzFlightDetailsUIState
     extends BaseFlightDetailsUIState<OzFlightDetailsUI> {
+  // Callback para actualizar la información de equipaje
+  Future<void> Function()? _baggageRefreshCallback;
+
   @override
   Widget buildMainContent(
     Map<String, dynamic> flightDetails,
@@ -70,6 +73,9 @@ class _OzFlightDetailsUIState
             documentId: documentId,
             flightId: flightDetails['flight_id'] ?? '',
             currentGate: currentGate,
+            onRegisterRefreshCallback: (callback) {
+              _baggageRefreshCallback = callback;
+            },
           ),
 
           // OZ Baggage Management - Formulario de gestión (tercero)
@@ -77,7 +83,13 @@ class _OzFlightDetailsUIState
             flightId: flightDetails['flight_id'] ?? '',
             documentId: documentId,
             currentGate: currentGate,
-            onSuccess: onRefresh,
+            onSuccess: () async {
+              await onRefresh();
+              // También actualizar la información de equipaje
+              if (_baggageRefreshCallback != null) {
+                await _baggageRefreshCallback!();
+              }
+            },
             showCloseIcon: false,
           ),
 

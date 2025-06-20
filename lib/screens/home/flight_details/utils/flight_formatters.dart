@@ -33,6 +33,16 @@ class FlightFormatters {
     }
   }
 
+  /// Formatea un DateTime para notificaciones (dd/mm - HH:mm)
+  static String formatNotificationDateTime(DateTime dateTime) {
+    try {
+      return DateFormat('dd/MM - HH:mm').format(dateTime.toLocal());
+    } catch (e) {
+      AppLogger.error('Error formatting notification datetime', e);
+      return dateTime.toString(); // Devolver el string por defecto si hay error
+    }
+  }
+
   /// Formatea solo la fecha en formato corto (ej: Apr 30)
   static String formatShortDate(DateTime dateTime) {
     try {

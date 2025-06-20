@@ -8,11 +8,13 @@ class OversizeBaggageUI extends StatefulWidget {
   final String documentId;
   final String flightId;
   final String currentGate;
+  final Function(Future<void> Function())? onRegisterRefreshCallback;
 
   const OversizeBaggageUI({
     required this.documentId,
     required this.flightId,
     required this.currentGate,
+    this.onRegisterRefreshCallback,
     Key? key,
   }) : super(key: key);
 
@@ -31,6 +33,22 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
 
   @override
   String get currentGate => widget.currentGate;
+
+  /// Método público para actualizar datos desde el exterior
+  Future<void> refresh() async {
+    await forceRefresh();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Registrar el callback de refresh si se proporciona
+    if (widget.onRegisterRefreshCallback != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onRegisterRefreshCallback!(refresh);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

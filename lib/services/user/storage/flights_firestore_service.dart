@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../utils/logger.dart';
+import '../../../main.dart' as main;
 
 /// Servicio para manejar todas las operaciones de Firestore relacionadas con vuelos
 class FlightsFirestoreService {
@@ -68,6 +69,15 @@ class FlightsFirestoreService {
         // Update the reference data with was_archived flag for UI to use
         flightData['was_archived'] = true;
 
+        // Reiniciar el monitoreo para incluir el vuelo restaurado
+        try {
+          await main.gateMonitorService.restartMonitoring();
+          AppLogger.info('Monitoreo reiniciado después de restaurar vuelo');
+        } catch (e) {
+          AppLogger.warning(
+              'Error al reiniciar monitoreo después de restaurar vuelo', e);
+        }
+
         return true; // Return true because flight was restored (equivalent to adding it)
       }
 
@@ -82,6 +92,15 @@ class FlightsFirestoreService {
         'archived': false, // Explicitly set archived to false for new flights
         'saved_at_server': FieldValue.serverTimestamp(),
       });
+
+      // Reiniciar el monitoreo para incluir el nuevo vuelo
+      try {
+        await main.gateMonitorService.restartMonitoring();
+        AppLogger.info('Monitoreo reiniciado después de añadir vuelo');
+      } catch (e) {
+        AppLogger.warning(
+            'Error al reiniciar monitoreo después de añadir vuelo', e);
+      }
 
       return true;
     } catch (e) {
@@ -220,6 +239,16 @@ class FlightsFirestoreService {
           await docSnapshot.reference.delete();
           AppLogger.info(
               'Documento con ID $docId eliminado correctamente de Firestore');
+
+          // Reiniciar el monitoreo para excluir el vuelo eliminado
+          try {
+            await main.gateMonitorService.restartMonitoring();
+            AppLogger.info('Monitoreo reiniciado después de eliminar vuelo');
+          } catch (e) {
+            AppLogger.warning(
+                'Error al reiniciar monitoreo después de eliminar vuelo', e);
+          }
+
           return true;
         } else {
           AppLogger.warning(
@@ -283,6 +312,15 @@ class FlightsFirestoreService {
             'archived_at': DateTime.now().toIso8601String(),
             'archived_doc_id': archivedDocRef.id, // Referencia cruzada
           });
+
+          // Reiniciar el monitoreo para excluir el vuelo archivado
+          try {
+            await main.gateMonitorService.restartMonitoring();
+            AppLogger.info('Monitoreo reiniciado después de archivar vuelo');
+          } catch (e) {
+            AppLogger.warning(
+                'Error al reiniciar monitoreo después de archivar vuelo', e);
+          }
 
           return true;
         } else {
@@ -410,6 +448,17 @@ class FlightsFirestoreService {
       final archivedDate = archivedData['archived_date'] as String?;
       if (archivedDate != null) {
         await decrementArchivedDateCounter(userId, archivedDate);
+      }
+
+      // Reiniciar el monitoreo para incluir el vuelo restaurado
+      try {
+        await main.gateMonitorService.restartMonitoring();
+        AppLogger.info(
+            'Monitoreo reiniciado después de restaurar vuelo desde archived');
+      } catch (e) {
+        AppLogger.warning(
+            'Error al reiniciar monitoreo después de restaurar vuelo desde archived',
+            e);
       }
 
       return true;
