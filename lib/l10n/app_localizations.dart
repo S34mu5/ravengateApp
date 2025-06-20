@@ -333,7 +333,7 @@ abstract class AppLocalizations {
   // Oversize registration notifications
   String get oversizeRegistrationNotificationTitle;
   String oversizeRegistrationNotificationBody(String itemType, String flightId,
-      String airline, String destination, String gate);
+      String airline, String destination, String gate, String date);
 }
 
 class _AppLocalizationsDelegate

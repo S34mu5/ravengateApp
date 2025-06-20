@@ -739,6 +739,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String oversizeRegistrationNotificationBody(String itemType, String flightId,
-          String airline, String destination, String gate) =>
-      'Se registró un nuevo $itemType para el vuelo $flightId ($airline) a $destination en puerta $gate';
+          String airline, String destination, String gate, String date) =>
+      'Se registró un nuevo $itemType para el vuelo $flightId ($airline) a $destination en puerta $gate el $date';
 }

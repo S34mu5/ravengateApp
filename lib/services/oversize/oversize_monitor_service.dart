@@ -417,6 +417,7 @@ class OversizeMonitorService {
             airline: airline,
             destination: destination,
             gate: gate,
+            registrationDateTime: registrationTimestamp.toDate(),
           );
 
           // Actualizar el último timestamp conocido

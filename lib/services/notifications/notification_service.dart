@@ -419,6 +419,7 @@ class NotificationService {
     required String airline,
     required String destination,
     required String gate,
+    required DateTime registrationDateTime,
   }) async {
     _log('Preparando notificación de registro oversize para vuelo $flightId');
 
@@ -456,11 +457,15 @@ class NotificationService {
     final AppLocalizations localizations =
         lookupAppLocalizations(currentLocale);
 
+    // Formatear la fecha del registro
+    final String formattedDate =
+        FlightFormatters.formatDateTime(registrationDateTime);
+
     final String notificationTitle =
         localizations.oversizeRegistrationNotificationTitle;
     final String notificationBody =
         localizations.oversizeRegistrationNotificationBody(
-            itemType, flightId, airline, destination, gate);
+            itemType, flightId, airline, destination, gate, formattedDate);
 
     try {
       // Mostrar la notificación
