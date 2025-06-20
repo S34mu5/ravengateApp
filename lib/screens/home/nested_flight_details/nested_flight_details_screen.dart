@@ -158,24 +158,36 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
       List<Map<String, dynamic>> fullHistoryTemp = [];
 
       try {
-        final QuerySnapshot historySnapshot = await firestore
+        // Consultar directamente la sub-colección 'history'
+        QuerySnapshot<Map<String, dynamic>> historySnapshot = await firestore
             .collection('flights')
             .doc(currentDocumentId)
-            .collection('gate_history')
-            .orderBy('timestamp', descending: true)
+            .collection('history')
+            .orderBy('change_time', descending: true)
             .get();
 
         for (final doc in historySnapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          fullHistoryTemp.add(data);
+          final data = doc.data();
 
-          // Filtrar solo cambios de puerta para el historial principal
-          if (data['field_name'] == 'gate') {
-            gateHistoryTemp.add(data);
+          // Guardar el registro completo (ID incluido) para depuración/uso adicional
+          fullHistoryTemp.add({'id': doc.id, ...data});
+
+          // Detectar si es realmente un cambio de puerta
+          final bool isGateChange =
+              (data['field_name'] == 'gate') || data.containsKey('new_gate');
+
+          if (isGateChange) {
+            // Unificar estructura para GateHistory
+            gateHistoryTemp.add({
+              'id': doc.id,
+              'timestamp': data['timestamp'] ?? data['change_time'],
+              'new_gate': data['new_gate'] ?? '-',
+              'old_gate': data['old_gate'] ?? '-',
+            });
           }
         }
 
-        // Aplicar filtro de tiempo si es necesario
+        // Aplicar filtro de las 2 horas si tenemos datos y hora programada
         if (gateHistoryTemp.isNotEmpty) {
           final String? scheduleTimeStr = flightData['schedule_time'];
           if (scheduleTimeStr != null) {
@@ -188,8 +200,7 @@ class _NestedFlightDetailsScreenState extends State<NestedFlightDetailsScreen> {
               gateHistoryTemp = gateHistoryTemp.where((record) {
                 final DateTime? changeTime =
                     _parseTimestamp(record['timestamp']);
-                if (changeTime == null) return false;
-                return changeTime.isAfter(cutoffTime);
+                return changeTime != null && changeTime.isAfter(cutoffTime);
               }).toList();
             }
           }

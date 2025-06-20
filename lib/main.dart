@@ -251,11 +251,11 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: const CardThemeData(
           elevation: 1,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
         ),
         dividerTheme: const DividerThemeData(
@@ -318,12 +318,12 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         ),
-        cardTheme: CardTheme(
-          color: const Color(0xFF303134), // Google Gray 850
+        cardTheme: const CardThemeData(
+          color: Color(0xFF303134), // Google Gray 850
           elevation: 1,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
         ),
         dividerTheme: const DividerThemeData(
