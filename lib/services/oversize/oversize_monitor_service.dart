@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../notifications/notification_service.dart';
-import '../cache/cache_service.dart';
 import '../developer/developer_mode_service.dart';
 import '../../utils/logger.dart';
 import '../../screens/home/flight_details/forms/models/oversize_item_types.dart';
@@ -115,6 +114,20 @@ class OversizeMonitorService {
       _log(
           'Encontrados ${userFlights.docs.length} vuelos para monitorear registros oversize');
 
+      // Primero, listar TODOS los vuelos encontrados
+      for (int i = 0; i < userFlights.docs.length; i++) {
+        final DocumentSnapshot flightDoc = userFlights.docs[i];
+        final Map<String, dynamic> flightData =
+            flightDoc.data() as Map<String, dynamic>;
+        final String flightId = flightData['flight_id']?.toString() ?? '';
+        final String flightRef = flightData['flight_ref']?.toString() ?? '';
+        final String statusCode = flightData['status_code']?.toString() ?? '';
+        final String archived = flightData['archived']?.toString() ?? '';
+
+        _log(
+            'DEBUG - Flight ${i + 1}/${userFlights.docs.length}: ID=$flightId, Ref=$flightRef, Status=$statusCode, Archived=$archived');
+      }
+
       // Comenzar a monitorear cada vuelo
       for (final DocumentSnapshot flightDoc in userFlights.docs) {
         final Map<String, dynamic> flightData =
@@ -123,7 +136,7 @@ class OversizeMonitorService {
         final String flightRef = flightData['flight_ref']?.toString() ?? '';
 
         _log(
-            'DEBUG - Found saved flight: $flightId with flight_ref: $flightRef');
+            'DEBUG - Processing flight: $flightId with flight_ref: $flightRef');
 
         // Si tenemos un flight_ref válido y un ID de vuelo, comenzar a monitorear
         if (flightRef.isNotEmpty && flightId.isNotEmpty) {
@@ -177,6 +190,10 @@ class OversizeMonitorService {
             .orderBy('timestamp', descending: true)
             .limit(1)
             .get();
+
+        _logFlight(
+            'DEBUG - Found ${lastRegistrationSnapshot.docs.length} existing documents in $collectionName',
+            flightId);
 
         // Si hay al menos un registro previo, guardamos su timestamp como referencia
         if (lastRegistrationSnapshot.docs.isNotEmpty) {
@@ -258,17 +275,21 @@ class OversizeMonitorService {
       return;
     }
 
-    // Throttling: no procesar snapshots muy frecuentes (menos de 5 segundos de diferencia)
+    // Throttling: no procesar snapshots muy frecuentes (menos de 2 segundos de diferencia)
     final String throttleKey = '${flightRef}_$collectionName';
     final DateTime now = DateTime.now();
     final DateTime? lastProcessed = _lastSnapshotProcessed[throttleKey];
 
-    if (lastProcessed != null && now.difference(lastProcessed).inSeconds < 5) {
-      _logFlight('$collectionName snapshot throttled (too frequent), ignoring',
+    if (lastProcessed != null && now.difference(lastProcessed).inSeconds < 2) {
+      _logFlight(
+          '$collectionName snapshot throttled (too frequent - ${now.difference(lastProcessed).inSeconds}s), ignoring',
           flightId);
       return;
     }
 
+    _logFlight(
+        'DEBUG - Processing $collectionName snapshot (last processed: ${lastProcessed?.toString() ?? "never"})',
+        flightId);
     _lastSnapshotProcessed[throttleKey] = now;
 
     // Verificar si el vuelo aún existe y su estado
@@ -335,6 +356,17 @@ class OversizeMonitorService {
       bool isNewRegistration = lastKnownTimestamp == null ||
           registrationTimestamp.compareTo(lastKnownTimestamp) > 0;
 
+      _logFlight('DEBUG - isNewRegistration: $isNewRegistration', flightId);
+      if (!isNewRegistration) {
+        final int timeDiffSeconds = registrationTimestamp
+            .toDate()
+            .difference(lastKnownTimestamp.toDate())
+            .inSeconds;
+        _logFlight(
+            'DEBUG - Time difference: ${timeDiffSeconds}s (${registrationTimestamp.compareTo(lastKnownTimestamp)})',
+            flightId);
+      }
+
       // Verificar que el usuario que registró no sea el usuario actual (para evitar auto-notificaciones)
       final String? registeredBy = latestRegistrationData[
           'user_id']; // Cambiado de 'registered_by' a 'user_id'
@@ -368,6 +400,9 @@ class OversizeMonitorService {
             'Registration was made by current user, not sending notification',
             flightId);
         // Actualizar el último timestamp conocido para futuras comparaciones
+        _logFlight(
+            'DEBUG - Updating timestamp (same user): ${registrationTimestamp.toDate()}',
+            flightId);
         _lastRegistrationTimestamps[subscriptionKey] = registrationTimestamp;
         return;
       } else {
@@ -382,12 +417,14 @@ class OversizeMonitorService {
         // Es un registro nuevo
         final String itemType =
             type.name; // Usar el nombre del enum directamente
-        final String airline = currentFlightData['airline'] ?? '';
         final String destination = currentFlightData['airport'] ?? '';
         final String gate = currentFlightData['gate'] ?? '';
 
+        // Obtener la cantidad registrada del documento
+        final int count = latestRegistrationData['count'] ?? 1;
+
         _logFlight(
-            'NEW ${collectionName.toUpperCase()} REGISTRATION DETECTED: $itemType for flight $flightId (at ${registrationTimestamp.toDate()})',
+            'NEW ${collectionName.toUpperCase()} REGISTRATION DETECTED: $count x $itemType for flight $flightId (at ${registrationTimestamp.toDate()})',
             flightId);
 
         _logFlight(
@@ -413,14 +450,17 @@ class OversizeMonitorService {
 
           await _notificationService.notifyOversizeRegistration(
             itemType: itemType,
+            count: count,
             flightId: flightId,
-            airline: airline,
             destination: destination,
             gate: gate,
-            registrationDateTime: registrationTimestamp.toDate(),
+            flightData: currentFlightData,
           );
 
           // Actualizar el último timestamp conocido
+          _logFlight(
+              'DEBUG - Updating timestamp (notification sent): ${registrationTimestamp.toDate()}',
+              flightId);
           _lastRegistrationTimestamps[subscriptionKey] = registrationTimestamp;
           _logFlight(
               'Oversize registration notification sent successfully', flightId);
@@ -433,7 +473,7 @@ class OversizeMonitorService {
             'This $collectionName registration is not new or has already been processed, ignoring',
             flightId);
         _logFlight(
-            'DEBUG - Registration timestamp: ${registrationTimestamp.toDate()}, Last known: ${lastKnownTimestamp?.toDate()}',
+            'DEBUG - Registration timestamp: ${registrationTimestamp.toDate()}, Last known: ${lastKnownTimestamp.toDate()}',
             flightId);
       }
     } catch (e) {
