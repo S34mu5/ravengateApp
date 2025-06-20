@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../notifications/notification_service.dart';
 import '../cache/cache_service.dart';
 import '../developer/developer_mode_service.dart';
+import '../oversize/oversize_monitor_service.dart';
 import '../../utils/logger.dart';
 
 /// Servicio para monitorear cambios de puerta en los vuelos guardados por el usuario
@@ -16,6 +17,8 @@ class GateMonitorService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notificationService = NotificationService();
+  final OversizeMonitorService _oversizeMonitorService =
+      OversizeMonitorService();
 
   // Streams de suscripción para monitorear cambios de puerta
   final Map<String, StreamSubscription<QuerySnapshot>>
@@ -27,6 +30,10 @@ class GateMonitorService {
 
   // Último valor conocido de las marcas de tiempo del cambio de puerta para cada vuelo
   final Map<String, DateTime> _flightCutoffTimes = {};
+
+  // Streams de suscripción para cada vuelo que está siendo monitoreado
+  final Map<String, StreamSubscription<DocumentSnapshot>>
+      _flightMonitorSubscriptions = {};
 
   // Prefix para los logs de este servicio
 
@@ -168,6 +175,14 @@ class GateMonitorService {
           .get();
 
       _log('Encontrados ${userFlights.docs.length} vuelos para monitorear');
+
+      // Iniciar el monitoreo de registros oversize en paralelo
+      try {
+        await _oversizeMonitorService.startMonitoring();
+        _log('Monitoreo de oversize iniciado correctamente');
+      } catch (e) {
+        _log('Error al iniciar monitoreo de oversize: $e', isError: true);
+      }
 
       // Comenzar a monitorear cada vuelo
       for (final DocumentSnapshot flightDoc in userFlights.docs) {
@@ -448,6 +463,7 @@ class GateMonitorService {
             destination: flightData['airport'] ?? '',
             newGate: newGate,
             oldGate: oldGate,
+            changeDateTime: changeDateTime,
           );
 
           // Actualizar el último timestamp conocido
@@ -480,7 +496,7 @@ class GateMonitorService {
     }
   }
 
-  /// Detiene todo el monitoreo de cambios de puerta
+  /// Detiene todo el monitoreo de vuelos
   void stopMonitoring() {
     _log(
         'Deteniendo todas las suscripciones de monitoreo (cantidad: ${_gateMonitorSubscriptions.length})');
@@ -490,13 +506,23 @@ class GateMonitorService {
     _gateMonitorSubscriptions.clear();
     _lastChangeTimestamps.clear();
     _flightCutoffTimes.clear();
+
+    // También detener el monitoreo de oversize
+    try {
+      _oversizeMonitorService.stopMonitoring();
+      _log('Monitoreo de oversize detenido correctamente');
+    } catch (e) {
+      _log('Error al detener monitoreo de oversize: $e', isError: true);
+    }
+
     _log('Todas las suscripciones de monitoreo han sido canceladas');
   }
 
   /// Liberar recursos al cerrar la aplicación
   void dispose() {
     stopMonitoring();
+    _oversizeMonitorService.dispose();
     _isInitialized = false;
-    _log('Recursos liberados - servicio desactivado');
+    _log('Servicio de monitoreo disposed');
   }
 }

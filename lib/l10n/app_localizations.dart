@@ -324,6 +324,16 @@ abstract class AppLocalizations {
 
   // Oversize info panel
   String get currentOversizeInfo;
+
+  // Gate change notifications
+  String get gateChangeNotificationTitle;
+  String gateChangeNotificationBody(String flightId, String airline,
+      String destination, String oldGate, String newGate, String date);
+
+  // Oversize registration notifications
+  String get oversizeRegistrationNotificationTitle;
+  String oversizeRegistrationNotificationBody(String itemType, String flightId,
+      String airline, String destination, String gate);
 }
 
 class _AppLocalizationsDelegate

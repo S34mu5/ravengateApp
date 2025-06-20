@@ -722,5 +722,23 @@ class AppLocalizationsEs extends AppLocalizations {
       'Artículos de repuesto convertidos en trolley';
 
   @override
-  String get currentOversizeInfo => 'Información Actual de Equipaje Especial';
+  String get currentOversizeInfo => 'Información Actual de Oversize';
+
+  // Gate change notifications
+  @override
+  String get gateChangeNotificationTitle => 'Cambio de Puerta';
+
+  @override
+  String gateChangeNotificationBody(String flightId, String airline,
+          String destination, String oldGate, String newGate, String date) =>
+      'El vuelo $flightId ($airline) a $destination cambió de puerta de $oldGate a $newGate el $date';
+
+  // Oversize registration notifications
+  @override
+  String get oversizeRegistrationNotificationTitle => 'Nuevo Registro Oversize';
+
+  @override
+  String oversizeRegistrationNotificationBody(String itemType, String flightId,
+          String airline, String destination, String gate) =>
+      'Se registró un nuevo $itemType para el vuelo $flightId ($airline) a $destination en puerta $gate';
 }

@@ -712,4 +712,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get currentOversizeInfo => 'Current Oversize items in PMZ';
+
+  // Gate change notifications
+  @override
+  String get gateChangeNotificationTitle => 'Gate Change';
+
+  @override
+  String gateChangeNotificationBody(String flightId, String airline,
+          String destination, String oldGate, String newGate, String date) =>
+      'Flight $flightId ($airline) to $destination changed gate from $oldGate to $newGate on $date';
+
+  // Oversize registration notifications
+  @override
+  String get oversizeRegistrationNotificationTitle =>
+      'New Oversize Registration';
+
+  @override
+  String oversizeRegistrationNotificationBody(String itemType, String flightId,
+          String airline, String destination, String gate) =>
+      'A new $itemType was registered for flight $flightId ($airline) to $destination at gate $gate';
 }

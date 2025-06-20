@@ -715,4 +715,23 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get currentOversizeInfo => 'Nåværende Oversize-info';
+
+  // Gate change notifications
+  @override
+  String get gateChangeNotificationTitle => 'Gate-endring';
+
+  @override
+  String gateChangeNotificationBody(String flightId, String airline,
+          String destination, String oldGate, String newGate, String date) =>
+      'Fly $flightId ($airline) til $destination endret gate fra $oldGate til $newGate den $date';
+
+  // Oversize registration notifications
+  @override
+  String get oversizeRegistrationNotificationTitle =>
+      'Ny Oversize Registrering';
+
+  @override
+  String oversizeRegistrationNotificationBody(String itemType, String flightId,
+          String airline, String destination, String gate) =>
+      'En ny $itemType ble registrert for fly $flightId ($airline) til $destination ved gate $gate';
 }

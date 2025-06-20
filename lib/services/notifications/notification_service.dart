@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -8,6 +9,9 @@ import 'package:timezone/data/latest_all.dart' as tz_init;
 import 'package:timezone/timezone.dart' as tz;
 import '../developer/developer_mode_service.dart';
 import '../../utils/logger.dart';
+import '../../screens/home/flight_details/utils/flight_formatters.dart';
+import '../../l10n/app_localizations.dart';
+import '../localization/language_service.dart';
 
 /// Servicio para manejar notificaciones locales en la aplicación
 class NotificationService {
@@ -344,6 +348,7 @@ class NotificationService {
     required String destination,
     required String newGate,
     required String oldGate,
+    required DateTime changeDateTime,
   }) async {
     _log('Preparando notificación de cambio de puerta para vuelo $flightId');
 
@@ -377,14 +382,23 @@ class NotificationService {
     final int notificationId = DateTime.now().millisecondsSinceEpoch % 10000;
 
     // Crear el mensaje de la notificación
-    final String notificationBody =
-        'El vuelo $flightId ($airline) a $destination ha cambiado de puerta de $oldGate a $newGate';
+    final String formattedDate =
+        FlightFormatters.formatDateTime(changeDateTime);
+
+    // Obtener el locale actual desde LanguageService
+    final Locale currentLocale = await LanguageService.getSavedLanguage();
+    final AppLocalizations localizations =
+        lookupAppLocalizations(currentLocale);
+
+    final String notificationTitle = localizations.gateChangeNotificationTitle;
+    final String notificationBody = localizations.gateChangeNotificationBody(
+        flightId, airline, destination, oldGate, newGate, formattedDate);
 
     try {
       // Mostrar la notificación
       await _notificationsPlugin.show(
         notificationId,
-        'Cambio de Puerta',
+        notificationTitle,
         notificationBody,
         platformChannelSpecifics,
         payload: 'flight:$flightId',
@@ -393,6 +407,74 @@ class NotificationService {
       _log('Notificación de cambio de puerta enviada correctamente');
     } catch (e) {
       _log('Error al enviar notificación de cambio de puerta: $e',
+          isError: true);
+      rethrow;
+    }
+  }
+
+  /// Muestra una notificación de registro de oversize
+  Future<void> notifyOversizeRegistration({
+    required String itemType,
+    required String flightId,
+    required String airline,
+    required String destination,
+    required String gate,
+  }) async {
+    _log('Preparando notificación de registro oversize para vuelo $flightId');
+
+    // Configurar detalles de la notificación para Android
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      _gateChangeChannelId,
+      'Cambios de Puerta',
+      channelDescription: 'Notificaciones de cambios de puerta',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'ticker',
+      styleInformation: BigTextStyleInformation(''),
+    );
+
+    // Configurar detalles de la notificación para iOS
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    // Configurar detalles generales de la notificación
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    // Generar un ID único para la notificación
+    final int notificationId = DateTime.now().millisecondsSinceEpoch % 10000;
+
+    // Obtener el locale actual desde LanguageService
+    final Locale currentLocale = await LanguageService.getSavedLanguage();
+    final AppLocalizations localizations =
+        lookupAppLocalizations(currentLocale);
+
+    final String notificationTitle =
+        localizations.oversizeRegistrationNotificationTitle;
+    final String notificationBody =
+        localizations.oversizeRegistrationNotificationBody(
+            itemType, flightId, airline, destination, gate);
+
+    try {
+      // Mostrar la notificación
+      await _notificationsPlugin.show(
+        notificationId,
+        notificationTitle,
+        notificationBody,
+        platformChannelSpecifics,
+        payload: 'flight:$flightId',
+      );
+
+      _log('Notificación de registro oversize enviada correctamente');
+    } catch (e) {
+      _log('Error al enviar notificación de registro oversize: $e',
           isError: true);
       rethrow;
     }
