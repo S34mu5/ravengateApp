@@ -221,6 +221,11 @@ abstract class AppLocalizations {
   String get confirmDelivery;
   String get confirmDeletion;
   String get pleaseConfirmDelivery;
+  String get confirmRegister;
+  String get pleaseConfirmRegister;
+  String get forFlight;
+  String get completed;
+  String get errorPrefix;
   String get areYouSureDelete;
   String get deleteAllDeliveries;
   String get deleteAllGateChanges;

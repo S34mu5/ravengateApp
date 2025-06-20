@@ -452,6 +452,21 @@ class AppLocalizationsNo extends AppLocalizations {
   String get pleaseConfirmDelivery => 'Vennligst bekreft at du forlater';
 
   @override
+  String get confirmRegister => 'Bekreft Registrering';
+
+  @override
+  String get pleaseConfirmRegister => 'Vennligst bekreft registreringen av';
+
+  @override
+  String get forFlight => 'for flyreise';
+
+  @override
+  String get completed => 'fullført';
+
+  @override
+  String get errorPrefix => 'Feil';
+
+  @override
   String get areYouSureDelete =>
       'Er du sikker på at du vil markere som slettet leveringen av';
 

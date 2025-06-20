@@ -455,6 +455,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pleaseConfirmDelivery => 'Por favor confirma que estás dejando';
 
   @override
+  String get confirmRegister => 'Confirmar Registro';
+
+  @override
+  String get pleaseConfirmRegister => 'Por favor confirma el registro de';
+
+  @override
+  String get forFlight => 'para el vuelo';
+
+  @override
+  String get completed => 'completado';
+
+  @override
+  String get errorPrefix => 'Error';
+
+  @override
   String get areYouSureDelete =>
       '¿Estás seguro de que quieres marcar como eliminada la entrega de';
 

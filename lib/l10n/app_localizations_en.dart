@@ -450,6 +450,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pleaseConfirmDelivery => 'Please confirm that you are leaving';
 
   @override
+  String get confirmRegister => 'Confirm Register';
+
+  @override
+  String get pleaseConfirmRegister => 'Please confirm the registration of';
+
+  @override
+  String get forFlight => 'for flight';
+
+  @override
+  String get completed => 'completed';
+
+  @override
+  String get errorPrefix => 'Error';
+
+  @override
   String get areYouSureDelete =>
       'Are you sure you want to mark as deleted the delivery of';
 
@@ -696,5 +711,5 @@ class AppLocalizationsEn extends AppLocalizations {
   String get spareItemsConverted => 'Spare items converted to trolley';
 
   @override
-  String get currentOversizeInfo => 'Current Oversize Info';
+  String get currentOversizeInfo => 'Current Oversize items in PMZ';
 }

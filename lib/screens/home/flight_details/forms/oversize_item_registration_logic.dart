@@ -86,9 +86,48 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
   // ========== OPERACIONES PRINCIPALES ==========
 
+  /// Muestra diálogo de confirmación antes de registrar
+  Future<bool> _showRegisterConfirmation(int count) async {
+    final localizations = AppLocalizations.of(context)!;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(localizations.confirmRegister),
+          content: Text(
+              '${localizations.pleaseConfirmRegister} $count ${getTypeLabel(selectedType, localizations)} ${localizations.forFlight} $flightId'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(localizations.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.green,
+              ),
+              child: Text(localizations.confirmRegister),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirm ?? false;
+  }
+
   /// Enviar formulario
   Future<void> submitForm(GlobalKey<FormState> formKey) async {
     if (!formKey.currentState!.validate()) return;
+
+    final int count = int.parse(countController.text);
+
+    // Mostrar diálogo de confirmación
+    final bool confirmed = await _showRegisterConfirmation(count);
+    if (!confirmed) {
+      return;
+    }
 
     setState(() {
       isLoading = true;
@@ -96,8 +135,6 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     });
 
     try {
-      final int count = int.parse(countController.text);
-
       await OversizeFirebaseService.registerItems(
         documentId: documentId,
         flightId: flightId,
@@ -130,7 +167,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${AppLocalizations.of(context)!.register} completado: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
+              '${AppLocalizations.of(context)!.register} ${AppLocalizations.of(context)!.completed}: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
             ),
             backgroundColor: Colors.green,
           ),
@@ -141,7 +178,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       if (mounted) {
         setState(() {
           isLoading = false;
-          errorMessage = 'Error: $e';
+          errorMessage = '${AppLocalizations.of(context)!.errorPrefix}: $e';
         });
       }
     }
@@ -263,7 +300,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('${AppLocalizations.of(context)!.errorPrefix}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -326,7 +363,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('${AppLocalizations.of(context)!.errorPrefix}: $e'),
             backgroundColor: Colors.red,
           ),
         );
