@@ -586,6 +586,13 @@ class AppLocalizationsNo extends AppLocalizations {
   String get gateChangeNotificationsSubtitle =>
       'Motta varsler når fly lagret i Mine Avganger får gateendringer';
 
+  @override
+  String get oversizeNotifications => 'Oversize Bagasje Varsler';
+
+  @override
+  String get oversizeNotificationsSubtitle =>
+      'Motta varsler når løse gjenstander, AVIH, WEAP eller trolleys registreres for dine fly';
+
   // Data visualization screen
   @override
   String get norwegianDyD8Equivalence => 'Norwegian DY/D8 Ekvivalens';

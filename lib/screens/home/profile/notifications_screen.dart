@@ -13,6 +13,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _delayNotificationsEnabled = true;
   bool _departureNotificationsEnabled = true;
   bool _gateChangeNotificationsEnabled = true;
+  bool _oversizeNotificationsEnabled = true;
 
   @override
   void initState() {
@@ -26,12 +27,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         await CacheService.getDepartureNotificationsPreference();
     final gateChangeEnabled =
         await CacheService.getGateChangeNotificationsPreference();
+    final oversizeEnabled =
+        await CacheService.getOversizeNotificationsPreference();
 
     if (mounted) {
       setState(() {
         _delayNotificationsEnabled = delayEnabled;
         _departureNotificationsEnabled = departureEnabled;
         _gateChangeNotificationsEnabled = gateChangeEnabled;
+        _oversizeNotificationsEnabled = oversizeEnabled;
       });
     }
   }
@@ -93,6 +97,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 _gateChangeNotificationsEnabled = value;
               });
               await CacheService.saveGateChangeNotificationsPreference(value);
+            },
+          ),
+          const Divider(),
+          SwitchListTile(
+            title: Text(localizations.oversizeNotifications),
+            subtitle: Text(localizations.oversizeNotificationsSubtitle),
+            value: _oversizeNotificationsEnabled,
+            activeColor: Colors.blue,
+            onChanged: (bool value) async {
+              setState(() {
+                _oversizeNotificationsEnabled = value;
+              });
+              await CacheService.saveOversizeNotificationsPreference(value);
             },
           ),
         ],

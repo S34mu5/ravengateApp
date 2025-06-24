@@ -15,6 +15,8 @@ class CacheService {
       'departure_notifications_enabled';
   static const String _gateChangeNotificationsKey =
       'gate_change_notifications_enabled';
+  static const String _oversizeNotificationsKey =
+      'oversize_notifications_enabled';
 
   // Conversión segura de Color a int ARGB evitando miembros deprecados
   static int _colorToInt(Color color) {
@@ -265,6 +267,34 @@ class CacheService {
     } catch (e) {
       AppLogger.error(
           'Could not retrieve gate change notifications preference', e);
+      return true; // Por defecto activado
+    }
+  }
+
+  /// Guarda la preferencia para las notificaciones de equipaje sobredimensionado
+  static Future<bool> saveOversizeNotificationsPreference(
+      bool isEnabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_oversizeNotificationsKey, isEnabled);
+      AppLogger.info('Oversize notifications preference saved: $isEnabled');
+      return true;
+    } catch (e) {
+      AppLogger.error('Could not save oversize notifications preference', e);
+      return false;
+    }
+  }
+
+  /// Recupera la preferencia para las notificaciones de equipaje sobredimensionado
+  static Future<bool> getOversizeNotificationsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Por defecto esta característica está activada (true)
+      final isEnabled = prefs.getBool(_oversizeNotificationsKey) ?? true;
+      return isEnabled;
+    } catch (e) {
+      AppLogger.error(
+          'Could not retrieve oversize notifications preference', e);
       return true; // Por defecto activado
     }
   }

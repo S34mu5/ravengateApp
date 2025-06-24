@@ -202,28 +202,15 @@ class PhotoService {
 
       // Tomar la foto más reciente
       final Map<String, dynamic> latestPhoto = photos.first;
-      final Map<String, dynamic> sizes = latestPhoto['sizes'] ?? {};
-
-      // Intentar obtener la miniatura primero, luego medium, luego original
-      String? downloadUrl;
-      if (sizes.containsKey('thumb') && sizes['thumb']['url'] != null) {
-        downloadUrl = sizes['thumb']['url'];
-        AppLogger.debug('📸 Usando thumbnail', null, 'PhotoService');
-      } else if (sizes.containsKey('medium') &&
-          sizes['medium']['url'] != null) {
-        downloadUrl = sizes['medium']['url'];
-        AppLogger.debug('📸 Usando medium', null, 'PhotoService');
-      } else if (sizes.containsKey('original') &&
-          sizes['original']['url'] != null) {
-        downloadUrl = sizes['original']['url'];
-        AppLogger.debug('📸 Usando original', null, 'PhotoService');
-      }
+      final String? downloadUrl = latestPhoto['url'];
 
       if (downloadUrl == null) {
         AppLogger.warning(
             '⚠️ No se encontró URL de descarga válida', null, 'PhotoService');
         return null;
       }
+
+      AppLogger.debug('📸 Usando foto original', null, 'PhotoService');
 
       AppLogger.info(
           '🌐 Descargando foto desde: ${downloadUrl.substring(0, 50)}...',
@@ -403,7 +390,7 @@ class PhotoService {
     final Map<String, dynamic> metadata = {
       'photo_id': firebaseResult['photo_id'],
       'synced_at': DateTime.now().toIso8601String(),
-      'urls': firebaseResult['urls'],
+      'url': firebaseResult['url'],
       'photo_data':
           firebaseResult['photo_data'], // Incluir datos completos de la foto
       'is_synced': true,

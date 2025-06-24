@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import '../../utils/logger.dart';
+import '../../screens/home/flight_details/forms/models/oversize_item_types.dart';
 
 /// Servicio para gestionar fotos en Firebase Storage y Firestore
 class FirebasePhotoService {
@@ -115,8 +116,6 @@ class FirebasePhotoService {
       AppLogger.info(
           '🗂️ Estructura organizada: $basePath', null, 'FirebasePhotoService');
       final String originalPath = '$basePath/original_$timestamp$safeExtension';
-      final String mediumPath = '$basePath/medium_$timestamp.jpg';
-      final String thumbPath = '$basePath/thumb_$timestamp.jpg';
       AppLogger.debug(
           '📂 Path completo: $originalPath', null, 'FirebasePhotoService');
 
@@ -160,39 +159,25 @@ class FirebasePhotoService {
       AppLogger.debug('🌐 URL obtenida: ${originalUrl.substring(0, 50)}...',
           null, 'FirebasePhotoService');
 
-      // Por ahora solo guardamos la versión original
-      // En el futuro se implementará resize automático para medium y thumb
-      final String mediumUrl = originalUrl;
-      final String thumbUrl = originalUrl;
-
       // Guardar metadata en Firestore
       AppLogger.info('💾 Guardando metadata en Firestore...', null,
           'FirebasePhotoService');
+
+      // Debug: Verificar la construcción del item_ref
+      final String collectionName = _getCollectionNameForItemType(itemType);
+      final String itemRef = 'flights/$documentId/$collectionName/$itemId';
+      AppLogger.info(
+          '📍 item_ref construido: "$itemRef"', null, 'FirebasePhotoService');
+
       final Map<String, dynamic> photoData = {
         'item_type': itemType,
         'item_id': itemId,
-        'item_ref': 'flights/$documentId/$itemType/$itemId',
+        'item_ref': itemRef,
         'storage_path': basePath,
         'filename_prefix': timestamp,
-        'sizes': {
-          'original': {
-            'url': originalUrl,
-            'path': originalPath,
-            'size_bytes': imageBytes.length,
-          },
-          'medium': {
-            'url': mediumUrl,
-            'path': mediumPath,
-            'size_bytes':
-                imageBytes.length, // Mismo tamaño que original por ahora
-          },
-          'thumb': {
-            'url': thumbUrl,
-            'path': thumbPath,
-            'size_bytes':
-                imageBytes.length, // Mismo tamaño que original por ahora
-          },
-        },
+        'url': originalUrl,
+        'path': originalPath,
+        'size_bytes': imageBytes.length,
         'uploaded_at': FieldValue.serverTimestamp(),
         'uploaded_by': {
           'uid': user.uid,
@@ -222,11 +207,7 @@ class FirebasePhotoService {
       return {
         'photo_id': photoId,
         'photo_data': _createSerializablePhotoData(photoData),
-        'urls': {
-          'original': originalUrl,
-          'medium': mediumUrl,
-          'thumb': thumbUrl,
-        },
+        'url': originalUrl,
       };
     } catch (e) {
       AppLogger.error(
@@ -344,34 +325,26 @@ class FirebasePhotoService {
 
       final Map<String, dynamic> photoData =
           photoDoc.data() as Map<String, dynamic>;
-      final Map<String, dynamic> sizes = photoData['sizes'] ?? {};
+      final String? imagePath = photoData['path'];
 
-      AppLogger.debug('📁 Eliminando ${sizes.length} archivos de Storage...',
-          null, 'FirebasePhotoService');
+      if (imagePath != null) {
+        AppLogger.debug('📁 Eliminando archivo de Storage...', null,
+            'FirebasePhotoService');
 
-      // Eliminar archivos de Storage
-      int deletedFiles = 0;
-      for (final entry in sizes.entries) {
-        final String sizeType = entry.key;
-        final sizeData = entry.value;
-        if (sizeData is Map<String, dynamic> && sizeData['path'] != null) {
-          try {
-            AppLogger.debug('🗑️ Eliminando $sizeType: ${sizeData['path']}',
-                null, 'FirebasePhotoService');
-            await _storage.ref().child(sizeData['path']).delete();
-            deletedFiles++;
-          } catch (e) {
-            AppLogger.warning('⚠️ Error eliminando archivo $sizeType: $e', e,
-                'FirebasePhotoService');
-            // Continuar eliminando otros archivos aunque uno falle
-          }
+        try {
+          AppLogger.debug(
+              '🗑️ Eliminando: $imagePath', null, 'FirebasePhotoService');
+          await _storage.ref().child(imagePath).delete();
+          AppLogger.info('🗑️ Archivo eliminado de Storage exitosamente', null,
+              'FirebasePhotoService');
+        } catch (e) {
+          AppLogger.warning(
+              '⚠️ Error eliminando archivo: $e', e, 'FirebasePhotoService');
         }
+      } else {
+        AppLogger.warning('⚠️ No se encontró path en los datos de la foto',
+            null, 'FirebasePhotoService');
       }
-
-      AppLogger.info(
-          '🗑️ Archivos eliminados de Storage: $deletedFiles/${sizes.length}',
-          null,
-          'FirebasePhotoService');
 
       // Eliminar documento de Firestore
       AppLogger.debug('📄 Eliminando documento de Firestore...', null,
@@ -419,6 +392,19 @@ class FirebasePhotoService {
       AppLogger.error(
           'Error limpiando fotos huérfanas: $e', e, 'FirebasePhotoService');
     }
+  }
+
+  /// Obtiene el nombre correcto de la colección para un tipo de item
+  static String _getCollectionNameForItemType(String itemType) {
+    final OversizeItemType type = OversizeItemTypeUtils.stringToType(itemType);
+    final String collectionName =
+        OversizeItemTypeUtils.collectionNameForType(type);
+
+    // Debug log para verificar la conversión
+    AppLogger.info('🔄 Conversión de tipo: "$itemType" -> "$collectionName"',
+        null, 'FirebasePhotoService');
+
+    return collectionName;
   }
 
   /// Crea una versión serializable de los datos de la foto

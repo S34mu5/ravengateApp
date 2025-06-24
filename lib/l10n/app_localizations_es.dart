@@ -590,6 +590,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get gateChangeNotificationsSubtitle =>
       'Recibe alertas cuando los vuelos guardados en Mis Salidas cambien de puerta';
 
+  @override
+  String get oversizeNotifications => 'Notificaciones de Equipaje Especial';
+
+  @override
+  String get oversizeNotificationsSubtitle =>
+      'Recibe alertas cuando se registren piezas sueltas, AVIH, WEAP o trolleys en tus vuelos';
+
   // Data visualization screen
   @override
   String get norwegianDyD8Equivalence => 'Equivalencia Norwegian DY/D8';

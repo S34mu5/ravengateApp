@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../notifications/notification_service.dart';
 import '../developer/developer_mode_service.dart';
+import '../cache/cache_service.dart';
 import '../../utils/logger.dart';
 import '../../screens/home/flight_details/forms/models/oversize_item_types.dart';
 
@@ -428,7 +429,20 @@ class OversizeMonitorService {
             flightId);
 
         _logFlight(
-            'DEBUG - About to check notification permissions...', flightId);
+            'DEBUG - About to check notification preferences and permissions...',
+            flightId);
+
+        // Verificar si las notificaciones de oversize están habilitadas
+        final bool oversizeNotificationsEnabled =
+            await CacheService.getOversizeNotificationsPreference();
+        if (!oversizeNotificationsEnabled) {
+          _logFlight(
+              'Oversize notifications are disabled by user, skipping notification',
+              flightId);
+          // Actualizar el timestamp para evitar reprocesar
+          _lastRegistrationTimestamps[subscriptionKey] = registrationTimestamp;
+          return;
+        }
 
         // Verificar permisos de notificación de nuevo
         final bool hasPermissions =

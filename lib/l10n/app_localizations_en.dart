@@ -584,6 +584,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gateChangeNotificationsSubtitle =>
       'Receive alerts when flights saved in My Departures have gate changes';
 
+  @override
+  String get oversizeNotifications => 'Oversize Baggage Notifications';
+
+  @override
+  String get oversizeNotificationsSubtitle =>
+      'Receive alerts when spare items, AVIH, WEAP or trolleys are registered for your flights';
+
   // Data visualization screen
   @override
   String get norwegianDyD8Equivalence => 'Norwegian DY/D8 Equivalence';

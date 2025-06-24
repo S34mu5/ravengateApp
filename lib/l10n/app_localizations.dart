@@ -271,6 +271,8 @@ abstract class AppLocalizations {
   String get flightDepartureNotifications;
   String get departureNotificationsSubtitle;
   String get gateChangeNotificationsSubtitle;
+  String get oversizeNotifications;
+  String get oversizeNotificationsSubtitle;
 
   // Data visualization screen
   String get norwegianDyD8Equivalence;

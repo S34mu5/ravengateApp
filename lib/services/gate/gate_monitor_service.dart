@@ -218,6 +218,11 @@ class GateMonitorService {
   }
 
   /// Monitorea los cambios de puerta para un vuelo específico
+  ///
+  /// Maneja correctamente las zonas horarias:
+  /// - Tiempos UTC (terminan en 'Z') se convierten a hora local
+  /// - Tiempos HH:MM se asumen como hora local del dispositivo
+  /// - Solo notifica cambios dentro de las 2 horas previas al vuelo
   void _monitorFlightGate(
       String flightRef, Map<String, dynamic> flightData) async {
     // Verificar el estado del vuelo
@@ -247,6 +252,14 @@ class GateMonitorService {
         // Comprobar si está en formato ISO 8601 (contiene 'T')
         if (scheduleTimeStr.contains('T')) {
           scheduleDateTime = DateTime.parse(scheduleTimeStr);
+
+          // Si es UTC (termina con Z), convertir a hora local
+          if (scheduleTimeStr.endsWith('Z')) {
+            scheduleDateTime = scheduleDateTime.toLocal();
+            _logFlight(
+                'Converted UTC time to local: ${scheduleDateTime.toIso8601String()}',
+                flightId);
+          }
         } else {
           // Está en formato HH:MM, necesitamos crear un DateTime para hoy
           final List<String> timeParts = scheduleTimeStr.split(':');
@@ -256,6 +269,9 @@ class GateMonitorService {
             final DateTime now = DateTime.now();
             scheduleDateTime =
                 DateTime(now.year, now.month, now.day, hour, minute);
+            _logFlight(
+                'Created local time from HH:MM format: ${scheduleDateTime.toIso8601String()}',
+                flightId);
           } else {
             throw FormatException('Invalid time format: $scheduleTimeStr');
           }
@@ -264,7 +280,7 @@ class GateMonitorService {
         // Calcular 2 horas antes del tiempo programado
         cutoffTime = scheduleDateTime.subtract(const Duration(hours: 2));
         _logFlight(
-            'Cutoff time for notifications set to: ${cutoffTime.toIso8601String()}',
+            'Cutoff time for notifications set to: ${cutoffTime.toIso8601String()} (2 hours before ${scheduleDateTime.toIso8601String()})',
             flightId);
       }
     } catch (e) {
@@ -307,7 +323,7 @@ class GateMonitorService {
           if (cutoffTime != null &&
               _lastChangeTimestamps[flightRef]!.toDate().isBefore(cutoffTime)) {
             _logFlight(
-                'Last gate change is before cutoff time (${cutoffTime.toIso8601String()}), ignoring',
+                'Last gate change is before cutoff time (${cutoffTime.toIso8601String()} local timezone), ignoring',
                 flightId);
             // No guardamos este timestamp para que no se use como referencia
             _lastChangeTimestamps.remove(flightRef);
@@ -419,7 +435,7 @@ class GateMonitorService {
       // Verificar si el cambio es anterior al tiempo de corte (2 horas antes del horario programado)
       if (cutoffTime != null && changeDateTime.isBefore(cutoffTime)) {
         _logFlight(
-            'Gate change at ${changeDateTime.toIso8601String()} is before cutoff time ${cutoffTime.toIso8601String()}, ignoring',
+            'Gate change at ${changeDateTime.toIso8601String()} is before cutoff time ${cutoffTime.toIso8601String()} (all times in local timezone), ignoring',
             flightId);
         return;
       }

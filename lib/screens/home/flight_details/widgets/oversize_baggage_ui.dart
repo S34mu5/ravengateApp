@@ -3,6 +3,7 @@ import '../../../../../l10n/app_localizations.dart';
 import '../forms/models/oversize_item_types.dart';
 import 'oversize_baggage_logic.dart';
 import '../../../../../services/photos/photo_button_widget.dart';
+import '../../../../../utils/logger.dart';
 
 /// UI para la visualización de información de equipaje sobredimensionado
 class OversizeBaggageUI extends StatefulWidget {
@@ -212,6 +213,16 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
 
     // Usar el ID real del documento de Firestore
     final String itemId = item['id'] ?? _generateItemId(item, itemNumber);
+
+    // Debug: Log para entender el problema de IDs duplicados
+    AppLogger.debug(
+        '🔍 DEBUG ITEM - Number: $itemNumber', null, 'OversizeBaggageUI');
+    AppLogger.debug(
+        '📋 Item data: ${item.toString()}', null, 'OversizeBaggageUI');
+    AppLogger.debug('🆔 Generated itemId: $itemId', null, 'OversizeBaggageUI');
+    AppLogger.debug(
+        '🏠 Real ID from Firestore: ${item['id']}', null, 'OversizeBaggageUI');
+    AppLogger.debug('---', null, 'OversizeBaggageUI');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
