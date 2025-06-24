@@ -184,10 +184,15 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
               ),
             ),
           ),
-          ...expandedItems
+          ...expandedItems.reversed // Invertir orden: más recientes arriba
+              .toList()
               .asMap()
               .entries
-              .map((entry) => _buildItemRow(entry.value, entry.key + 1, l10n))
+              .map((entry) => _buildItemRow(
+                    entry.value,
+                    entry.key + 1, // Numeración normal: 1, 2, 3...
+                    l10n,
+                  ))
               .toList(),
         ],
       ),

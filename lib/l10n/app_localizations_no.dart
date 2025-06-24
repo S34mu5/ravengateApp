@@ -781,4 +781,23 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get offlineMode => 'Offline-modus';
+
+  // Photo metadata and upload info
+  @override
+  String get uploadError => 'Opplastningsfeil';
+
+  @override
+  String get unknownTime => 'Ukjent tid';
+
+  @override
+  String get unknownUser => 'Ukjent bruker';
+
+  @override
+  String get uploadedAt => 'Lastet opp:';
+
+  @override
+  String get uploadedBy => 'Av:';
+
+  @override
+  String uploadedAtTime(String date, String time) => '$date klokka $time';
 }

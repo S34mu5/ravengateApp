@@ -351,6 +351,14 @@ abstract class AppLocalizations {
   String get photoUploadFailed;
   String get syncingWithCloud;
   String get offlineMode;
+
+  // Photo metadata and upload info
+  String get uploadError;
+  String get unknownTime;
+  String get unknownUser;
+  String get uploadedAt;
+  String get uploadedBy;
+  String uploadedAtTime(String date, String time);
 }
 
 class _AppLocalizationsDelegate

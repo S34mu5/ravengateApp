@@ -32,6 +32,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
   final PhotoService _photoService = PhotoService();
   String? _currentPhotoBase64;
   bool _isLoading = false;
+  bool _isLoadingInitial = true; // Loading para la carga inicial
   bool _isSynced = false;
 
   @override
@@ -42,48 +43,61 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
 
   /// Carga la foto existente si la hay
   Future<void> _loadPhoto() async {
+    if (!mounted) return;
+
     AppLogger.debug('🔍 Cargando foto existente para item ${widget.itemId}...',
         null, 'PhotoButtonWidget');
 
-    // Primero intentar cargar desde Firebase (para que sea visible a todos los usuarios)
-    String? photo = await _photoService.getPhotoFromFirebase(
-      documentId: widget.documentId,
-      itemId: widget.itemId,
-      itemType: widget.itemType,
-    );
-
-    bool isSynced = true; // Las fotos de Firebase siempre están sincronizadas
-
-    // Si no se encuentra en Firebase, intentar cargar desde local como fallback
-    if (photo == null) {
-      AppLogger.debug('📱 No encontrada en Firebase, intentando local...', null,
-          'PhotoButtonWidget');
-      photo = await _photoService.getPhoto(
+    try {
+      // Primero intentar cargar desde Firebase (para que sea visible a todos los usuarios)
+      String? photo = await _photoService.getPhotoFromFirebase(
         documentId: widget.documentId,
-        flightId: widget.flightId,
         itemId: widget.itemId,
+        itemType: widget.itemType,
       );
 
-      if (photo != null) {
-        // Verificar si la foto local está sincronizada
-        isSynced = await _photoService.isPhotoSynced(
+      bool isSynced = true; // Las fotos de Firebase siempre están sincronizadas
+
+      // Si no se encuentra en Firebase, intentar cargar desde local como fallback
+      if (photo == null) {
+        AppLogger.debug('📱 No encontrada en Firebase, intentando local...',
+            null, 'PhotoButtonWidget');
+        photo = await _photoService.getPhoto(
           documentId: widget.documentId,
           flightId: widget.flightId,
           itemId: widget.itemId,
         );
+
+        if (photo != null) {
+          // Verificar si la foto local está sincronizada
+          isSynced = await _photoService.isPhotoSynced(
+            documentId: widget.documentId,
+            flightId: widget.flightId,
+            itemId: widget.itemId,
+          );
+        }
       }
-    }
 
-    AppLogger.debug('Foto encontrada: ${photo != null ? "Sí" : "No"}', null,
-        'PhotoButtonWidget');
-    AppLogger.debug(
-        '☁️ Está sincronizada: $isSynced', null, 'PhotoButtonWidget');
+      AppLogger.debug('Foto encontrada: ${photo != null ? "Sí" : "No"}', null,
+          'PhotoButtonWidget');
+      AppLogger.debug(
+          '☁️ Está sincronizada: $isSynced', null, 'PhotoButtonWidget');
 
-    if (mounted) {
-      setState(() {
-        _currentPhotoBase64 = photo;
-        _isSynced = isSynced;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPhotoBase64 = photo;
+          _isSynced = isSynced;
+          _isLoadingInitial = false; // Finalizar loading inicial
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error cargando foto: $e', e, 'PhotoButtonWidget');
+      if (mounted) {
+        setState(() {
+          _isLoadingInitial =
+              false; // Finalizar loading inicial incluso en error
+        });
+      }
     }
   }
 
@@ -243,11 +257,11 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.error, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Error de subida'),
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(width: 8),
+              Text(l10n.uploadError),
             ],
           ),
           content: Text(l10n.photoUploadFailed),
@@ -375,8 +389,8 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     final Map<String, dynamic>? photoData = metadata['photo_data'];
     final Map<String, dynamic>? uploadedBy = photoData?['uploaded_by'];
 
-    String timeText = 'Hora desconocida';
-    String userText = 'Usuario desconocido';
+    String timeText = l10n.unknownTime;
+    String userText = l10n.unknownUser;
 
     // Formatear fecha de subida
     if (syncedAt != null) {
@@ -389,7 +403,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
         final String formattedTime =
             '${uploadTime.hour.toString().padLeft(2, '0')}:'
             '${uploadTime.minute.toString().padLeft(2, '0')}';
-        timeText = '$formattedDate a las $formattedTime';
+        timeText = l10n.uploadedAtTime(formattedDate, formattedTime);
       } catch (e) {
         AppLogger.warning(
             'Error parseando fecha: $e', null, 'PhotoButtonWidget');
@@ -424,7 +438,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
               Icon(Icons.access_time, size: 16, color: Colors.blue.shade700),
               const SizedBox(width: 6),
               Text(
-                'Subida: $timeText',
+                '${l10n.uploadedAt} $timeText',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.blue.shade700,
@@ -440,7 +454,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Por: $userText',
+                  '${l10n.uploadedBy} $userText',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.blue.shade700,
@@ -476,7 +490,8 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    // Mostrar spinner durante loading inicial o loading de acciones
+    if (_isLoadingInitial || _isLoading) {
       return Container(
         width: 40,
         height: 40,

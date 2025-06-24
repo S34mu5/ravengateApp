@@ -778,4 +778,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offlineMode => 'Offline mode';
+
+  // Photo metadata and upload info
+  @override
+  String get uploadError => 'Upload Error';
+
+  @override
+  String get unknownTime => 'Unknown time';
+
+  @override
+  String get unknownUser => 'Unknown user';
+
+  @override
+  String get uploadedAt => 'Uploaded:';
+
+  @override
+  String get uploadedBy => 'By:';
+
+  @override
+  String uploadedAtTime(String date, String time) => '$date at $time';
 }
