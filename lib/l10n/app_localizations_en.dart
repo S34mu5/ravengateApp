@@ -736,4 +736,30 @@ class AppLocalizationsEn extends AppLocalizations {
           String gate,
           String departureTime) =>
       '${count > 1 ? count : 'A'} ${itemType.toUpperCase()}${count > 1 ? 's' : ''} ${count > 1 ? 'were' : 'was'} registered for flight $flightId $departureTime to $destination. Gate $gate';
+
+  // Photo management
+  @override
+  String get takePhoto => 'Take photo';
+
+  @override
+  String get selectFromGallery => 'Select from gallery';
+
+  @override
+  String get changePhoto => 'Change';
+
+  @override
+  String get deletePhoto => 'Delete';
+
+  @override
+  String get photoOfElement => 'Photo of element';
+
+  @override
+  String get accessRestricted => 'Access restricted';
+
+  @override
+  String get oversizeLocationOnly =>
+      'You can only manage photos of oversized items when you are in the "Oversize" location.';
+
+  @override
+  String get understood => 'Understood';
 }

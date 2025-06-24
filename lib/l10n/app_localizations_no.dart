@@ -739,4 +739,30 @@ class AppLocalizationsNo extends AppLocalizations {
           String gate,
           String departureTime) =>
       '$count ${itemType.toUpperCase()}${count > 1 ? 'er' : ''} ble registrert for fly $flightId $departureTime til $destination. Gate $gate';
+
+  // Photo management
+  @override
+  String get takePhoto => 'Ta bilde';
+
+  @override
+  String get selectFromGallery => 'Velg fra galleri';
+
+  @override
+  String get changePhoto => 'Endre';
+
+  @override
+  String get deletePhoto => 'Slett';
+
+  @override
+  String get photoOfElement => 'Bilde av element';
+
+  @override
+  String get accessRestricted => 'Tilgang begrenset';
+
+  @override
+  String get oversizeLocationOnly =>
+      'Du kan bare administrere bilder av oversize-artikler når du er på "Oversize"-plasseringen.';
+
+  @override
+  String get understood => 'Forstått';
 }

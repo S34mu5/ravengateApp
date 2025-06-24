@@ -334,6 +334,16 @@ abstract class AppLocalizations {
   String oversizeRegistrationNotificationTitle(String itemType);
   String oversizeRegistrationNotificationBody(String itemType, int count,
       String flightId, String destination, String gate, String departureTime);
+
+  // Photo management
+  String get takePhoto;
+  String get selectFromGallery;
+  String get changePhoto;
+  String get deletePhoto;
+  String get photoOfElement;
+  String get accessRestricted;
+  String get oversizeLocationOnly;
+  String get understood;
 }
 
 class _AppLocalizationsDelegate

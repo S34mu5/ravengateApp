@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../forms/models/oversize_item_types.dart';
 import 'oversize_baggage_logic.dart';
+import '../../../../../services/photos/photo_button_widget.dart';
 
 /// UI para la visualización de información de equipaje sobredimensionado
 class OversizeBaggageUI extends StatefulWidget {
@@ -204,6 +205,9 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
         item['requires_special_handling'] ?? false;
     final String specialDetails = item['special_handling_details'] ?? '';
 
+    // Generar un ID único para el item basado en sus datos
+    final String itemId = _generateItemId(item, itemNumber);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -290,9 +294,32 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
               ],
             ),
           ),
+          // Botón de foto con espaciado moderado
+          const SizedBox(width: 16),
+          PhotoButtonWidget(
+            documentId: documentId,
+            flightId: flightId,
+            itemId: itemId,
+            onPhotoChanged: () {
+              // Callback opcional para actualizar la UI si es necesario
+            },
+          ),
         ],
       ),
     );
+  }
+
+  /// Genera un ID único para cada elemento basado en sus datos
+  String _generateItemId(Map<String, dynamic> item, int itemNumber) {
+    final timestamp = item['timestamp'];
+    final isFragile = item['is_fragile'] ?? false;
+    final requiresSpecialHandling = item['requires_special_handling'] ?? false;
+    final specialDetails = item['special_handling_details'] ?? '';
+
+    // Crear un hash simple basado en los datos del item
+    final dataString =
+        '${timestamp}_${isFragile}_${requiresSpecialHandling}_${specialDetails}_$itemNumber';
+    return dataString.hashCode.abs().toString();
   }
 }
 
