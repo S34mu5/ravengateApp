@@ -344,6 +344,13 @@ abstract class AppLocalizations {
   String get accessRestricted;
   String get oversizeLocationOnly;
   String get understood;
+
+  // Firebase Storage sync
+  String get photoUploadingToCloud;
+  String get photoUploadedSuccessfully;
+  String get photoUploadFailed;
+  String get syncingWithCloud;
+  String get offlineMode;
 }
 
 class _AppLocalizationsDelegate

@@ -765,4 +765,20 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get understood => 'Forstått';
+
+  // Firebase Storage sync
+  @override
+  String get photoUploadingToCloud => 'Laster opp bilde til skyen...';
+
+  @override
+  String get photoUploadedSuccessfully => 'Bildet ble lastet opp';
+
+  @override
+  String get photoUploadFailed => 'Kunne ikke laste opp bilde, lagret lokalt';
+
+  @override
+  String get syncingWithCloud => 'Synkroniserer med skyen...';
+
+  @override
+  String get offlineMode => 'Offline-modus';
 }

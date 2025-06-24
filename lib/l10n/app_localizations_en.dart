@@ -762,4 +762,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get understood => 'Understood';
+
+  // Firebase Storage sync
+  @override
+  String get photoUploadingToCloud => 'Uploading photo to cloud...';
+
+  @override
+  String get photoUploadedSuccessfully => 'Photo uploaded successfully';
+
+  @override
+  String get photoUploadFailed => 'Failed to upload photo, saved locally';
+
+  @override
+  String get syncingWithCloud => 'Syncing with cloud...';
+
+  @override
+  String get offlineMode => 'Offline mode';
 }

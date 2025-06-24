@@ -1,1 +1,26 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"ravengateapp","configurations":{"ios":"1:168255937741:ios:acbe95fc1cbf443c675d84","macos":"1:168255937741:ios:acbe95fc1cbf443c675d84","web":"1:168255937741:web:5cdf01c8af099784675d84","windows":"1:168255937741:web:5cdf01c8af099784675d84"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ravengateapp",
+          "configurations": {
+            "ios": "1:168255937741:ios:acbe95fc1cbf443c675d84",
+            "macos": "1:168255937741:ios:acbe95fc1cbf443c675d84",
+            "web": "1:168255937741:web:5cdf01c8af099784675d84",
+            "windows": "1:168255937741:web:5cdf01c8af099784675d84"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

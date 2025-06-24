@@ -300,6 +300,8 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
             documentId: documentId,
             flightId: flightId,
             itemId: itemId,
+            itemType: expandedType!.name, // Convertir enum a string
+            flightDate: date, // Usar la fecha del item para organizar carpetas
             onPhotoChanged: () {
               // Callback opcional para actualizar la UI si es necesario
             },

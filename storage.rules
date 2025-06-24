@@ -1,0 +1,46 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Reglas para fotos de elementos oversized con nueva estructura organizacional
+    // Estructura: oversize_photos/2024/01/week_03/15/LH123_doc_44316751/spare/35060740/original_123456.jpg
+    match /oversize_photos/{year}/{month}/{week}/{day}/{flightIdentifier}/{itemType}/{itemId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para la estructura antigua (compatibilidad temporal)
+    match /oversize_photos/{documentId}/{itemType}/{itemId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para futuras categorías de fotos con estructura organizacional
+    match /maintenance_photos/{year}/{month}/{week}/{day}/{flightIdentifier}/{equipmentId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /inspection_photos/{year}/{month}/{week}/{day}/{flightIdentifier}/{areaId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /incident_photos/{year}/{month}/{week}/{day}/{flightIdentifier}/{incidentId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para estructuras antiguas de otras categorías (compatibilidad)
+    match /maintenance_photos/{documentId}/{equipmentId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /inspection_photos/{documentId}/{areaId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /incident_photos/{documentId}/{incidentId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Denegar todo lo demás
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

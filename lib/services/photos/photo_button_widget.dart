@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/logger.dart';
 import 'photo_service.dart';
 import '../location/location_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -9,12 +10,16 @@ class PhotoButtonWidget extends StatefulWidget {
   final String documentId;
   final String flightId;
   final String itemId;
+  final String itemType;
+  final DateTime? flightDate; // Fecha del vuelo para organizar carpetas
   final VoidCallback? onPhotoChanged;
 
   const PhotoButtonWidget({
     required this.documentId,
     required this.flightId,
     required this.itemId,
+    required this.itemType,
+    this.flightDate,
     this.onPhotoChanged,
     Key? key,
   }) : super(key: key);
@@ -27,6 +32,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
   final PhotoService _photoService = PhotoService();
   String? _currentPhotoBase64;
   bool _isLoading = false;
+  bool _isSynced = false;
 
   @override
   void initState() {
@@ -36,36 +42,66 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
 
   /// Carga la foto existente si la hay
   Future<void> _loadPhoto() async {
+    AppLogger.debug('🔍 Cargando foto existente para item ${widget.itemId}...',
+        null, 'PhotoButtonWidget');
+
     final photo = await _photoService.getPhoto(
       documentId: widget.documentId,
       flightId: widget.flightId,
       itemId: widget.itemId,
     );
 
+    final isSynced = await _photoService.isPhotoSynced(
+      documentId: widget.documentId,
+      flightId: widget.flightId,
+      itemId: widget.itemId,
+    );
+
+    AppLogger.debug('📷 Foto encontrada: ${photo != null ? "Sí" : "No"}', null,
+        'PhotoButtonWidget');
+    AppLogger.debug(
+        '☁️ Está sincronizada: $isSynced', null, 'PhotoButtonWidget');
+
     if (mounted) {
       setState(() {
         _currentPhotoBase64 = photo;
+        _isSynced = isSynced;
       });
     }
   }
 
   /// Maneja el tap simple en el botón
   Future<void> _handleTap() async {
-    if (_isLoading) return;
+    AppLogger.debug('👆 Tap detectado', null, 'PhotoButtonWidget');
+    if (_isLoading) {
+      AppLogger.debug(
+          '⏳ Ya está cargando, ignorando tap', null, 'PhotoButtonWidget');
+      return;
+    }
 
     // Verificar si el usuario está en ubicación Oversize
+    AppLogger.debug('📍 Verificando ubicación...', null, 'PhotoButtonWidget');
     final isOversizeLocation = await LocationService.isOversizeLocation();
+    AppLogger.debug('📍 Ubicación Oversize: $isOversizeLocation', null,
+        'PhotoButtonWidget');
 
     if (_currentPhotoBase64 != null) {
+      AppLogger.debug('🖼️ Ya tiene foto, mostrando vista completa', null,
+          'PhotoButtonWidget');
       // Si ya tiene foto, mostrarla directamente
       await _showFullPhoto(canManagePhoto: isOversizeLocation);
     } else {
+      AppLogger.debug(
+          '📷 No tiene foto, verificando permisos', null, 'PhotoButtonWidget');
       // Solo permitir agregar fotos si está en ubicación Oversize
       if (!isOversizeLocation) {
+        AppLogger.warning(
+            '🚫 Ubicación no permitida', null, 'PhotoButtonWidget');
         await _showLocationRestrictedMessage();
         return;
       }
 
+      AppLogger.info('✅ Mostrando opciones de foto', null, 'PhotoButtonWidget');
       // Si no tiene foto y está en Oversize, mostrar opciones para agregar
       setState(() {
         _isLoading = true;
@@ -115,29 +151,49 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     );
 
     if (result != null && mounted) {
+      AppLogger.info(
+          '📷 Opción seleccionada: $result', null, 'PhotoButtonWidget');
       String? newPhoto;
       switch (result) {
         case 'camera':
+          AppLogger.info(
+              '📸 Tomando foto con cámara...', null, 'PhotoButtonWidget');
           newPhoto = await _photoService.takePhoto(
             documentId: widget.documentId,
             flightId: widget.flightId,
             itemId: widget.itemId,
+            itemType: widget.itemType,
+            flightDate: widget.flightDate,
           );
           break;
         case 'gallery':
+          AppLogger.info(
+              '🖼️ Seleccionando de galería...', null, 'PhotoButtonWidget');
           newPhoto = await _photoService.pickFromGallery(
             documentId: widget.documentId,
             flightId: widget.flightId,
             itemId: widget.itemId,
+            itemType: widget.itemType,
+            flightDate: widget.flightDate,
           );
           break;
       }
 
       if (newPhoto != null && mounted) {
+        AppLogger.info('✅ Nueva foto obtenida, actualizando UI', null,
+            'PhotoButtonWidget');
         setState(() {
           _currentPhotoBase64 = newPhoto;
+          _isSynced = true; // La foto recién subida está sincronizada
         });
         widget.onPhotoChanged?.call();
+      } else {
+        AppLogger.warning(
+            '❌ No se obtuvo foto nueva', null, 'PhotoButtonWidget');
+        // Mostrar mensaje de error al usuario
+        if (mounted) {
+          _showUploadErrorMessage();
+        }
       }
     }
   }
@@ -163,6 +219,33 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     );
   }
 
+  /// Muestra mensaje de error cuando falla la subida de foto
+  Future<void> _showUploadErrorMessage() async {
+    final l10n = AppLocalizations.of(context)!;
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(width: 8),
+              const Text('Error de subida'),
+            ],
+          ),
+          content: Text(l10n.photoUploadFailed),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.understood),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Muestra la foto en pantalla completa con opciones de gestión
   Future<void> _showFullPhoto({bool canManagePhoto = true}) async {
     if (_currentPhotoBase64 == null) return;
@@ -171,6 +254,13 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     if (imageBytes == null) return;
 
     final l10n = AppLocalizations.of(context)!;
+
+    // Obtener metadatos para mostrar información de subida
+    final metadata = await _photoService.getFirebaseMetadata(
+      documentId: widget.documentId,
+      flightId: widget.flightId,
+      itemId: widget.itemId,
+    );
 
     final result = await showDialog<String>(
       context: context,
@@ -188,6 +278,8 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
+                // Información de metadatos si está disponible
+                if (metadata != null) _buildPhotoMetadata(metadata, l10n),
                 Expanded(
                   child: InteractiveViewer(
                     child: Image.memory(
@@ -257,17 +349,108 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     }
   }
 
+  /// Construye el widget de metadatos de la foto
+  Widget _buildPhotoMetadata(
+      Map<String, dynamic> metadata, AppLocalizations l10n) {
+    // Extraer información de los metadatos
+    final String? syncedAt = metadata['synced_at'];
+    final Map<String, dynamic>? photoData = metadata['photo_data'];
+    final Map<String, dynamic>? uploadedBy = photoData?['uploaded_by'];
+
+    String timeText = 'Hora desconocida';
+    String userText = 'Usuario desconocido';
+
+    // Formatear fecha de subida
+    if (syncedAt != null) {
+      try {
+        final DateTime uploadTime = DateTime.parse(syncedAt);
+        final String formattedDate =
+            '${uploadTime.day.toString().padLeft(2, '0')}/'
+            '${uploadTime.month.toString().padLeft(2, '0')}/'
+            '${uploadTime.year}';
+        final String formattedTime =
+            '${uploadTime.hour.toString().padLeft(2, '0')}:'
+            '${uploadTime.minute.toString().padLeft(2, '0')}';
+        timeText = '$formattedDate a las $formattedTime';
+      } catch (e) {
+        AppLogger.warning(
+            'Error parseando fecha: $e', null, 'PhotoButtonWidget');
+      }
+    }
+
+    // Extraer información del usuario
+    if (uploadedBy != null) {
+      final String? email = uploadedBy['email'];
+      final String? displayName = uploadedBy['displayName'];
+      if (displayName != null && displayName.isNotEmpty) {
+        userText = displayName;
+      } else if (email != null) {
+        userText = email;
+      }
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        border: Border(
+          bottom: BorderSide(color: Colors.blue.shade200),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: Colors.blue.shade700),
+              const SizedBox(width: 6),
+              Text(
+                'Subida: $timeText',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.person, size: 16, color: Colors.blue.shade700),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Por: $userText',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Elimina la foto
   Future<void> _deletePhoto() async {
     final success = await _photoService.deletePhoto(
       documentId: widget.documentId,
       flightId: widget.flightId,
       itemId: widget.itemId,
+      itemType: widget.itemType,
     );
 
     if (success && mounted) {
       setState(() {
         _currentPhotoBase64 = null;
+        _isSynced = false; // Resetear estado de sincronización
       });
       widget.onPhotoChanged?.call();
     }
@@ -305,28 +488,51 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
 
           return GestureDetector(
             onTap: _handleTap,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.green, width: 2),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: imageBytes != null
-                    ? Image.memory(
-                        imageBytes,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                      )
-                    : const Icon(
-                        Icons.error,
-                        color: Colors.red,
-                        size: 20,
-                      ),
-              ),
+            child: Stack(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.green, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: imageBytes != null
+                        ? Image.memory(
+                            imageBytes,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          )
+                        : const Icon(
+                            Icons.error,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                  ),
+                ),
+                // Indicador de sincronización en la esquina superior derecha
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: _isSynced ? Colors.blue : Colors.grey,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Icon(
+                      _isSynced ? Icons.cloud_done : Icons.cloud_off,
+                      color: Colors.white,
+                      size: 8,
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         } else {
