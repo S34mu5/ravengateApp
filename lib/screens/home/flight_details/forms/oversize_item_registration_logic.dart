@@ -5,6 +5,11 @@ import 'models/oversize_item_types.dart';
 import 'services/oversize_firebase_service.dart';
 import 'utils/oversize_history_utils.dart';
 import 'utils/oversize_validation_utils.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import '../../../../services/photos/firebase_photo_service.dart';
+import '../../../../services/photos/photo_service.dart';
 
 /// Mixin que contiene la lógica de negocio para el registro de elementos sobredimensionados
 /// Ahora modularizado y mucho más pequeño
@@ -16,9 +21,6 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   bool isLoading = false;
   String? errorMessage;
   OversizeItemType selectedType = OversizeItemType.spare;
-  bool isFragile = false;
-  bool requiresSpecialHandling = false;
-  String specialHandlingDetails = '';
 
   // Estado del historial
   bool showHistory = false;
@@ -29,6 +31,12 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
   // Estado del conteo actual
   int? currentCount;
   bool isLoadingCurrentCount = false;
+
+  // NUEVO: Estado para fotos
+  bool showPhotoSection = false;
+  List<String> pendingPhotosBase64 = []; // Fotos temporales antes del registro
+  bool isUploadingPhotos = false;
+  String? photoError;
 
   // Getters que deben ser implementados por la clase que usa este mixin
   String get flightId;
@@ -46,42 +54,252 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
   /// Cambia el tipo seleccionado
   void changeSelectedType(OversizeItemType type) {
+    if (!mounted) return;
+
     setState(() {
       selectedType = type;
-      // Recargar historial al cambiar de pestaña si ya se mostraba
-      if (showHistory) {
-        loadItemHistory();
-      }
-      // Cargar conteo actual para el nuevo tipo
-      loadCurrentCount();
+    });
+
+    // Recargar historial al cambiar de pestaña si ya se mostraba
+    if (showHistory) {
+      loadItemHistory();
+    }
+    // Cargar conteo actual para el nuevo tipo
+    loadCurrentCount();
+  }
+
+  // Métodos de frágil y manejo especial removidos temporalmente
+
+  // ========== NUEVOS MÉTODOS PARA FOTOS ==========
+
+  /// Alternar visibilidad de la sección de fotos
+  void togglePhotoSection() {
+    if (!mounted) return;
+
+    setState(() {
+      showPhotoSection = !showPhotoSection;
     });
   }
 
-  /// Cambia el estado de frágil
-  void changeFragileState(bool value) {
+  /// Agregar foto pendiente (temporal)
+  void addPendingPhoto(String photoBase64) {
+    if (!mounted) return;
+
     setState(() {
-      isFragile = value;
+      pendingPhotosBase64.add(photoBase64);
+      photoError = null;
     });
+    AppLogger.info(
+        'Foto pendiente agregada', {'totalPhotos': pendingPhotosBase64.length});
   }
 
-  /// Cambia el estado de manejo especial
-  void changeSpecialHandlingState(bool value) {
+  /// Remover foto pendiente
+  void removePendingPhoto(String photoBase64) {
+    if (!mounted) return;
+
     setState(() {
-      requiresSpecialHandling = value;
-      if (!value) {
-        specialHandlingDetails = '';
-      }
+      pendingPhotosBase64.remove(photoBase64);
     });
+    AppLogger.info(
+        'Foto removida', {'totalPhotos': pendingPhotosBase64.length});
   }
 
-  /// Actualiza los detalles del manejo especial
-  void updateSpecialHandlingDetails(String details) {
+  /// Limpiar fotos pendientes
+  void clearPendingPhotos() {
+    if (!mounted) return;
+
     setState(() {
-      specialHandlingDetails = details;
-      if (details.isNotEmpty) {
-        requiresSpecialHandling = true;
-      }
+      pendingPhotosBase64.clear();
+      photoError = null;
     });
+    AppLogger.info('Fotos pendientes limpiadas');
+  }
+
+  /// Tomar foto usando cámara - ALMACENAR TEMPORALMENTE
+  Future<void> takePhotoFromCamera() async {
+    if (!mounted) return;
+
+    setState(() {
+      isUploadingPhotos = true;
+      photoError = null;
+    });
+
+    try {
+      AppLogger.info('Tomando foto con cámara para almacenamiento temporal');
+
+      // Solo tomar la foto sin subir a Firebase
+      final ImagePicker picker = ImagePicker();
+      final XFile? photo = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 60,
+        maxWidth: 800,
+      );
+
+      if (photo == null) {
+        if (mounted) {
+          setState(() {
+            isUploadingPhotos = false;
+          });
+        }
+        AppLogger.warning('No se seleccionó foto');
+        return;
+      }
+
+      // Convertir a base64 para almacenamiento temporal
+      final Uint8List imageBytes = await photo.readAsBytes();
+      final String base64Image = base64Encode(imageBytes);
+
+      if (mounted) {
+        setState(() {
+          pendingPhotosBase64.add(base64Image);
+          isUploadingPhotos = false;
+        });
+        AppLogger.info('Foto almacenada temporalmente',
+            {'totalPending': pendingPhotosBase64.length});
+      }
+    } catch (e) {
+      AppLogger.error('Error tomando foto', e);
+      if (mounted) {
+        setState(() {
+          isUploadingPhotos = false;
+          photoError = '${AppLocalizations.of(context)!.error}: $e';
+        });
+      }
+    }
+  }
+
+  /// Seleccionar foto de galería - ALMACENAR TEMPORALMENTE
+  Future<void> pickPhotoFromGallery() async {
+    if (!mounted) return;
+
+    setState(() {
+      isUploadingPhotos = true;
+      photoError = null;
+    });
+
+    try {
+      AppLogger.info(
+          'Seleccionando foto de galería para almacenamiento temporal');
+
+      // Solo seleccionar la foto sin subir a Firebase
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 60,
+        maxWidth: 800,
+      );
+
+      if (image == null) {
+        if (mounted) {
+          setState(() {
+            isUploadingPhotos = false;
+          });
+        }
+        AppLogger.warning('No se seleccionó foto');
+        return;
+      }
+
+      // Convertir a base64 para almacenamiento temporal
+      final Uint8List imageBytes = await image.readAsBytes();
+      final String base64Image = base64Encode(imageBytes);
+
+      if (mounted) {
+        setState(() {
+          pendingPhotosBase64.add(base64Image);
+          isUploadingPhotos = false;
+        });
+        AppLogger.info('Foto almacenada temporalmente',
+            {'totalPending': pendingPhotosBase64.length});
+      }
+    } catch (e) {
+      AppLogger.error('Error seleccionando foto', e);
+      if (mounted) {
+        setState(() {
+          isUploadingPhotos = false;
+          photoError = '${AppLocalizations.of(context)!.error}: $e';
+        });
+      }
+    }
+  }
+
+  /// Subir fotos pendientes usando los IDs reales de los documentos de Firestore
+  Future<void> _uploadPendingPhotos(List<String> documentIds) async {
+    if (pendingPhotosBase64.isEmpty || !mounted) return;
+
+    setState(() {
+      isUploadingPhotos = true;
+    });
+
+    try {
+      AppLogger.info('Subiendo fotos pendientes con itemId predecible', {
+        'documentId': documentId,
+        'photosCount': pendingPhotosBase64.length,
+        'itemType': selectedType.name
+      });
+
+      final photoService = PhotoService();
+      int uploadedCount = 0;
+
+      for (int i = 0; i < pendingPhotosBase64.length; i++) {
+        if (!mounted) return;
+
+        final photoBase64 = pendingPhotosBase64[i];
+        // Usar el ID real del documento de Firestore (distribuir fotos entre documentos)
+        final itemId = documentIds[i % documentIds.length];
+
+        try {
+          // Convertir base64 a XFile temporal para usar el método existente
+          final photoBytes = base64Decode(photoBase64);
+          final tempFile =
+              XFile.fromData(photoBytes, name: 'temp_photo_$i.jpg');
+
+          final result = await FirebasePhotoService.uploadOversizePhoto(
+            documentId: documentId,
+            itemType: selectedType.name,
+            itemId: itemId,
+            photo: tempFile,
+            flightId: flightId,
+            flightDate: DateTime.now(),
+          );
+
+          if (result != null) {
+            // CLAVE: Guardar también en SharedPreferences para que PhotoButtonWidget la encuentre
+            await photoService.savePhotoLocally(
+              documentId: documentId,
+              flightId: flightId,
+              itemId: itemId,
+              photoBase64: photoBase64,
+              firebaseResult: result,
+            );
+
+            uploadedCount++;
+            AppLogger.info('Foto subida exitosamente y guardada localmente', {
+              'index': i + 1,
+              'total': pendingPhotosBase64.length,
+              'itemId': itemId
+            });
+          }
+        } catch (e) {
+          AppLogger.error('Error subiendo foto individual', e);
+          // Continuar con las siguientes fotos
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          isUploadingPhotos = false;
+        });
+        AppLogger.info('Proceso de subida completado',
+            {'uploaded': uploadedCount, 'total': pendingPhotosBase64.length});
+      }
+    } catch (e) {
+      AppLogger.error('Error en proceso de subida de fotos pendientes', e);
+      if (mounted) {
+        setState(() {
+          isUploadingPhotos = false;
+        });
+      }
+    }
   }
 
   // ========== OPERACIONES PRINCIPALES ==========
@@ -95,8 +313,24 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(localizations.confirmRegister),
-          content: Text(
-              '${localizations.pleaseConfirmRegister} $count ${getTypeLabel(selectedType, localizations)} ${localizations.forFlight} $flightId'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  '${localizations.pleaseConfirmRegister} $count ${getTypeLabel(selectedType, localizations)} ${localizations.forFlight} $flightId'),
+              if (pendingPhotosBase64.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${pendingPhotosBase64.length} ${AppLocalizations.of(context)!.changePhoto.toLowerCase()}s',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -117,7 +351,7 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     return confirm ?? false;
   }
 
-  /// Enviar formulario
+  /// Enviar formulario con soporte para fotos
   Future<void> submitForm(GlobalKey<FormState> formKey) async {
     if (!formKey.currentState!.validate()) return;
 
@@ -132,27 +366,43 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     setState(() {
       isLoading = true;
       errorMessage = null;
+      isUploadingPhotos = pendingPhotosBase64.isNotEmpty;
     });
 
     try {
-      await OversizeFirebaseService.registerItems(
+      AppLogger.info('Iniciando registro de elemento sobredimensionado', {
+        'type': selectedType.name,
+        'count': count,
+        'hasPhotos': pendingPhotosBase64.isNotEmpty,
+        'photosCount': pendingPhotosBase64.length
+      });
+
+      // 1. Registrar el elemento en Firestore primero para obtener IDs reales
+      final List<String> documentIds =
+          await OversizeFirebaseService.registerItems(
         documentId: documentId,
         flightId: flightId,
         type: selectedType,
         count: count,
-        isFragile: isFragile,
-        requiresSpecialHandling: requiresSpecialHandling,
-        specialHandlingDetails: specialHandlingDetails,
+        isFragile: false, // Temporalmente deshabilitado
+        requiresSpecialHandling: false, // Temporalmente deshabilitado
+        specialHandlingDetails: '', // Temporalmente deshabilitado
       );
+
+      // 2. Subir fotos usando los IDs reales de los documentos
+      if (pendingPhotosBase64.isNotEmpty && documentIds.isNotEmpty) {
+        await _uploadPendingPhotos(documentIds);
+      }
 
       if (!mounted) return;
 
       setState(() {
         isLoading = false;
+        isUploadingPhotos = false;
         countController.clear();
-        isFragile = false;
-        requiresSpecialHandling = false;
-        specialHandlingDetails = '';
+        clearPendingPhotos();
+        showPhotoSection =
+            false; // Colapsar la sección de fotos después del registro
       });
 
       // Recargar datos
@@ -164,21 +414,34 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
       // Mostrar mensaje de éxito
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        final photosText = pendingPhotosBase64.isNotEmpty
+            ? ' + ${pendingPhotosBase64.length} fotos'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${AppLocalizations.of(context)!.register} ${AppLocalizations.of(context)!.completed}: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, AppLocalizations.of(context)!)}',
+              '${l10n.register} ${l10n.completed}: $count ${OversizeItemTypeUtils.getTypeLabel(selectedType, l10n)}$photosText',
             ),
             backgroundColor: Colors.green,
           ),
         );
       }
+
+      AppLogger.info('Elemento registrado exitosamente', {
+        'type': selectedType.name,
+        'count': count,
+        'photosUploaded': pendingPhotosBase64.length,
+        'note': 'Fotos subidas usando ID real del documento'
+      });
     } catch (e) {
       AppLogger.error('Error registrando elemento sobredimensionado', e);
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         setState(() {
           isLoading = false;
-          errorMessage = '${AppLocalizations.of(context)!.errorPrefix}: $e';
+          isUploadingPhotos = false;
+          errorMessage = '${l10n.errorPrefix}: $e';
         });
       }
     }
@@ -249,6 +512,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
   /// Alternar visibilidad del historial
   void toggleHistory() {
+    if (!mounted) return;
+
     setState(() {
       showHistory = !showHistory;
     });
@@ -262,6 +527,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
   /// Marcar elemento como eliminado
   Future<void> markItemAsDeleted(String docId) async {
+    if (!mounted) return;
+
     setState(() {
       isDeleting = true;
     });
@@ -279,14 +546,17 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       await loadItemHistory();
       await loadCurrentCount();
 
-      setState(() {
-        isDeleting = false;
-      });
+      if (mounted) {
+        setState(() {
+          isDeleting = false;
+        });
+      }
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.deliveryMarkedDeleted),
+            content: Text(l10n.deliveryMarkedDeleted),
             backgroundColor: Colors.green,
           ),
         );
@@ -294,13 +564,14 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     } catch (e) {
       AppLogger.error('Error marcando elemento como eliminado', e);
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         setState(() {
           isDeleting = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${AppLocalizations.of(context)!.errorPrefix}: $e'),
+            content: Text('${l10n.errorPrefix}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -310,6 +581,8 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
   /// Eliminar todos los elementos
   Future<void> deleteAllItems() async {
+    if (!mounted) return;
+
     setState(() {
       isDeleting = true;
     });
@@ -322,16 +595,17 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
 
       if (deletedCount == 0) {
         if (mounted) {
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.noRegistriesToDelete),
+              content: Text(l10n.noRegistriesToDelete),
               backgroundColor: Colors.orange,
             ),
           );
+          setState(() {
+            isDeleting = false;
+          });
         }
-        setState(() {
-          isDeleting = false;
-        });
         return;
       }
 
@@ -341,15 +615,17 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
       await loadItemHistory();
       await loadCurrentCount();
 
-      setState(() {
-        isDeleting = false;
-      });
+      if (mounted) {
+        setState(() {
+          isDeleting = false;
+        });
+      }
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                '$deletedCount ${AppLocalizations.of(context)!.registriesDeleted}'),
+            content: Text('$deletedCount ${l10n.registriesDeleted}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -357,13 +633,14 @@ mixin OversizeItemRegistrationLogic<T extends StatefulWidget> on State<T> {
     } catch (e) {
       AppLogger.error('Error eliminando todos los elementos', e);
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         setState(() {
           isDeleting = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${AppLocalizations.of(context)!.errorPrefix}: $e'),
+            content: Text('${l10n.errorPrefix}: $e'),
             backgroundColor: Colors.red,
           ),
         );

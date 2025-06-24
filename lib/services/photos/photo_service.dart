@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../utils/logger.dart';
 import 'firebase_photo_service.dart';
 
@@ -174,6 +175,80 @@ class PhotoService {
     }
   }
 
+  /// Obtiene la foto desde Firebase Storage (para uso multi-usuario)
+  Future<String?> getPhotoFromFirebase({
+    required String documentId,
+    required String itemId,
+    required String itemType,
+  }) async {
+    try {
+      AppLogger.info('🔍 Buscando foto en Firebase para item $itemId', null,
+          'PhotoService');
+
+      final List<Map<String, dynamic>> photos =
+          await FirebasePhotoService.getOversizePhotos(
+        documentId: documentId,
+        itemType: itemType,
+        itemId: itemId,
+      );
+
+      if (photos.isEmpty) {
+        AppLogger.debug(
+            '📷 No se encontraron fotos en Firebase para item $itemId',
+            null,
+            'PhotoService');
+        return null;
+      }
+
+      // Tomar la foto más reciente
+      final Map<String, dynamic> latestPhoto = photos.first;
+      final Map<String, dynamic> sizes = latestPhoto['sizes'] ?? {};
+
+      // Intentar obtener la miniatura primero, luego medium, luego original
+      String? downloadUrl;
+      if (sizes.containsKey('thumb') && sizes['thumb']['url'] != null) {
+        downloadUrl = sizes['thumb']['url'];
+        AppLogger.debug('📸 Usando thumbnail', null, 'PhotoService');
+      } else if (sizes.containsKey('medium') &&
+          sizes['medium']['url'] != null) {
+        downloadUrl = sizes['medium']['url'];
+        AppLogger.debug('📸 Usando medium', null, 'PhotoService');
+      } else if (sizes.containsKey('original') &&
+          sizes['original']['url'] != null) {
+        downloadUrl = sizes['original']['url'];
+        AppLogger.debug('📸 Usando original', null, 'PhotoService');
+      }
+
+      if (downloadUrl == null) {
+        AppLogger.warning(
+            '⚠️ No se encontró URL de descarga válida', null, 'PhotoService');
+        return null;
+      }
+
+      AppLogger.info(
+          '🌐 Descargando foto desde: ${downloadUrl.substring(0, 50)}...',
+          null,
+          'PhotoService');
+
+      // Descargar la imagen y convertirla a base64
+      final response = await http.get(Uri.parse(downloadUrl));
+      if (response.statusCode == 200) {
+        final String base64Image = base64Encode(response.bodyBytes);
+        AppLogger.info('✅ Foto descargada exitosamente desde Firebase', null,
+            'PhotoService');
+        return base64Image;
+      } else {
+        AppLogger.error('❌ Error descargando foto: ${response.statusCode}',
+            null, 'PhotoService');
+        return null;
+      }
+    } catch (e) {
+      AppLogger.error(
+          'Error obteniendo foto desde Firebase: $e', e, 'PhotoService');
+      return null;
+    }
+  }
+
   /// Verifica si la foto está sincronizada con Firebase
   Future<bool> isPhotoSynced({
     required String documentId,
@@ -334,6 +409,25 @@ class PhotoService {
       'is_synced': true,
     };
     await prefs.setString(metadataKey, jsonEncode(metadata));
+  }
+
+  /// Guarda foto y metadatos localmente (método público para uso externo)
+  Future<void> savePhotoLocally({
+    required String documentId,
+    required String flightId,
+    required String itemId,
+    required String photoBase64,
+    required Map<String, dynamic> firebaseResult,
+  }) async {
+    try {
+      await _savePhoto(documentId, flightId, itemId, photoBase64);
+      await _saveFirebaseMetadata(documentId, flightId, itemId, firebaseResult);
+      AppLogger.info('Foto y metadatos guardados localmente exitosamente', null,
+          'PhotoService');
+    } catch (e) {
+      AppLogger.error('Error guardando foto localmente: $e', e, 'PhotoService');
+      rethrow;
+    }
   }
 
   /// Convierte base64 a bytes para mostrar la imagen

@@ -64,7 +64,7 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -205,8 +205,8 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
         item['requires_special_handling'] ?? false;
     final String specialDetails = item['special_handling_details'] ?? '';
 
-    // Generar un ID único para el item basado en sus datos
-    final String itemId = _generateItemId(item, itemNumber);
+    // Usar el ID real del documento de Firestore
+    final String itemId = item['id'] ?? _generateItemId(item, itemNumber);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -9,7 +9,7 @@ class OversizeFirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Registra múltiples elementos sobredimensionados
-  static Future<void> registerItems({
+  static Future<List<String>> registerItems({
     required String documentId,
     required String flightId,
     required OversizeItemType type,
@@ -28,6 +28,7 @@ class OversizeFirebaseService {
 
     // Crear un batch para registrar múltiples documentos
     WriteBatch batch = _firestore.batch();
+    List<String> documentIds = [];
 
     // Crear un documento separado para cada item (cada uno con count = 1)
     for (int i = 0; i < count; i++) {
@@ -36,6 +37,9 @@ class OversizeFirebaseService {
           .doc(documentId)
           .collection(collectionName)
           .doc();
+
+      // Guardar el ID del documento
+      documentIds.add(docRef.id);
 
       batch.set(docRef, {
         'timestamp': FieldValue.serverTimestamp(),
@@ -54,6 +58,9 @@ class OversizeFirebaseService {
 
     // Ejecutar el batch
     await batch.commit();
+
+    // Retornar los IDs de los documentos creados
+    return documentIds;
   }
 
   /// Obtiene el conteo actual para un tipo específico

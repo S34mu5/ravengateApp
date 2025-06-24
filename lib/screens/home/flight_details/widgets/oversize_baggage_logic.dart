@@ -55,6 +55,8 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
 
   /// Carga los detalles de elementos para un tipo específico
   Future<void> _loadItemDetails(OversizeItemType type) async {
+    if (!mounted) return;
+
     setState(() {
       isLoadingItems = true;
     });
@@ -91,6 +93,8 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
 
   /// Alterna la expansión de un tipo de elemento
   void toggleExpanded(OversizeItemType type) {
+    if (!mounted) return;
+
     if (expandedType == type) {
       // Si ya está expandido, contraer
       setState(() {
@@ -108,15 +112,21 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
 
   /// Convierte spare items a trolley
   Future<void> convertSpareToTrolley() async {
+    if (!mounted) return;
+
     final l10n = AppLocalizations.of(context)!;
     final int spareCount = counts[OversizeItemType.spare] ?? 0;
 
     if (spareCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noSpareItemsToConvert)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.noSpareItemsToConvert)),
+        );
+      }
       return;
     }
+
+    if (!mounted) return;
 
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -137,7 +147,7 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
     try {
       await _performConversion(spareCount);
@@ -151,8 +161,9 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
       }
 
       if (mounted) {
+        final l10nSuccess = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.spareItemsConverted)),
+          SnackBar(content: Text(l10nSuccess.spareItemsConverted)),
         );
       }
     } catch (e) {
@@ -184,7 +195,7 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
     }).toList();
 
     if (docsToConvert.isEmpty) {
-      throw Exception(AppLocalizations.of(context)!.noSpareItemsAvailable);
+      throw Exception('No spare items available for conversion');
     }
 
     final batch = firestore.batch();
@@ -220,14 +231,18 @@ mixin OversizeBaggageLogic<T extends StatefulWidget> on State<T> {
 
   /// Recarga los datos
   Future<void> refreshData() async {
+    if (!mounted) return;
+
     await _loadCounts();
-    if (expandedType != null) {
+    if (mounted && expandedType != null) {
       await _loadItemDetails(expandedType!);
     }
   }
 
   /// Método público para forzar un refresh desde componentes externos
   Future<void> forceRefresh() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
     });

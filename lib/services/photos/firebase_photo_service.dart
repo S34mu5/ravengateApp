@@ -160,9 +160,10 @@ class FirebasePhotoService {
       AppLogger.debug('🌐 URL obtenida: ${originalUrl.substring(0, 50)}...',
           null, 'FirebasePhotoService');
 
-      // Crear versiones optimizadas (por ahora solo original, luego implementar resize)
-      final String mediumUrl = originalUrl; // TODO: Implementar resize
-      final String thumbUrl = originalUrl; // TODO: Implementar resize
+      // Por ahora solo guardamos la versión original
+      // En el futuro se implementará resize automático para medium y thumb
+      final String mediumUrl = originalUrl;
+      final String thumbUrl = originalUrl;
 
       // Guardar metadata en Firestore
       AppLogger.info('💾 Guardando metadata en Firestore...', null,
@@ -182,14 +183,14 @@ class FirebasePhotoService {
           'medium': {
             'url': mediumUrl,
             'path': mediumPath,
-            'size_bytes': imageBytes
-                .length, // TODO: Calcular tamaño real después de resize
+            'size_bytes':
+                imageBytes.length, // Mismo tamaño que original por ahora
           },
           'thumb': {
             'url': thumbUrl,
             'path': thumbPath,
-            'size_bytes': imageBytes
-                .length, // TODO: Calcular tamaño real después de resize
+            'size_bytes':
+                imageBytes.length, // Mismo tamaño que original por ahora
           },
         },
         'uploaded_at': FieldValue.serverTimestamp(),
@@ -337,8 +338,7 @@ class FirebasePhotoService {
       }
 
       if (photoDoc == null || !photoDoc.exists) {
-        AppLogger.warning(
-            '📷 Foto no encontrada', null, 'FirebasePhotoService');
+        AppLogger.warning('Foto no encontrada', null, 'FirebasePhotoService');
         return false;
       }
 

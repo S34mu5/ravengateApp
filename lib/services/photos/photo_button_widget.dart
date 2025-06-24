@@ -45,19 +45,36 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     AppLogger.debug('🔍 Cargando foto existente para item ${widget.itemId}...',
         null, 'PhotoButtonWidget');
 
-    final photo = await _photoService.getPhoto(
+    // Primero intentar cargar desde Firebase (para que sea visible a todos los usuarios)
+    String? photo = await _photoService.getPhotoFromFirebase(
       documentId: widget.documentId,
-      flightId: widget.flightId,
       itemId: widget.itemId,
+      itemType: widget.itemType,
     );
 
-    final isSynced = await _photoService.isPhotoSynced(
-      documentId: widget.documentId,
-      flightId: widget.flightId,
-      itemId: widget.itemId,
-    );
+    bool isSynced = true; // Las fotos de Firebase siempre están sincronizadas
 
-    AppLogger.debug('📷 Foto encontrada: ${photo != null ? "Sí" : "No"}', null,
+    // Si no se encuentra en Firebase, intentar cargar desde local como fallback
+    if (photo == null) {
+      AppLogger.debug('📱 No encontrada en Firebase, intentando local...', null,
+          'PhotoButtonWidget');
+      photo = await _photoService.getPhoto(
+        documentId: widget.documentId,
+        flightId: widget.flightId,
+        itemId: widget.itemId,
+      );
+
+      if (photo != null) {
+        // Verificar si la foto local está sincronizada
+        isSynced = await _photoService.isPhotoSynced(
+          documentId: widget.documentId,
+          flightId: widget.flightId,
+          itemId: widget.itemId,
+        );
+      }
+    }
+
+    AppLogger.debug('Foto encontrada: ${photo != null ? "Sí" : "No"}', null,
         'PhotoButtonWidget');
     AppLogger.debug(
         '☁️ Está sincronizada: $isSynced', null, 'PhotoButtonWidget');
@@ -92,7 +109,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
       await _showFullPhoto(canManagePhoto: isOversizeLocation);
     } else {
       AppLogger.debug(
-          '📷 No tiene foto, verificando permisos', null, 'PhotoButtonWidget');
+          'No tiene foto, verificando permisos', null, 'PhotoButtonWidget');
       // Solo permitir agregar fotos si está en ubicación Oversize
       if (!isOversizeLocation) {
         AppLogger.warning(
@@ -151,8 +168,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     );
 
     if (result != null && mounted) {
-      AppLogger.info(
-          '📷 Opción seleccionada: $result', null, 'PhotoButtonWidget');
+      AppLogger.info('Opción seleccionada: $result', null, 'PhotoButtonWidget');
       String? newPhoto;
       switch (result) {
         case 'camera':
@@ -227,11 +243,11 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Row(
+          title: const Row(
             children: [
-              const Icon(Icons.error, color: Colors.red),
-              const SizedBox(width: 8),
-              const Text('Error de subida'),
+              Icon(Icons.error, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Error de subida'),
             ],
           ),
           content: Text(l10n.photoUploadFailed),
@@ -248,7 +264,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
 
   /// Muestra la foto en pantalla completa con opciones de gestión
   Future<void> _showFullPhoto({bool canManagePhoto = true}) async {
-    if (_currentPhotoBase64 == null) return;
+    if (_currentPhotoBase64 == null || !mounted) return;
 
     final imageBytes = PhotoService.base64ToBytes(_currentPhotoBase64);
     if (imageBytes == null) return;
@@ -261,6 +277,8 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
       flightId: widget.flightId,
       itemId: widget.itemId,
     );
+
+    if (!mounted) return;
 
     final result = await showDialog<String>(
       context: context,
@@ -337,7 +355,7 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
     );
 
     // Procesar la acción seleccionada (solo si se puede gestionar la foto)
-    if (result != null && mounted && canManagePhoto) {
+    if (result != null && canManagePhoto && mounted) {
       switch (result) {
         case 'change':
           await _showPhotoAddOptions();
