@@ -202,11 +202,45 @@ class PhotoService {
 
       // Tomar la foto más reciente
       final Map<String, dynamic> latestPhoto = photos.first;
-      final String? downloadUrl = latestPhoto['url'];
 
-      if (downloadUrl == null) {
+      // Extraer URL de la estructura correcta
+      String? downloadUrl;
+
+      // Primero intentar la nueva estructura con sizes
+      if (latestPhoto['sizes'] != null &&
+          latestPhoto['sizes']['original'] != null &&
+          latestPhoto['sizes']['original']['url'] != null) {
+        downloadUrl = latestPhoto['sizes']['original']['url'];
+        AppLogger.debug(
+            '✅ URL encontrada en sizes.original.url', null, 'PhotoService');
+      }
+      // Fallback a la estructura antigua (directa)
+      else if (latestPhoto['url'] != null) {
+        downloadUrl = latestPhoto['url'];
+        AppLogger.debug(
+            '✅ URL encontrada en campo url directo', null, 'PhotoService');
+      }
+
+      // Debug: Log detallado de la foto encontrada
+      AppLogger.debug('📋 Datos de la foto encontrada:', null, 'PhotoService');
+      AppLogger.debug(
+          '  🆔 photo_id: ${latestPhoto['photo_id']}', null, 'PhotoService');
+      AppLogger.debug('  🌐 downloadUrl extraída: ${downloadUrl ?? "NULL"}',
+          null, 'PhotoService');
+      AppLogger.debug(
+          '  📂 sizes disponibles: ${latestPhoto['sizes'] != null ? "Sí" : "No"}',
+          null,
+          'PhotoService');
+
+      if (downloadUrl == null || downloadUrl.isEmpty) {
         AppLogger.warning(
-            '⚠️ No se encontró URL de descarga válida', null, 'PhotoService');
+            '⚠️ No se encontró URL de descarga válida - url es null o vacía',
+            null,
+            'PhotoService');
+        AppLogger.warning(
+            '📝 Estructura de sizes: ${latestPhoto['sizes']?.toString() ?? "NULL"}',
+            null,
+            'PhotoService');
         return null;
       }
 

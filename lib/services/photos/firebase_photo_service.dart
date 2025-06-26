@@ -192,6 +192,18 @@ class FirebasePhotoService {
         },
       };
 
+      // Log detallado de los datos que se van a guardar
+      AppLogger.debug(
+          '📝 Datos a guardar en Firestore:', null, 'FirebasePhotoService');
+      AppLogger.debug('  🆔 photoId: $photoId', null, 'FirebasePhotoService');
+      AppLogger.debug('  📂 Ruta: photos/$documentId/oversize_photos/$photoId',
+          null, 'FirebasePhotoService');
+      AppLogger.debug(
+          '  🔖 item_type: "$itemType"', null, 'FirebasePhotoService');
+      AppLogger.debug('  🏷️ item_id: "$itemId"', null, 'FirebasePhotoService');
+      AppLogger.debug(
+          '  📍 item_ref: "$itemRef"', null, 'FirebasePhotoService');
+
       await _firestore
           .collection(_photosCollection)
           .doc(documentId)
@@ -225,6 +237,22 @@ class FirebasePhotoService {
     required String itemId,
   }) async {
     try {
+      AppLogger.info('🔍 Iniciando búsqueda de fotos en Firebase', null,
+          'FirebasePhotoService');
+      AppLogger.debug(
+          '📋 Parámetros: documentId="$documentId", itemType="$itemType", itemId="$itemId"',
+          null,
+          'FirebasePhotoService');
+
+      // Construir la ruta de la consulta para logging
+      final String queryPath = 'photos/$documentId/oversize_photos';
+      AppLogger.debug(
+          '📂 Ruta de consulta: $queryPath', null, 'FirebasePhotoService');
+      AppLogger.debug(
+          '🔍 Filtros: item_id == "$itemId" AND item_type == "$itemType"',
+          null,
+          'FirebasePhotoService');
+
       final QuerySnapshot snapshot = await _firestore
           .collection(_photosCollection)
           .doc(documentId)
@@ -234,16 +262,65 @@ class FirebasePhotoService {
           .orderBy('uploaded_at', descending: true)
           .get();
 
-      return snapshot.docs.map((doc) {
+      AppLogger.info(
+          '📊 Consulta completada. Documentos encontrados: ${snapshot.docs.length}',
+          null,
+          'FirebasePhotoService');
+
+      if (snapshot.docs.isEmpty) {
+        AppLogger.warning('❌ No se encontraron fotos para estos parámetros',
+            null, 'FirebasePhotoService');
+
+        // Hacer una consulta adicional para ver TODAS las fotos de este documentId
+        AppLogger.debug('🔍 Verificando si hay fotos para este documentId...',
+            null, 'FirebasePhotoService');
+
+        final QuerySnapshot allPhotosSnapshot = await _firestore
+            .collection(_photosCollection)
+            .doc(documentId)
+            .collection(_oversizeSubcollection)
+            .get();
+
+        AppLogger.debug(
+            '📊 Total de fotos en el documento: ${allPhotosSnapshot.docs.length}',
+            null,
+            'FirebasePhotoService');
+
+        if (allPhotosSnapshot.docs.isNotEmpty) {
+          AppLogger.debug(
+              '📝 Muestras de fotos existentes:', null, 'FirebasePhotoService');
+          for (int i = 0; i < allPhotosSnapshot.docs.length && i < 3; i++) {
+            final doc = allPhotosSnapshot.docs[i];
+            final data = doc.data() as Map<String, dynamic>;
+            AppLogger.debug(
+                '  📸 Foto ${i + 1}: itemId="${data['item_id']}", itemType="${data['item_type']}"',
+                null,
+                'FirebasePhotoService');
+          }
+        }
+
+        return [];
+      }
+
+      final List<Map<String, dynamic>> result = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return {
           'photo_id': doc.id,
           ...data,
         };
       }).toList();
+
+      AppLogger.info(
+          '✅ Se encontraron ${result.length} fotos para itemId: $itemId',
+          null,
+          'FirebasePhotoService');
+
+      return result;
     } catch (e) {
-      AppLogger.error(
-          'Error obteniendo fotos de Firebase: $e', e, 'FirebasePhotoService');
+      AppLogger.error('💥 Error obteniendo fotos de Firebase: $e', e,
+          'FirebasePhotoService');
+      AppLogger.debug('🔍 Stack trace completo: ${StackTrace.current}', null,
+          'FirebasePhotoService');
       return [];
     }
   }

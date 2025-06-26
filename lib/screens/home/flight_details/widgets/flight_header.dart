@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../utils/airline_helper.dart';
 import '../../../../utils/flight_filter_util.dart';
+import '../../../../services/visualization/gate_stand_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'common_widgets.dart';
 import '../../../../utils/logger.dart';
@@ -40,6 +41,8 @@ class _FlightHeaderState extends State<FlightHeader> {
   String? _errorMessage;
   String _selectedLocation = 'Bins'; // Valor por defecto
   bool _isLocationLoaded = false; // Flag para evitar parpadeo
+  String _gateDisplay = '';
+  String _gateTitle = '';
 
   @override
   void initState() {
@@ -48,6 +51,7 @@ class _FlightHeaderState extends State<FlightHeader> {
     _totalTrolleys = 0;
     _loadSelectedLocation();
     _loadTotalTrolleys();
+    _loadGateDisplay();
   }
 
   /// Carga la ubicación seleccionada desde SharedPreferences
@@ -63,6 +67,26 @@ class _FlightHeaderState extends State<FlightHeader> {
       AppLogger.error('FlightHeader - Error al cargar la ubicación', e);
       setState(() {
         _isLocationLoaded = true; // Marcamos como cargado incluso con error
+      });
+    }
+  }
+
+  /// Carga el display apropiado para la gate/stand
+  Future<void> _loadGateDisplay() async {
+    final gate = widget.flightDetails['gate']?.toString() ?? '';
+    if (gate.isNotEmpty && gate != '-') {
+      final display = await GateStandService.getDisplayValue(gate);
+      if (mounted) {
+        setState(() {
+          _gateDisplay = display;
+          // Determinar el título apropiado
+          _gateTitle = display.startsWith('Stand') ? 'Stand' : 'Gate';
+        });
+      }
+    } else {
+      setState(() {
+        _gateDisplay = gate.isEmpty ? '-' : gate;
+        _gateTitle = 'Gate';
       });
     }
   }
@@ -269,7 +293,7 @@ class _FlightHeaderState extends State<FlightHeader> {
 
           const SizedBox(height: 16),
 
-          // Flight details section - Gate, scheduled time, etc.
+          // Flight details section - Gate/Stand, scheduled time, etc.
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -283,8 +307,10 @@ class _FlightHeaderState extends State<FlightHeader> {
               ),
               InfoColumn(
                 icon: Icons.door_front_door,
-                title: localizations.gate,
-                value: widget.flightDetails['gate'] ?? '-',
+                title: _gateTitle == 'Stand' ? _gateTitle : localizations.gate,
+                value: _gateDisplay.startsWith('Stand')
+                    ? _gateDisplay.replaceFirst('Stand ', '')
+                    : _gateDisplay,
               ),
               if (_isLoadingTrolleys)
                 InfoColumn(

@@ -277,6 +277,8 @@ abstract class AppLocalizations {
   // Data visualization screen
   String get norwegianDyD8Equivalence;
   String get norwegianDyD8EquivalenceSubtitle;
+  String get showStandsInsteadOfGates;
+  String get showStandsInsteadOfGatesSubtitle;
 
   // Oversize item registration form
   String get itemTypeLabel;

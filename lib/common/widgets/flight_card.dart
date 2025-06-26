@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/airline_helper.dart';
 import '../../utils/flight_filter_util.dart';
 import '../../screens/home/flight_details/utils/flight_formatters.dart';
+import '../../services/visualization/gate_stand_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/logger.dart';
 
@@ -68,11 +69,13 @@ class FlightCard extends StatefulWidget {
 class _FlightCardState extends State<FlightCard> {
   int _trolleyCount = 0;
   bool _isLoadingTrolleys = false;
+  String _gateDisplay = '';
 
   @override
   void initState() {
     super.initState();
     _loadTrolleyCount();
+    _loadGateDisplay();
   }
 
   /// Carga el conteo actual de trolleys calculado de la subcolección
@@ -114,6 +117,23 @@ class _FlightCardState extends State<FlightCard> {
           _isLoadingTrolleys = false;
         });
       }
+    }
+  }
+
+  /// Carga el display apropiado para la gate/stand
+  Future<void> _loadGateDisplay() async {
+    final gate = widget.flight['gate']?.toString() ?? '';
+    if (gate.isNotEmpty) {
+      final display = await GateStandService.getDisplayValue(gate);
+      if (mounted) {
+        setState(() {
+          _gateDisplay = display;
+        });
+      }
+    } else {
+      setState(() {
+        _gateDisplay = gate;
+      });
     }
   }
 
@@ -240,12 +260,15 @@ class _FlightCardState extends State<FlightCard> {
               ],
             ),
             const SizedBox(height: 10),
-            // Segunda línea: Gate y trolleys
+            // Segunda línea: Gate/Stand y trolleys
             Row(
               children: [
                 Icon(Icons.meeting_room, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
-                Text('${localizations.gate}: ${widget.flight['gate']}',
+                Text(
+                    _gateDisplay.startsWith('Stand')
+                        ? _gateDisplay
+                        : '${localizations.gate}: $_gateDisplay',
                     style: TextStyle(color: textColor)),
                 // Mostrar siempre trolleys at gate con el contador actualizado
                 Row(

@@ -211,18 +211,22 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
         item['requires_special_handling'] ?? false;
     final String specialDetails = item['special_handling_details'] ?? '';
 
-    // Usar el ID real del documento de Firestore
-    final String itemId = item['id'] ?? _generateItemId(item, itemNumber);
+    // CRÍTICO: Usar SIEMPRE el ID real del documento de Firestore
+    // El ID generado no coincide con el usado en el registro de fotos
+    final String itemId = item['id'] ?? '';
 
-    // Debug: Log para entender el problema de IDs duplicados
-    AppLogger.debug(
-        '🔍 DEBUG ITEM - Number: $itemNumber', null, 'OversizeBaggageUI');
-    AppLogger.debug(
-        '📋 Item data: ${item.toString()}', null, 'OversizeBaggageUI');
-    AppLogger.debug('🆔 Generated itemId: $itemId', null, 'OversizeBaggageUI');
-    AppLogger.debug(
-        '🏠 Real ID from Firestore: ${item['id']}', null, 'OversizeBaggageUI');
-    AppLogger.debug('---', null, 'OversizeBaggageUI');
+    // Debug: Log para verificar que usamos el ID correcto
+    if (item['id'] == null || item['id'].toString().isEmpty) {
+      AppLogger.warning(
+          '⚠️ ALERTA: Item sin ID de Firestore - Las fotos no serán visibles para otros usuarios',
+          null,
+          'OversizeBaggageUI');
+      AppLogger.debug(
+          '📋 Item data: ${item.toString()}', null, 'OversizeBaggageUI');
+    } else {
+      AppLogger.debug('✅ Usando ID real de Firestore: ${item['id']}', null,
+          'OversizeBaggageUI');
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -310,35 +314,41 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
               ],
             ),
           ),
-          // Botón de foto con espaciado moderado
+          // Botón de foto con espaciado moderado - solo si hay ID válido
           const SizedBox(width: 16),
-          PhotoButtonWidget(
-            documentId: documentId,
-            flightId: flightId,
-            itemId: itemId,
-            itemType: expandedType!.name, // Convertir enum a string
-            flightDate: date, // Usar la fecha del item para organizar carpetas
-            onPhotoChanged: () {
-              // Callback opcional para actualizar la UI si es necesario
-            },
-          ),
+          if (itemId.isNotEmpty)
+            PhotoButtonWidget(
+              documentId: documentId,
+              flightId: flightId,
+              itemId: itemId,
+              itemType: expandedType!.name, // Convertir enum a string
+              flightDate:
+                  date, // Usar la fecha del item para organizar carpetas
+              onPhotoChanged: () {
+                // Callback opcional para actualizar la UI si es necesario
+              },
+            )
+          else
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.grey.shade600,
+                size: 24,
+              ),
+            ),
         ],
       ),
     );
   }
 
-  /// Genera un ID único para cada elemento basado en sus datos
-  String _generateItemId(Map<String, dynamic> item, int itemNumber) {
-    final timestamp = item['timestamp'];
-    final isFragile = item['is_fragile'] ?? false;
-    final requiresSpecialHandling = item['requires_special_handling'] ?? false;
-    final specialDetails = item['special_handling_details'] ?? '';
-
-    // Crear un hash simple basado en los datos del item
-    final dataString =
-        '${timestamp}_${isFragile}_${requiresSpecialHandling}_${specialDetails}_$itemNumber';
-    return dataString.hashCode.abs().toString();
-  }
+  // Función _generateItemId eliminada - ya no es necesaria
+  // Ahora siempre usamos el ID real de Firestore para consistencia
 }
 
 /// Widget para mostrar información de cada tipo de elemento

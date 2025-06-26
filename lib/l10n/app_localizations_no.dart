@@ -601,6 +601,13 @@ class AppLocalizationsNo extends AppLocalizations {
   String get norwegianDyD8EquivalenceSubtitle =>
       'Vis fly med DY-kode når du søker etter D8 og omvendt';
 
+  @override
+  String get showStandsInsteadOfGates => 'Vis stands i stedet for gates';
+
+  @override
+  String get showStandsInsteadOfGatesSubtitle =>
+      'Når tilgjengelig, vis stand-nummer (f.eks. Stand 60) i stedet for gate (f.eks. D2)';
+
   // Oversize item registration form
   @override
   String get itemTypeLabel => 'Artikkeltype:';

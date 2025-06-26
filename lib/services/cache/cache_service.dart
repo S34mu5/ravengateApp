@@ -299,6 +299,19 @@ class CacheService {
     }
   }
 
+  /// Guarda la preferencia de mostrar stand en lugar de gate
+  static Future<void> saveShowStandPreference(bool showStand) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_stand_preference', showStand);
+  }
+
+  /// Obtiene la preferencia de mostrar stand en lugar de gate
+  /// Por defecto retorna false (mostrar gate)
+  static Future<bool> getShowStandPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('show_stand_preference') ?? false;
+  }
+
   /// Limpia toda la caché (usar al cerrar sesión)
   static Future<bool> clearCache() async {
     try {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/cache/cache_service.dart';
+import '../../../services/visualization/gate_stand_service.dart';
 import '../../../l10n/app_localizations.dart';
 
 class DataVisualizationSettings extends StatefulWidget {
@@ -12,11 +13,13 @@ class DataVisualizationSettings extends StatefulWidget {
 
 class _DataVisualizationSettingsState extends State<DataVisualizationSettings> {
   bool _norwegianEquivalenceEnabled = true;
+  bool _showStandEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _loadNorwegianPreference();
+    _loadShowStandPreference();
   }
 
   Future<void> _loadNorwegianPreference() async {
@@ -24,6 +27,15 @@ class _DataVisualizationSettingsState extends State<DataVisualizationSettings> {
     if (mounted) {
       setState(() {
         _norwegianEquivalenceEnabled = isEnabled;
+      });
+    }
+  }
+
+  Future<void> _loadShowStandPreference() async {
+    final isEnabled = await GateStandService.getShowStandPreference();
+    if (mounted) {
+      setState(() {
+        _showStandEnabled = isEnabled;
       });
     }
   }
@@ -59,6 +71,18 @@ class _DataVisualizationSettingsState extends State<DataVisualizationSettings> {
                 _norwegianEquivalenceEnabled = value;
               });
               await CacheService.saveNorwegianEquivalencePreference(value);
+            },
+          ),
+          SwitchListTile(
+            title: Text(localizations.showStandsInsteadOfGates),
+            subtitle: Text(localizations.showStandsInsteadOfGatesSubtitle),
+            value: _showStandEnabled,
+            activeColor: Colors.blue,
+            onChanged: (bool value) async {
+              setState(() {
+                _showStandEnabled = value;
+              });
+              await GateStandService.setShowStandPreference(value);
             },
           ),
         ],

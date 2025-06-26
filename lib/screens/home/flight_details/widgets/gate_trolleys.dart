@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../services/visualization/gate_stand_service.dart';
 import '../utils/flight_formatters.dart';
 import '../../../../utils/logger.dart';
 
@@ -34,12 +35,15 @@ class _GateTrolleysState extends State<GateTrolleys> {
   bool _showHistory = false;
   int? _currentTrolleyCount;
   bool _isLoadingCurrentCount = false;
+  String _gateDisplay = '';
+  String _gateTitle = '';
 
   @override
   void initState() {
     super.initState();
-    // Cargamos el conteo actual
+    // Cargamos el conteo actual y el display de la gate
     _loadCurrentTrolleyCount();
+    _loadGateDisplay();
   }
 
   @override
@@ -47,6 +51,33 @@ class _GateTrolleysState extends State<GateTrolleys> {
     _trolleyController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Carga el display apropiado para la gate/stand
+  Future<void> _loadGateDisplay() async {
+    final gate = widget.currentGate;
+    if (gate.isNotEmpty && gate != '-') {
+      final display = await GateStandService.getDisplayValue(gate);
+      if (mounted) {
+        setState(() {
+          _gateDisplay = display;
+          // Determinar el título apropiado
+          _gateTitle = display.startsWith('Stand') ? 'Stand' : 'Gate';
+        });
+      }
+    } else {
+      setState(() {
+        _gateDisplay = gate.isEmpty ? '-' : gate;
+        _gateTitle = 'Gate';
+      });
+    }
+  }
+
+  /// Convierte una gate individual a su display apropiado
+  Future<String> _convertGateDisplay(String gate) async {
+    final display = await GateStandService.getDisplayValue(gate);
+    // Para mostrar en el historial, usamos el formato completo
+    return display;
   }
 
   /// Carga el conteo actual de trolleys calculado de la subcolección
@@ -87,7 +118,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
     }
   }
 
-  /// Loads trolley history
+  /// Loads trolley history with gate/stand conversion
   Future<void> _loadTrolleyHistory() async {
     if (_isLoadingHistory || !mounted) return;
 
@@ -109,13 +140,19 @@ class _GateTrolleysState extends State<GateTrolleys> {
       if (!mounted) return;
 
       // Convertimos todos los documentos a la lista de historial
-      final List<Map<String, dynamic>> history = snapshot.docs.map((doc) {
+      final List<Map<String, dynamic>> history = [];
+
+      for (final doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        return {
+        final String gate = data['gate']?.toString() ?? '';
+        final String gateDisplay = await _convertGateDisplay(gate);
+
+        history.add({
           'id': doc.id,
+          'gate_display': gateDisplay,
           ...data,
-        };
-      }).toList();
+        });
+      }
 
       // Calculate running total for each entry
       int runningTotal = 0;
@@ -152,13 +189,14 @@ class _GateTrolleysState extends State<GateTrolleys> {
   Future<void> _showDeleteConfirmation(
       String docId, int count, String gate) async {
     final localizations = AppLocalizations.of(context)!;
+    final String gateDisplay = await _convertGateDisplay(gate);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(localizations.confirmDeletion),
         content: Text(
-            '${localizations.areYouSureDelete} $count ${_getTrolleyText(count)} ${localizations.gate.toLowerCase()}: $gate?'),
+            '${localizations.areYouSureDelete} $count ${_getTrolleyText(count)} en $gateDisplay?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -239,7 +277,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
         return AlertDialog(
           title: Text(localizations.confirmDelivery),
           content: Text(
-              '${localizations.pleaseConfirmDelivery} $count ${_getTrolleyText(count)} en ${localizations.gate.toLowerCase()} ${widget.currentGate}'),
+              '${localizations.pleaseConfirmDelivery} $count ${_getTrolleyText(count)} en $_gateDisplay'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -470,7 +508,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
           children: [
             // Section title
             Text(
-              localizations.trolleysAtGate,
+              '${localizations.trolleysAtGate}${_gateTitle == 'Stand' ? ' Stand' : ''}',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -481,7 +519,9 @@ class _GateTrolleysState extends State<GateTrolleys> {
 
             // Description
             Text(
-              '${localizations.registerTrolleysLeft} ${widget.currentGate}',
+              _gateTitle == 'Stand'
+                  ? 'Register trolleys left at $_gateDisplay'
+                  : '${localizations.registerTrolleysLeft} $_gateDisplay',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -603,6 +643,9 @@ class _GateTrolleysState extends State<GateTrolleys> {
                                     ? (item['timestamp'] as Timestamp).toDate()
                                     : DateTime.now();
                                 final bool isDeleted = item['deleted'] ?? false;
+                                final String gateDisplay =
+                                    item['gate_display'] ?? item['gate'] ?? '';
+
                                 return Card(
                                   margin:
                                       const EdgeInsets.symmetric(vertical: 4.0),
@@ -656,7 +699,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              '${item['count']} ${_getTrolleyText(item['count'])} ${localizations.deliveredAtGate} ${item['gate']}',
+                                              '${item['count']} ${_getTrolleyText(item['count'])} ${localizations.deliveredAtGate} $gateDisplay',
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15,

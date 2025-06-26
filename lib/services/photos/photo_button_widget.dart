@@ -47,9 +47,14 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
 
     AppLogger.debug('🔍 Cargando foto existente para item ${widget.itemId}...',
         null, 'PhotoButtonWidget');
+    AppLogger.debug(
+        '📋 Parámetros - documentId: ${widget.documentId}, itemType: ${widget.itemType}',
+        null,
+        'PhotoButtonWidget');
 
     try {
       // Primero intentar cargar desde Firebase (para que sea visible a todos los usuarios)
+      AppLogger.debug('☁️ Buscando en Firebase...', null, 'PhotoButtonWidget');
       String? photo = await _photoService.getPhotoFromFirebase(
         documentId: widget.documentId,
         itemId: widget.itemId,
@@ -57,6 +62,18 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
       );
 
       bool isSynced = true; // Las fotos de Firebase siempre están sincronizadas
+
+      if (photo != null) {
+        AppLogger.info(
+            '✅ Foto encontrada en Firebase para itemId: ${widget.itemId}',
+            null,
+            'PhotoButtonWidget');
+      } else {
+        AppLogger.warning(
+            '❌ No se encontró foto en Firebase para itemId: ${widget.itemId}',
+            null,
+            'PhotoButtonWidget');
+      }
 
       // Si no se encuentra en Firebase, intentar cargar desde local como fallback
       if (photo == null) {
@@ -69,16 +86,23 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
         );
 
         if (photo != null) {
+          AppLogger.debug('📱 Foto encontrada en almacenamiento local', null,
+              'PhotoButtonWidget');
           // Verificar si la foto local está sincronizada
           isSynced = await _photoService.isPhotoSynced(
             documentId: widget.documentId,
             flightId: widget.flightId,
             itemId: widget.itemId,
           );
+        } else {
+          AppLogger.debug('📱 Tampoco encontrada en almacenamiento local', null,
+              'PhotoButtonWidget');
         }
       }
 
-      AppLogger.debug('Foto encontrada: ${photo != null ? "Sí" : "No"}', null,
+      AppLogger.debug(
+          '🏁 Resultado final - Foto encontrada: ${photo != null ? "Sí" : "No"}',
+          null,
           'PhotoButtonWidget');
       AppLogger.debug(
           '☁️ Está sincronizada: $isSynced', null, 'PhotoButtonWidget');
@@ -91,7 +115,8 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error cargando foto: $e', e, 'PhotoButtonWidget');
+      AppLogger.error('💥 Error cargando foto para itemId ${widget.itemId}: $e',
+          e, 'PhotoButtonWidget');
       if (mounted) {
         setState(() {
           _isLoadingInitial =
