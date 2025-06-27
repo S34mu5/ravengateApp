@@ -4,6 +4,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../services/visualization/gate_stand_service.dart';
 import '../utils/flight_formatters.dart';
 import '../../../../utils/logger.dart';
+import '../../../../services/location/location_service.dart';
+import 'gate_trolley_history.dart';
 
 /// Widget that allows the operator to register the number of trolleys left at the gate
 class GateTrolleys extends StatefulWidget {
@@ -330,6 +332,20 @@ class _GateTrolleysState extends State<GateTrolleys> {
     });
 
     try {
+      // Intentar obtener coordenadas GPS
+      double? latitude;
+      double? longitude;
+      try {
+        final position = await LocationService.getCurrentPosition();
+        if (position != null) {
+          latitude = position.latitude;
+          longitude = position.longitude;
+        }
+      } catch (e) {
+        // Si falla el GPS, registramos en logs pero no interrumpimos la entrega
+        AppLogger.warning('No se pudo obtener posición GPS: $e');
+      }
+
       // Record in new 'trolleys' subcollection instead of 'history'
       await _firestore
           .collection('flights')
@@ -342,6 +358,11 @@ class _GateTrolleysState extends State<GateTrolleys> {
         'flight_id': widget.flightId,
         'document_id': widget.documentId,
         'action': 'delivery',
+        if (latitude != null && longitude != null)
+          'gps': {
+            'lat': latitude,
+            'lng': longitude,
+          },
       });
 
       // Verify if widget is still mounted before continuing
@@ -580,9 +601,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
                   setState(() {
                     _showHistory = !_showHistory;
                   });
-                  if (_showHistory && _trolleyHistory.isEmpty) {
-                    _loadTrolleyHistory();
-                  }
                 },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -613,126 +631,14 @@ class _GateTrolleysState extends State<GateTrolleys> {
             if (_showHistory)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
-                child: _isLoadingHistory
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    : _trolleyHistory.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(localizations.noHistoryAvailable),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text(
-                                  localizations.gateTrolleysHistory,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              ...(_trolleyHistory.map((item) {
-                                final timestamp = item['timestamp'] is Timestamp
-                                    ? (item['timestamp'] as Timestamp).toDate()
-                                    : DateTime.now();
-                                final bool isDeleted = item['deleted'] ?? false;
-                                final String gateDisplay =
-                                    item['gate_display'] ?? item['gate'] ?? '';
-
-                                return Card(
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 4.0),
-                                  elevation: 1,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              FlightFormatters.formatDateTime(
-                                                  timestamp),
-                                              style: TextStyle(
-                                                color: Colors.grey.shade600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            if (!isDeleted)
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.delete_outline,
-                                                  color: Colors.red,
-                                                  size: 20,
-                                                ),
-                                                onPressed: () =>
-                                                    _showDeleteConfirmation(
-                                                  item['id'],
-                                                  item['count'],
-                                                  item['gate'],
-                                                ),
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints(),
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8.0),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.shopping_cart,
-                                              size: 18,
-                                              color: isDeleted
-                                                  ? Colors.grey
-                                                  : null,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '${item['count']} ${_getTrolleyText(item['count'])} ${localizations.deliveredAtGate} $gateDisplay',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15,
-                                                color: isDeleted
-                                                    ? Colors.grey
-                                                    : null,
-                                                decoration: isDeleted
-                                                    ? TextDecoration.lineThrough
-                                                    : null,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }).toList()),
-                              const SizedBox(height: 16),
-                              Center(
-                                child: TextButton.icon(
-                                  onPressed: _showDeleteAllConfirmation,
-                                  icon: const Icon(Icons.delete_forever,
-                                      color: Colors.red),
-                                  label: Text(
-                                    localizations.deleteAllDeliveries,
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                child: GateTrolleyHistory(
+                  documentId: widget.documentId,
+                  flightId: widget.flightId,
+                  currentGate: widget.currentGate,
+                  onUpdateSuccess: widget.onUpdateSuccess,
+                ),
               ),
+            const SizedBox(height: 4),
           ],
         ),
       ),
