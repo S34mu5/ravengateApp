@@ -53,51 +53,60 @@ class _PhotoButtonWidgetState extends State<PhotoButtonWidget> {
         'PhotoButtonWidget');
 
     try {
-      // Primero intentar cargar desde Firebase (para que sea visible a todos los usuarios)
-      AppLogger.debug('☁️ Buscando en Firebase...', null, 'PhotoButtonWidget');
-      String? photo = await _photoService.getPhotoFromFirebase(
+      // 1. Intentar cargar DESDE CACHÉ local primero
+      AppLogger.debug(
+          '📱 Buscando en caché local...', null, 'PhotoButtonWidget');
+      String? photo = await _photoService.getPhoto(
         documentId: widget.documentId,
+        flightId: widget.flightId,
         itemId: widget.itemId,
-        itemType: widget.itemType,
       );
 
-      bool isSynced = true; // Las fotos de Firebase siempre están sincronizadas
+      bool isSynced = await _photoService.isPhotoSynced(
+        documentId: widget.documentId,
+        flightId: widget.flightId,
+        itemId: widget.itemId,
+      );
 
-      if (photo != null) {
-        AppLogger.info(
-            '✅ Foto encontrada en Firebase para itemId: ${widget.itemId}',
+      // 2. Si no hay foto local o no está sincronizada, consultar Firebase
+      if (photo == null || !isSynced) {
+        AppLogger.debug(
+            '☁️ Caché vacía o desincronizada → buscando en Firebase...',
             null,
             'PhotoButtonWidget');
-      } else {
-        AppLogger.warning(
-            '❌ No se encontró foto en Firebase para itemId: ${widget.itemId}',
-            null,
-            'PhotoButtonWidget');
-      }
-
-      // Si no se encuentra en Firebase, intentar cargar desde local como fallback
-      if (photo == null) {
-        AppLogger.debug('📱 No encontrada en Firebase, intentando local...',
-            null, 'PhotoButtonWidget');
-        photo = await _photoService.getPhoto(
+        final String? remotePhoto = await _photoService.getPhotoFromFirebase(
           documentId: widget.documentId,
-          flightId: widget.flightId,
           itemId: widget.itemId,
+          itemType: widget.itemType,
         );
 
-        if (photo != null) {
-          AppLogger.debug('📱 Foto encontrada en almacenamiento local', null,
-              'PhotoButtonWidget');
-          // Verificar si la foto local está sincronizada
-          isSynced = await _photoService.isPhotoSynced(
+        if (remotePhoto != null) {
+          AppLogger.info(
+              '✅ Foto obtenida de Firebase', null, 'PhotoButtonWidget');
+          photo = remotePhoto;
+          isSynced = true;
+
+          // Guardar la copia descargada para futuras cargas sin red
+          await _photoService.savePhotoLocally(
             documentId: widget.documentId,
             flightId: widget.flightId,
             itemId: widget.itemId,
+            photoBase64: remotePhoto,
+            firebaseResult: {
+              'photo_id': 'cached',
+              'url': 'cached',
+              'photo_data': {},
+            },
           );
-        } else {
-          AppLogger.debug('📱 Tampoco encontrada en almacenamiento local', null,
+          AppLogger.debug('💾 Copia remota almacenada en caché local', null,
               'PhotoButtonWidget');
+        } else {
+          AppLogger.warning(
+              '❌ No se encontró foto en Firebase', null, 'PhotoButtonWidget');
         }
+      } else {
+        AppLogger.debug(
+            '✅ Foto obtenida de caché local', null, 'PhotoButtonWidget');
       }
 
       AppLogger.debug(

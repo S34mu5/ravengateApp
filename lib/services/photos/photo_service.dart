@@ -13,6 +13,10 @@ class PhotoService {
   static const int _maxImageQuality = 60; // Reducir calidad para menor tamaño
   static const double _maxImageWidth = 800; // Máximo ancho en píxeles
 
+  // —— Gestión de caché ——
+  static const String _cacheIndexKey = '${_photoKeysPrefix}index';
+  static const int _maxCacheEntries = 10; // Límite global de fotos en caché
+
   final ImagePicker _picker = ImagePicker();
 
   /// Toma una foto con la cámara y la asocia a un elemento específico
@@ -372,6 +376,12 @@ class PhotoService {
       final bool localPhotoDeleted = await prefs.remove(key);
       final bool localMetadataDeleted = await prefs.remove(metadataKey);
 
+      // ➖ Quitar la clave del índice de caché
+      List<String> index = prefs.getStringList(_cacheIndexKey) ?? <String>[];
+      if (index.remove(key)) {
+        await prefs.setStringList(_cacheIndexKey, index);
+      }
+
       AppLogger.info(
           '📱 Datos locales eliminados - Foto: $localPhotoDeleted, Metadata: $localMetadataDeleted',
           null,
@@ -409,6 +419,24 @@ class PhotoService {
     final prefs = await SharedPreferences.getInstance();
     final String key = _buildPhotoKey(documentId, flightId, itemId);
     await prefs.setString(key, base64Image);
+
+    // Actualizar índice de caché para LRU simple
+    List<String> index = prefs.getStringList(_cacheIndexKey) ?? <String>[];
+    index.remove(key); // Evitar duplicados
+    index.add(key); // Añadir como el más reciente
+
+    // Si excede el límite, eliminar los más antiguos
+    if (index.length > _maxCacheEntries) {
+      final int excess = index.length - _maxCacheEntries;
+      final Iterable<String> toRemove = index.take(excess);
+      for (final oldKey in toRemove) {
+        await prefs.remove(oldKey);
+        await prefs.remove('${oldKey}_firebase_metadata');
+      }
+      index = index.sublist(excess); // Mantener solo los más recientes
+    }
+
+    await prefs.setStringList(_cacheIndexKey, index);
   }
 
   /// Guarda metadatos de Firebase para indicar sincronización
