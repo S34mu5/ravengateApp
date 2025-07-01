@@ -72,6 +72,9 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
       AppLogger.debug(
           '🔄 Estado de carga activado', null, 'GateTrolleyHistory');
 
+      // Mostrar estado del cache antes de cargar
+      await LocationService.debugCacheStatus();
+
       // Primero intentar cargar desde cache
       AppLogger.info('💾 CACHE: Verificando cache para ${widget.documentId}...',
           null, 'GateTrolleyHistory');

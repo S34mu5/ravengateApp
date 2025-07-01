@@ -13,6 +13,9 @@ class LocationService {
       'trolley_history_timestamp_';
   static const Duration _cacheExpiration =
       Duration(minutes: 5); // Cache válido por 5 minutos
+  static const int _maxMemoryCacheEntries = 10; // Máximo 10 vuelos en memoria
+  static const int _maxSharedPrefsCacheEntries =
+      50; // Máximo 50 vuelos en SharedPreferences
 
   // Cache en memoria para evitar múltiples consultas a SharedPreferences
   static final Map<String, List<Map<String, dynamic>>> _memoryCache = {};
@@ -209,6 +212,8 @@ class LocationService {
         if (DateTime.now().difference(timestamp) < _cacheExpiration) {
           AppLogger.debug('🎯 Cache en memoria válido para $documentId', null,
               'LocationService');
+          // Actualizar timestamp para algoritmo LRU (marca como usado recientemente)
+          _memoryCacheTimestamps[memoryCacheKey] = DateTime.now();
           return _memoryCache[memoryCacheKey];
         } else {
           AppLogger.debug('⏰ Cache en memoria expirado para $documentId', null,
@@ -261,6 +266,9 @@ class LocationService {
       _memoryCache[memoryCacheKey] = history;
       _memoryCacheTimestamps[memoryCacheKey] = cacheTimestamp;
 
+      // Limpiar cache si es necesario
+      _cleanupMemoryCache();
+
       AppLogger.debug(
           '✅ Cache válido encontrado para $documentId (${history.length} items)',
           null,
@@ -293,6 +301,12 @@ class LocationService {
       // Guardar en cache de memoria
       _memoryCache[documentId] = history;
       _memoryCacheTimestamps[documentId] = now;
+
+      // Limpiar cache si es necesario
+      _cleanupMemoryCache();
+
+      // Limpiar SharedPreferences si es necesario (ejecutar async sin await)
+      _cleanupSharedPrefsCache();
 
       AppLogger.debug(
           '💾 Cache guardado para $documentId (${history.length} items)',
@@ -352,6 +366,113 @@ class LocationService {
     } catch (e) {
       AppLogger.error(
           '💥 Error limpiando cache de trolleys: $e', e, 'LocationService');
+    }
+  }
+
+  /// Limpia entradas de cache antiguas basadas en LRU (Least Recently Used)
+  static void _cleanupMemoryCache() {
+    if (_memoryCache.length <= _maxMemoryCacheEntries) return;
+
+    // Obtener entradas ordenadas por timestamp (más antigua primero)
+    final entries = _memoryCacheTimestamps.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    // Calcular cuántas eliminar
+    final entriesToRemove = _memoryCache.length - _maxMemoryCacheEntries;
+
+    // Eliminar las más antiguas
+    for (int i = 0; i < entriesToRemove; i++) {
+      final keyToRemove = entries[i].key;
+      _memoryCache.remove(keyToRemove);
+      _memoryCacheTimestamps.remove(keyToRemove);
+      AppLogger.debug(
+          '🧹 CACHE: Eliminada entrada antigua de memoria: $keyToRemove',
+          null,
+          'LocationService');
+    }
+
+    AppLogger.debug(
+        '🧹 CACHE: Limpieza completada. Entradas en memoria: ${_memoryCache.length}',
+        null,
+        'LocationService');
+  }
+
+  /// Limpia entradas de SharedPreferences antiguas
+  static Future<void> _cleanupSharedPrefsCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+
+      // Encontrar todas las entradas de cache de trolleys
+      final cacheEntries = <String, int>{};
+
+      for (final key in keys) {
+        if (key.startsWith(_trolleyHistoryTimestampKey)) {
+          final documentId = key.substring(_trolleyHistoryTimestampKey.length);
+          final timestamp = prefs.getInt(key);
+          if (timestamp != null) {
+            cacheEntries[documentId] = timestamp;
+          }
+        }
+      }
+
+      // Si no excede el límite, no hacer nada
+      if (cacheEntries.length <= _maxSharedPrefsCacheEntries) return;
+
+      // Ordenar por timestamp (más antiguo primero)
+      final sortedEntries = cacheEntries.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+
+      // Calcular cuántas eliminar
+      final entriesToRemove = cacheEntries.length - _maxSharedPrefsCacheEntries;
+
+      // Eliminar las más antiguas
+      for (int i = 0; i < entriesToRemove; i++) {
+        final documentId = sortedEntries[i].key;
+        await prefs.remove('$_trolleyHistoryTimestampKey$documentId');
+        await prefs.remove('$_trolleyHistoryCacheKey$documentId');
+        AppLogger.debug(
+            '🧹 CACHE: Eliminada entrada antigua de SharedPrefs: $documentId',
+            null,
+            'LocationService');
+      }
+
+      AppLogger.debug(
+          '🧹 CACHE: Limpieza SharedPrefs completada. Entradas restantes: ${cacheEntries.length - entriesToRemove}',
+          null,
+          'LocationService');
+    } catch (e) {
+      AppLogger.error(
+          '💥 Error limpiando cache de SharedPrefs: $e', e, 'LocationService');
+    }
+  }
+
+  /// Método de diagnóstico para ver el estado actual del cache
+  static Future<void> debugCacheStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+
+      // Contar entradas de cache
+      int sharedPrefsEntries = 0;
+      for (final key in keys) {
+        if (key.startsWith(_trolleyHistoryCacheKey) ||
+            key.startsWith(_trolleyHistoryTimestampKey)) {
+          sharedPrefsEntries++;
+        }
+      }
+
+      AppLogger.debug(
+          '📊 CACHE STATUS:\n'
+              '  • Memoria: ${_memoryCache.length}/${_maxMemoryCacheEntries} entradas\n'
+              '  • SharedPrefs: ${sharedPrefsEntries ~/ 2}/${_maxSharedPrefsCacheEntries} entradas\n'
+              '  • Vuelos en memoria: ${_memoryCache.keys.toList()}\n'
+              '  • Tiempo expiración: ${_cacheExpiration.inMinutes} minutos',
+          null,
+          'LocationService');
+    } catch (e) {
+      AppLogger.error(
+          '💥 Error obteniendo estado del cache: $e', e, 'LocationService');
     }
   }
 }
