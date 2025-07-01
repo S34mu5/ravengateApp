@@ -35,8 +35,8 @@ class FlightsCounterDisplay extends StatelessWidget {
     this.norwegianEquivalenceEnabled = true,
     this.leadingActions = const [],
     this.trailingActions = const [],
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

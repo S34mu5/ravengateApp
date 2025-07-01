@@ -10,8 +10,8 @@ class StatusChip extends StatelessWidget {
   const StatusChip({
     required this.text,
     required this.color,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +47,8 @@ class InfoRow extends StatelessWidget {
     required this.icon,
     this.textColor,
     this.textDecoration,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

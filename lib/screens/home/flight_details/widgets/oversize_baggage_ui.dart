@@ -193,8 +193,7 @@ class _OversizeBaggageUIState extends State<OversizeBaggageUI>
                     entry.value,
                     entry.key + 1, // Numeración normal: 1, 2, 3...
                     l10n,
-                  ))
-              .toList(),
+                  )),
         ],
       ),
     );
@@ -363,8 +362,8 @@ class _InfoColumn extends StatelessWidget {
     required this.label,
     required this.count,
     this.isExpanded = false,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

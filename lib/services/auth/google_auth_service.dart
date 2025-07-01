@@ -15,7 +15,7 @@ class GoogleAuthService implements AuthService {
   GoogleAuthService({
     GoogleSignIn? googleSignIn,
     FirebaseAuth? firebaseAuth,
-  })  : _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email']),
+  })  : _googleSignIn = googleSignIn ?? GoogleSignIn.instance,
         _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   @override
@@ -30,86 +30,56 @@ class GoogleAuthService implements AuthService {
   @override
   Future<AuthResult> authenticate() async {
     try {
-      // 1) Si ya hay usuario de Firebase, devolvemos sesión activa.
-      final currentUser = _firebaseAuth.currentUser;
-      if (currentUser != null) {
-        return AuthResult(
-          success: true,
-          method: method,
-          user: currentUser,
-        );
+      // 1) Sesión ya iniciada en Firebase → devolvemos éxito inmediato
+      final firebaseUser = _firebaseAuth.currentUser;
+      if (firebaseUser != null) {
+        return AuthResult(success: true, method: method, user: firebaseUser);
       }
 
-      // 2) Intento de sesión silenciosa en Google
+      // 2) Inicializamos (necesario en la nueva API) y probamos autenticación ligera
+      await _googleSignIn.initialize();
+
       GoogleSignInAccount? googleUser;
       try {
-        googleUser = await _googleSignIn.signInSilently();
+        googleUser = await _googleSignIn.attemptLightweightAuthentication();
       } catch (e) {
-        AppLogger.warning('Error en signInSilently (ignorado): $e');
-        // Continuamos con el flujo aunque falle el silencioso
+        AppLogger.warning('attemptLightweightAuthentication falló: $e');
       }
 
-      // 3) Si no había sesión, pedimos interactivo
-      if (googleUser == null) {
+      // 3) Si sigue sin haber usuario, lanzamos flujo interactivo (authenticate)
+      if (googleUser == null && _googleSignIn.supportsAuthenticate()) {
         try {
-          googleUser = await _googleSignIn.signIn();
+          googleUser = await _googleSignIn.authenticate();
         } catch (e) {
-          AppLogger.warning('Error en signIn interactivo: $e');
-          if (e.toString().contains('PigeonUserDetails')) {
-            // Ignoramos este error específico ya que no impide el funcionamiento
-            AppLogger.info('Ignorando error de PigeonUserDetails');
-          } else {
-            // Para otros errores, retornamos el resultado de error
-            return AuthResult(
-              success: false,
-              method: method,
-              error: 'Error durante la autenticación con Google: $e',
-            );
-          }
+          AppLogger.warning('authenticate cancelado/error: $e');
         }
       }
 
+      // Usuario canceló el diálogo o no se obtuvo cuenta
       if (googleUser == null) {
-        // El usuario canceló el flujo
         return AuthResult(
           success: false,
           method: method,
-          error: 'Google Sign-In cancelado por el usuario',
+          error: 'Inicio de sesión cancelado por el usuario',
         );
       }
 
-      // 4) Obtenemos credenciales de Google
+      // 4) Intercambiamos credenciales con Firebase
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // 5) Autenticamos en Firebase con las credenciales
-      final result = await _firebaseAuth.signInWithCredential(credential);
+      final userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
+
       return AuthResult(
         success: true,
         method: method,
-        user: result.user,
+        user: userCredential.user,
       );
     } catch (e) {
-      AppLogger.error('Error en authenticate de GoogleAuthService', e);
-      // Para el error específico de PigeonUserDetails, ignoramos
-      if (e.toString().contains('PigeonUserDetails')) {
-        // Si tenemos usuario en Firebase a pesar del error, consideramos exitoso
-        final currentUser = _firebaseAuth.currentUser;
-        if (currentUser != null) {
-          AppLogger.info(
-              'Usuario autenticado a pesar del error PigeonUserDetails');
-          return AuthResult(
-            success: true,
-            method: method,
-            user: currentUser,
-          );
-        }
-      }
-
-      // Devolvemos siempre string para simplificar manejo de errores
+      AppLogger.error('GoogleAuthService.authenticate error', e);
       return AuthResult(
         success: false,
         method: method,

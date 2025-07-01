@@ -43,8 +43,8 @@ class FlightSelectionControls extends StatelessWidget {
     required this.actionColor,
     this.actionTextColor = Colors.black87,
     this.actionIcon = Icons.save,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

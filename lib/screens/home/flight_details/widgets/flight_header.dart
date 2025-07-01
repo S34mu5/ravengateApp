@@ -28,8 +28,8 @@ class FlightHeader extends StatefulWidget {
     required this.isCancelled,
     required this.airlineColor,
     required this.documentId,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<FlightHeader> createState() => _FlightHeaderState();
@@ -375,8 +375,8 @@ class InfoColumn extends StatelessWidget {
     this.valueColor,
     this.valueFontWeight,
     this.valueDecoration,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

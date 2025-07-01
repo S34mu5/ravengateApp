@@ -25,7 +25,8 @@ android {
 
     defaultConfig {
         applicationId = "com.jaimevillalba.ravengate"
-        minSdk = flutter.minSdkVersion
+        // Firebase Auth 23.2.1 requiere minSdk 23 o superior
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

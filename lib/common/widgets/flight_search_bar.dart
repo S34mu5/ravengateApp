@@ -27,8 +27,8 @@ class FlightSearchBar extends StatelessWidget {
     this.hintText = 'Search by flight number or destination',
     this.searchIconColor = Colors.blue,
     this.clearController = true,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

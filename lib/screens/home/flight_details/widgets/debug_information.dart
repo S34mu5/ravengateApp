@@ -9,8 +9,8 @@ class DebugInformation extends StatelessWidget {
   const DebugInformation({
     required this.documentId,
     required this.onShowAdditionalInfo,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

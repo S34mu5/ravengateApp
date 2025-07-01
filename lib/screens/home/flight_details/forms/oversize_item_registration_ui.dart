@@ -21,8 +21,8 @@ class OversizeItemRegistrationUI extends StatefulWidget {
     required this.currentGate,
     required this.onSuccess,
     this.showCloseIcon = true,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<OversizeItemRegistrationUI> createState() =>

@@ -12,8 +12,8 @@ class GateHistory extends StatefulWidget {
   const GateHistory({
     required this.gateHistory,
     required this.formattedScheduleTime,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<GateHistory> createState() => _GateHistoryState();

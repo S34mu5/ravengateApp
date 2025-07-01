@@ -152,7 +152,7 @@ class LanguageSelector extends StatelessWidget {
                   ),
                 ),
               );
-            }).toList(),
+            }),
 
             // Espacio inferior
             const SizedBox(height: 20),
