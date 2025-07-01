@@ -510,7 +510,7 @@ class UserFlightsService {
     flight.forEach((key, value) {
       if (value is Color) {
         // Convert Color to integer
-        processedFlight[key] = value.value;
+        processedFlight[key] = value.toARGB32();
       } else if (value == null) {
         // Skip null values or provide default values if needed
         processedFlight[key] = value;
@@ -610,7 +610,7 @@ class UserFlightsService {
           if (!completeData.containsKey('color')) {
             final airline = completeData['airline'] ?? '';
             completeData['color'] =
-                AirlineHelper.getAirlineColor(airline).value;
+                AirlineHelper.getAirlineColor(airline).toARGB32();
           }
 
           completeFlights.add(completeData);
@@ -629,6 +629,11 @@ class UserFlightsService {
             'airline': ref['flight_id']?.substring(0, 2) ?? 'XX',
             'schedule_time': 'N/A',
           };
+
+          // Add a color for display
+          if (!basicData.containsKey('color')) {
+            basicData['color'] = Colors.grey.toARGB32();
+          }
 
           completeFlights.add(basicData);
         }
@@ -678,7 +683,7 @@ class UserFlightsService {
           if (!completeData.containsKey('color')) {
             final airline = completeData['airline'] ?? '';
             completeData['color'] =
-                AirlineHelper.getAirlineColor(airline).value;
+                AirlineHelper.getAirlineColor(airline).toARGB32();
           }
 
           completeFlights.add(completeData);
@@ -699,7 +704,7 @@ class UserFlightsService {
 
           // Add a color for display
           if (!basicData.containsKey('color')) {
-            basicData['color'] = Colors.grey.value;
+            basicData['color'] = Colors.grey.toARGB32();
           }
 
           completeFlights.add(basicData);
@@ -718,7 +723,7 @@ class UserFlightsService {
           'gate': 'Error',
           'airline': ref['flight_id']?.substring(0, 2) ?? 'XX',
           'schedule_time': 'Error',
-          'color': Colors.red.value,
+          'color': Colors.red.toARGB32(),
         });
       }
     }

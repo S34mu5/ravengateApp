@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../utils/flight_formatters.dart';
 import '../../../../services/visualization/gate_stand_service.dart';
 import '../../../../utils/logger.dart';
 
@@ -95,7 +94,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
             'GateTrolleyHistory');
 
         try {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = doc.data();
           AppLogger.debug(
               '📄 Doc $i data: ${data.toString()}', null, 'GateTrolleyHistory');
 
@@ -142,23 +141,6 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
     }
   }
 
-  Future<void> _markDeliveryAsDeleted(String docId) async {
-    try {
-      await _firestore
-          .collection('flights')
-          .doc(widget.documentId)
-          .collection('trolleys')
-          .doc(docId)
-          .set({'deleted': true, 'deleted_at': FieldValue.serverTimestamp()},
-              SetOptions(merge: true));
-
-      await _loadTrolleyHistory();
-      widget.onUpdateSuccess?.call();
-    } catch (e) {
-      AppLogger.error('Error marking trolley delivery as deleted', e);
-    }
-  }
-
   Future<void> _deleteAllDeliveries() async {
     try {
       final snapshot = await _firestore
@@ -182,31 +164,6 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
     } catch (e) {
       AppLogger.error('Error deleting all deliveries', e);
     }
-  }
-
-  Future<void> _showDeleteConfirmation(
-      String docId, int count, String gate, AppLocalizations l10n) async {
-    final gateDisplay = await _convertGateDisplay(gate);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(l10n.confirmDeletion),
-        content: Text(
-            '${l10n.areYouSureDelete} $count ${_getTrolleyText(count, l10n)} en $gateDisplay?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancel)),
-          TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _markDeliveryAsDeleted(docId);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: Text(l10n.delete)),
-        ],
-      ),
-    );
   }
 
   Future<void> _showDeleteAllConfirmation() async {
@@ -254,7 +211,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -397,7 +354,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
           '💥 Error en build() - fase inicial: $e', e, 'GateTrolleyHistory');
       return Container(
         padding: const EdgeInsets.all(16),
-        child: Text('Error: $e', style: TextStyle(color: Colors.red)),
+        child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
       );
     }
 
@@ -456,7 +413,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
               child: Card(
                 margin: const EdgeInsets.symmetric(vertical: 4),
                 elevation: 1,
-                child: Container(
+                child: SizedBox(
                   height: 120, // Altura fija para todas las cards
                   child: Stack(
                     children: [
@@ -467,7 +424,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                           try {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Container(
+                              child: SizedBox(
                                 height: 120,
                                 child: GoogleMap(
                                   onMapCreated:
@@ -515,7 +472,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                                 color: Colors.red.shade100,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Center(
+                              child: const Center(
                                 child: Text('Error: Map failed to load',
                                     style: TextStyle(color: Colors.red)),
                               ),
@@ -533,7 +490,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                               bottomRight: Radius.circular(8),
                             ),
                             color: gps != null
-                                ? Colors.white.withOpacity(0.7)
+                                ? Colors.white.withValues(alpha: 0.7)
                                 : Colors.white,
                           ),
                           padding: const EdgeInsets.all(12),
@@ -595,7 +552,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text('Error en item $index: $e',
-                  style: TextStyle(color: Colors.red, fontSize: 12)),
+                  style: const TextStyle(color: Colors.red, fontSize: 12)),
             );
           }
         }).toList(),

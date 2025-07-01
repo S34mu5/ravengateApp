@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../services/visualization/gate_stand_service.dart';
-import '../utils/flight_formatters.dart';
 import '../../../../utils/logger.dart';
 import '../../../../services/location/location_service.dart';
 import 'gate_trolley_history.dart';
@@ -33,7 +32,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
   bool _isUpdating = false;
   String? _errorMessage;
   bool _isLoadingHistory = false;
-  List<Map<String, dynamic>> _trolleyHistory = [];
   bool _showHistory = false;
   int? _currentTrolleyCount;
   bool _isLoadingCurrentCount = false;
@@ -167,7 +165,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
       }
 
       setState(() {
-        _trolleyHistory = history;
         _isLoadingHistory = false;
         _showHistory = true;
       });
@@ -185,88 +182,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
   String _getTrolleyText(int count) {
     final localizations = AppLocalizations.of(context)!;
     return count == 1 ? localizations.trolley : '${localizations.trolley}s';
-  }
-
-  /// Shows confirmation dialog before marking as deleted
-  Future<void> _showDeleteConfirmation(
-      String docId, int count, String gate) async {
-    final localizations = AppLocalizations.of(context)!;
-    final String gateDisplay = await _convertGateDisplay(gate);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(localizations.confirmDeletion),
-        content: Text(
-            '${localizations.areYouSureDelete} $count ${_getTrolleyText(count)} en $gateDisplay?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(localizations.cancel),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _markDeliveryAsDeleted(docId);
-            },
-            child: Text(localizations.delete),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Marks a trolley delivery as deleted
-  Future<void> _markDeliveryAsDeleted(String docId) async {
-    final localizations = AppLocalizations.of(context)!;
-
-    try {
-      await _firestore
-          .collection('flights')
-          .doc(widget.documentId)
-          .collection('trolleys')
-          .doc(docId)
-          .set(
-              {
-            'deleted': true,
-            'deleted_at': FieldValue.serverTimestamp(),
-          },
-              SetOptions(
-                  merge:
-                      true)); // Usamos merge para no sobrescribir otros campos
-
-      // Recargar el historial y el conteo actual
-      await _loadCurrentTrolleyCount();
-      if (_showHistory) {
-        await _loadTrolleyHistory();
-      }
-
-      // Mostrar mensaje de éxito
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizations.deliveryMarkedDeleted),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      // Notificar al padre para actualizar la pantalla
-      if (widget.onUpdateSuccess != null) {
-        widget.onUpdateSuccess!();
-      }
-    } catch (e) {
-      AppLogger.error('Error marking trolley delivery as deleted', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   /// Shows confirmation dialog before saving
@@ -392,115 +307,6 @@ class _GateTrolleysState extends State<GateTrolleys> {
           _isUpdating = false;
           _errorMessage = '${localizations.errorSaving} $e';
         });
-      }
-    }
-  }
-
-  /// Shows confirmation dialog before deleting all deliveries
-  Future<void> _showDeleteAllConfirmation() async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete All Deliveries'),
-          content: const Text(
-            'This action should only be used in specific cases like gate changes.\n\n'
-            'Are you sure you want to mark all deliveries as deleted? This action cannot be undone.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Delete All'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
-      await _deleteAllDeliveries();
-    }
-  }
-
-  /// Marks all trolley deliveries as deleted
-  Future<void> _deleteAllDeliveries() async {
-    try {
-      // Obtenemos todos los documentos y filtramos en memoria
-      final QuerySnapshot snapshot = await _firestore
-          .collection('flights')
-          .doc(widget.documentId)
-          .collection('trolleys')
-          .get();
-
-      // Filtramos los documentos que no están eliminados
-      final docsToDelete = snapshot.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return data['deleted'] !=
-            true; // Consideramos eliminado solo si deleted es true
-      }).toList();
-
-      if (docsToDelete.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No deliveries to delete'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
-      final batch = _firestore.batch();
-      for (var doc in docsToDelete) {
-        batch.set(
-            doc.reference,
-            {
-              'deleted': true,
-              'deleted_at': FieldValue.serverTimestamp(),
-            },
-            SetOptions(
-                merge: true)); // Usamos merge para no sobrescribir otros campos
-      }
-
-      await batch.commit();
-
-      // Recargar el historial y el conteo actual
-      await _loadCurrentTrolleyCount();
-      if (_showHistory) {
-        await _loadTrolleyHistory();
-      }
-
-      // Mostrar mensaje de éxito
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All deliveries have been marked as deleted'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      // Notificar al padre para actualizar la pantalla
-      if (widget.onUpdateSuccess != null) {
-        widget.onUpdateSuccess!();
-      }
-    } catch (e) {
-      AppLogger.error('Error deleting all trolley deliveries', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     }
   }

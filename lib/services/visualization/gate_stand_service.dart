@@ -1,5 +1,5 @@
 import '../cache/cache_service.dart';
-import '../../utils/gateToStandMap.dart';
+import '../../utils/gate_to_stand_map.dart';
 
 /// Servicio para manejar la conversión entre gates y stands
 class GateStandService {
