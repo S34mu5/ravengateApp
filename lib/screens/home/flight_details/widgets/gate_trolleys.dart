@@ -250,11 +250,13 @@ class _GateTrolleysState extends State<GateTrolleys> {
       // Intentar obtener coordenadas GPS
       double? latitude;
       double? longitude;
+      double? accuracy;
       try {
         final position = await LocationService.getCurrentPosition();
         if (position != null) {
           latitude = position.latitude;
           longitude = position.longitude;
+          accuracy = position.accuracy;
         }
       } catch (e) {
         // Si falla el GPS, registramos en logs pero no interrumpimos la entrega
@@ -277,6 +279,7 @@ class _GateTrolleysState extends State<GateTrolleys> {
           'gps': {
             'lat': latitude,
             'lng': longitude,
+            if (accuracy != null) 'accuracy': accuracy,
           },
       });
 
