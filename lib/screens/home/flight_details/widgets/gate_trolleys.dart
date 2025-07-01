@@ -18,8 +18,8 @@ class GateTrolleys extends StatefulWidget {
     required this.flightId,
     required this.currentGate,
     this.onUpdateSuccess,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<GateTrolleys> createState() => _GateTrolleysState();

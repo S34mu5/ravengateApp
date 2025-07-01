@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import 'firebase_options.dart';
 import 'screens/auth/login/login_screen.dart';
 import 'services/auth/biometric_auth_service.dart';
@@ -37,13 +38,10 @@ void main() async {
   // Initialize authentication services
   initializeAuthServices();
 
-  // Initialize notification service
-  await initializeNotificationService();
-
-  // Initialize gate monitoring service
-  await initializeGateMonitorService();
-
   runApp(MyApp(authController: authController));
+
+  // Initialize services after UI starts
+  unawaited(_initializeBackgroundServices());
 }
 
 /// Inicializa o reinicializa los servicios de autenticación
@@ -108,6 +106,15 @@ Future<void> initializeGateMonitorService() async {
   }
 }
 
+/// Inicializa servicios no críticos en background
+Future<void> _initializeBackgroundServices() async {
+  // Initialize notification service
+  await initializeNotificationService();
+
+  // Initialize gate monitoring service
+  await initializeGateMonitorService();
+}
+
 class MyApp extends StatefulWidget {
   final AuthController authController;
 
@@ -126,15 +133,19 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _loadSavedLanguage();
+    // Cargar con idioma por defecto y actualizar después
+    _currentLocale = const Locale('es'); // Idioma por defecto
+    _loadSavedLanguageAsync();
   }
 
   /// Cargar el idioma guardado en las preferencias
-  Future<void> _loadSavedLanguage() async {
+  Future<void> _loadSavedLanguageAsync() async {
     final savedLocale = await LanguageService.getSavedLanguage();
-    setState(() {
-      _currentLocale = savedLocale;
-    });
+    if (savedLocale != _currentLocale) {
+      setState(() {
+        _currentLocale = savedLocale;
+      });
+    }
   }
 
   /// Cambiar el idioma de la aplicación
@@ -150,17 +161,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Si aún no se ha cargado el idioma, mostrar loading
-    if (_currentLocale == null) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
-
     // Asignar la función global para cambiar idioma
     changeAppLanguage = changeLanguage;
 

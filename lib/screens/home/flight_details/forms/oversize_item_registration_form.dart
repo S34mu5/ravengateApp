@@ -16,8 +16,8 @@ class OversizeItemRegistrationForm extends StatelessWidget {
     required this.currentGate,
     required this.onSuccess,
     this.showCloseIcon = true,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

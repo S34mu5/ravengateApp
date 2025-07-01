@@ -11,8 +11,8 @@ class OzOversizeItemsList extends StatefulWidget {
   const OzOversizeItemsList({
     required this.documentId,
     required this.onRefresh,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<OzOversizeItemsList> createState() => _OzOversizeItemsListState();

@@ -21,8 +21,8 @@ class PhotoButtonWidget extends StatefulWidget {
     required this.itemType,
     this.flightDate,
     this.onPhotoChanged,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<PhotoButtonWidget> createState() => _PhotoButtonWidgetState();

@@ -2,7 +2,7 @@ import 'app_localizations.dart';
 
 /// The translations for Spanish (`es`).
 class AppLocalizationsEs extends AppLocalizations {
-  AppLocalizationsEs([String locale = 'es']) : super(locale);
+  AppLocalizationsEs([super.locale = 'es']);
 
   // Authentication
   @override

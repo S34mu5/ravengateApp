@@ -16,8 +16,8 @@ class GateTrolleyHistory extends StatefulWidget {
     required this.flightId,
     required this.currentGate,
     this.onUpdateSuccess,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<GateTrolleyHistory> createState() => _GateTrolleyHistoryState();
@@ -555,7 +555,7 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                   style: const TextStyle(color: Colors.red, fontSize: 12)),
             );
           }
-        }).toList(),
+        }),
         const SizedBox(height: 8),
         Center(
             child: TextButton.icon(

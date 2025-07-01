@@ -10,8 +10,8 @@ class OversizeBaggage extends StatefulWidget {
     required this.documentId,
     required this.flightId,
     required this.currentGate,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<OversizeBaggage> createState() => _OversizeBaggageState();

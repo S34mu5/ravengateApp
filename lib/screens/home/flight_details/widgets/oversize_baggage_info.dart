@@ -14,8 +14,8 @@ class OversizeBaggage extends StatelessWidget {
     required this.flightId,
     required this.currentGate,
     this.onRegisterRefreshCallback,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -11,8 +11,8 @@ class TimeAgoWidget extends StatefulWidget {
     this.lastUpdated,
     this.textStyle,
     this.padding,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<TimeAgoWidget> createState() => _TimeAgoWidgetState();

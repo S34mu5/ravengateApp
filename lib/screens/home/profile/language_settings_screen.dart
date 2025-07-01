@@ -128,7 +128,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
 
           // Información adicional
           const SizedBox(height: 24),

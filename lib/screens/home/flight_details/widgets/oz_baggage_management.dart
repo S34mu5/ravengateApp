@@ -13,8 +13,8 @@ class OzBaggageManagement extends StatelessWidget {
     required this.documentId,
     required this.currentGate,
     this.onRegisterSuccess,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

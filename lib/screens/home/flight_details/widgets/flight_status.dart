@@ -15,8 +15,8 @@ class FlightStatus extends StatelessWidget {
     required this.formattedStatusTime,
     required this.isDelayed,
     required this.isCancelled,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

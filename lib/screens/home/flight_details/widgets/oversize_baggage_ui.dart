@@ -17,8 +17,8 @@ class OversizeBaggageUI extends StatefulWidget {
     required this.flightId,
     required this.currentGate,
     this.onRegisterRefreshCallback,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<OversizeBaggageUI> createState() => _OversizeBaggageUIState();
@@ -362,7 +362,6 @@ class _InfoColumn extends StatelessWidget {
     required this.label,
     required this.count,
     this.isExpanded = false,
-    super.key,
   });
 
   @override

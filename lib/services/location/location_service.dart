@@ -83,7 +83,7 @@ class LocationService {
 
       // Timer para cancelar tras la duración de muestreo
       final timeout = Timer(samplingDuration, () {
-        final bestAcc = bestPosition?.accuracy?.toStringAsFixed(1) ?? 'N/A';
+        final bestAcc = bestPosition?.accuracy.toStringAsFixed(1) ?? 'N/A';
         AppLogger.info(
             'GPS: Sampling timeout reached. Best accuracy: $bestAcc m');
         finish();

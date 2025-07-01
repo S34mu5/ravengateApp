@@ -12,8 +12,8 @@ class SelectLocationScreen extends StatefulWidget {
 
   const SelectLocationScreen({
     required this.user,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<SelectLocationScreen> createState() => _SelectLocationScreenState();

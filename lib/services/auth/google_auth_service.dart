@@ -65,7 +65,7 @@ class GoogleAuthService implements AuthService {
       }
 
       // 4) Intercambiamos credenciales con Firebase
-      final googleAuth = await googleUser.authentication;
+      final googleAuth = googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
       );
