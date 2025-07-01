@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../services/visualization/gate_stand_service.dart';
 import '../../../../utils/logger.dart';
+import '../../../../services/location/location_service.dart';
 
 class GateTrolleyHistory extends StatefulWidget {
   final String documentId;
@@ -30,15 +31,18 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
 
   @override
   void initState() {
-    AppLogger.debug('🚀 Iniciando GateTrolleyHistory.initState()', null,
+    AppLogger.info(
+        '🚀 WIDGET: GateTrolleyHistory.initState() - CREANDO NUEVO WIDGET',
+        null,
         'GateTrolleyHistory');
     super.initState();
     try {
       _loadTrolleyHistory();
-      AppLogger.debug(
-          '✅ initState completado exitosamente', null, 'GateTrolleyHistory');
+      AppLogger.info('✅ WIDGET: initState completado exitosamente', null,
+          'GateTrolleyHistory');
     } catch (e) {
-      AppLogger.error('💥 Error en initState: $e', e, 'GateTrolleyHistory');
+      AppLogger.error(
+          '💥 WIDGET: Error en initState: $e', e, 'GateTrolleyHistory');
     }
   }
 
@@ -67,6 +71,28 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
       setState(() => _isLoadingHistory = true);
       AppLogger.debug(
           '🔄 Estado de carga activado', null, 'GateTrolleyHistory');
+
+      // Primero intentar cargar desde cache
+      AppLogger.info('💾 CACHE: Verificando cache para ${widget.documentId}...',
+          null, 'GateTrolleyHistory');
+      final cachedHistory =
+          await LocationService.getCachedTrolleyHistory(widget.documentId);
+
+      if (cachedHistory != null && mounted) {
+        AppLogger.info(
+            '🎯 CACHE: ✅ DATOS CARGADOS DESDE CACHE (${cachedHistory.length} items) - NO hay consulta Firestore',
+            null,
+            'GateTrolleyHistory');
+        setState(() {
+          _trolleyHistory = cachedHistory;
+          _isLoadingHistory = false;
+        });
+        // Retornar temprano si tenemos cache válido
+        return;
+      }
+
+      AppLogger.info('📡 CACHE: ❌ NO disponible - CONSULTANDO FIRESTORE...',
+          null, 'GateTrolleyHistory');
 
       AppLogger.debug(
           '📡 Consultando Firestore...', null, 'GateTrolleyHistory');
@@ -118,6 +144,17 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
       AppLogger.debug('✅ Historial procesado: ${history.length} elementos',
           null, 'GateTrolleyHistory');
 
+      // Guardar en cache para futuras consultas
+      if (history.isNotEmpty) {
+        AppLogger.info(
+            '💾 CACHE: Guardando ${history.length} items en cache para ${widget.documentId}...',
+            null,
+            'GateTrolleyHistory');
+        await LocationService.cacheTrolleyHistory(widget.documentId, history);
+        AppLogger.info(
+            '✅ CACHE: Cache guardado exitosamente', null, 'GateTrolleyHistory');
+      }
+
       if (!mounted) {
         AppLogger.debug('⚠️ Widget desmontado antes de setState', null,
             'GateTrolleyHistory');
@@ -128,8 +165,10 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
         _trolleyHistory = history;
         _isLoadingHistory = false;
       });
-      AppLogger.debug(
-          '🎯 Estado actualizado exitosamente', null, 'GateTrolleyHistory');
+      AppLogger.info(
+          '🎯 GPS MAP: Estado actualizado - Se crearán ${history.length} GoogleMaps',
+          null,
+          'GateTrolleyHistory');
     } catch (e) {
       AppLogger.error(
           '💥 Error en _loadTrolleyHistory: $e', e, 'GateTrolleyHistory');
@@ -143,6 +182,9 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
 
   Future<void> _deleteAllDeliveries() async {
     try {
+      // Invalidar cache antes de hacer cambios
+      await LocationService.invalidateTrolleyCache(widget.documentId);
+
       final snapshot = await _firestore
           .collection('flights')
           .doc(widget.documentId)
@@ -159,6 +201,8 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
             SetOptions(merge: true));
       }
       await batch.commit();
+
+      // Forzar recarga desde Firestore (sin cache)
       await _loadTrolleyHistory();
       widget.onUpdateSuccess?.call();
     } catch (e) {
@@ -419,9 +463,15 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                     children: [
                       if (gps != null)
                         Builder(builder: (context) {
-                          AppLogger.debug('🚀 Intentando crear GoogleMap...',
-                              null, 'GateTrolleyHistory');
+                          AppLogger.info(
+                              '🗺️ GPS MAP: Intentando crear GoogleMap para item $index...',
+                              null,
+                              'GateTrolleyHistory');
                           try {
+                            AppLogger.info(
+                                '🗺️ GPS MAP: Construyendo GoogleMap widget para item $index',
+                                null,
+                                'GateTrolleyHistory');
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: SizedBox(
@@ -431,8 +481,8 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                                       (GoogleMapController controller) {
                                     final lat = gps['lat']?.toDouble() ?? 0.0;
                                     final lng = gps['lng']?.toDouble() ?? 0.0;
-                                    AppLogger.debug(
-                                        '✅ GoogleMap creado - Target: $lat,$lng',
+                                    AppLogger.info(
+                                        '✅ GPS MAP: GoogleMap #$index CREADO EXITOSAMENTE - Target: $lat,$lng',
                                         null,
                                         'GateTrolleyHistory');
                                   },
@@ -464,7 +514,9 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                               ),
                             );
                           } catch (e) {
-                            AppLogger.error('💥 Error creando GoogleMap: $e', e,
+                            AppLogger.error(
+                                '💥 GPS MAP: ERROR creando GoogleMap #$index: $e',
+                                e,
                                 'GateTrolleyHistory');
                             return Container(
                               height: 120,
@@ -473,7 +525,8 @@ class _GateTrolleyHistoryState extends State<GateTrolleyHistory> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Center(
-                                child: Text('Error: Map failed to load',
+                                child: Text(
+                                    'GPS MAP: Error - Map failed to load',
                                     style: TextStyle(color: Colors.red)),
                               ),
                             );
